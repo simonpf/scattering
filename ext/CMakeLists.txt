@@ -3,10 +3,13 @@ foreach(f IN LISTS shtns_files)
   configure_file(${f} ${f} COPYONLY)
 endforeach()
 
+set(SHTNS_LIBRARY ${CMAKE_CURRENT_BINARY_DIR}/shtns/libshtns.a CACHE "NODOC" INTERNAL FORCE)
+
 add_custom_command(
-  PRE_BUILD
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/shtns/libshtns.a
+  OUTPUT ${SHTNS_LIBRARY}
   COMMAND ./configure
   COMMAND make
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shtns
   )
+
+add_custom_target(libshtns DEPENDS ${SHTNS_LIBRARY})

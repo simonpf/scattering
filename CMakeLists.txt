@@ -25,3 +25,4 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast")
 
 add_subdirectory(ext)
 add_subdirectory(test)
+add_subdirectory(doc)
