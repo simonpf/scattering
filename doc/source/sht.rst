@@ -41,19 +41,35 @@ transform
 
 .. math::
 
-   f_l^m = \int_0^{2\pi}\ d\phi \int_0^\pi\ d\theta f(\theta, \phi) (Y_l^m)*(\theta, \phi)
+   f_l^m = \int_0^{2\pi}\ d\phi \int_0^\pi\ d\theta \ f(\theta, \phi) Y_l^m(\theta, \phi)^*
 
 Discretization
 ~~~~~~~~~~~~~~
 
 The spherical harmonics expansion can be used to represent data on a spherical grid. For
 numerical reasons it is assumed that the grid is regular, i.e. that it can
-be described by two vectors
+be described by two vectors.
+
+
+The colatitude vector :math:`\boldsymbol{\theta} = [\theta_1, \ldots, \theta_n]`
+and the longitude vector :math:`\boldsymbol{\phi} = [\phi_1, \ldots, \phi_m] `.
+Furthermore, the longitude grid must be homogeneous (fixed spacing) and the
+colatitude grid should adhere to the assumptions of numerical integration scheme
+used to compute the expansion.
+
+Anti-aliasing conditions
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+In order to compute a spherical harmonics expansion with maximum-degree
+:math:`l_\text{max]` and maximum order :math:`m_\text{max}`, the resolutions of
+the spatial grid, given by vectors :math:`\boldsymbol{\theta}` and
+:math`\boldsymbol{\phi}`, must satisfy the following anti-aliasing conditions:
 
 .. math::
-   \boldsymbol{\theta} = [\theta_1, \ldots, \theta_n] \\
-   \boldsymbol{\phi} = [\phi_1, \ldots, \phi_m]
 
-the colatitude and longitude coordinates of the grid points. Furthermore, the longitude
-grid must be homogeneous (fixed spacing) and the colatitude grid should adhere to the
-assumptions of numerical integration scheme used to compute the expansion.
+  \text{len}(\theta) \geq l_\text{max} \\
+  \text{len}(\phi) \geq 2 m_\text{max}
+
+   
+   
+

@@ -7,7 +7,7 @@ set(SHTNS_LIBRARY ${CMAKE_CURRENT_BINARY_DIR}/shtns/libshtns.a CACHE "NODOC" INT
 
 add_custom_command(
   OUTPUT ${SHTNS_LIBRARY}
-  COMMAND ./configure
+  COMMAND ./configure CFLAGS=-fpic
   COMMAND make
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shtns
   )

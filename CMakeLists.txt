@@ -17,7 +17,13 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast")
+
+#
+# Find required packages
+#
+
+find_package(Eigen3)
+find_package(pxx)
 
 #
 # External code
@@ -26,3 +32,5 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Ofast")
 add_subdirectory(ext)
 add_subdirectory(test)
 add_subdirectory(doc)
+add_subdirectory(python)
+
