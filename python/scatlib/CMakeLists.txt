@@ -1,0 +1,10 @@
+get_target_property(Eigen3_INCLUDE_DIRS Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
+add_pxx_module(
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/sht.h
+  MODULE sht
+  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
+  )
+add_dependencies(sht libshtns)
+target_link_libraries(sht ${SHTNS_LIBRARY})
+target_link_libraries(sht Eigen3::Eigen)
+target_link_libraries(sht fftw3)

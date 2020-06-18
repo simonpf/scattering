@@ -70,6 +70,10 @@ the spatial grid, given by vectors :math:`\boldsymbol{\theta}` and
   \text{len}(\theta) \geq l_\text{max} \\
   \text{len}(\phi) \geq 2 m_\text{max}
 
-   
+Grid layout
+~~~~~~~~~~~
+
+scatlib uses SHTns default layout for spatial data, which means that spatial data is
+stored in *contiguous longitudes* layout.
    
 

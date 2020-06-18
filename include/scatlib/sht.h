@@ -15,28 +15,6 @@ namespace scatlib {
 
 namespace sht {
 
-namespace detail {
-
-template <typename T>
-void copy(const T &m, typename T::Scalar *ptr) {
-  size_t index = 0;
-  for (auto &&x : m.reshaped()) {
-    ptr[index] = x;
-    index++;
-  }
-}
-
-template <typename T>
-void copy(const typename T::Scalar *ptr, T &m) {
-  size_t index = 0;
-  for (auto &&x : m.reshaped()) {
-    x = ptr[index];
-    index++;
-  }
-}
-}  // namespace detail
-
-
 /** Deleter functional for smart pointers. */
 
 struct FFTWDeleter {
@@ -67,112 +45,134 @@ FFTWArray(size_t n) : ptr_(reinterpret_cast<Numeric*>(fftw_malloc(n * sizeof(Num
   std::shared_ptr<Numeric> ptr_ = nullptr;
 };
 
-//template <typename Numeric>
-//class SpectralData {
-//public:
-//SpectralData(size_t l_max, size_t m_max, size_t m_res = 1) :
-//    l_max_(l_max), m_max_(m_max), m_res_(m_res)
-//
-//
-//private:
-//    size_t l_max_, m_max_, m_res_;
-//
-//
-//};
-//
-//template <typename Numeric>
-//class SphericalData {
-//public:
-//
-//    SphericalData(size_t n_lat, n_phi)
-//        : n_lat_(n_lat), n_phi_(n_phi), data_(n_lat * n_phi) {
-//        // Nothing to do here.
-//    }
-//
-//
-//private:
-//    size_T n_lat_, n_phi_;
-//    CoefficientArray<Numeric> data_;
-//};
-
-
-using detail::copy;
-
+////////////////////////////////////////////////////////////////////////////////
+// SHT
+////////////////////////////////////////////////////////////////////////////////
 /** Spherical harmonics transformation
  *
- * Represents a spherical harmonics transformation (SHT) for fixed spatial- and spectral
- * grid sizes. A SHT object essentially acts as a wrapper around the SHTns library.
- * Each object holds a SHTns configuration as well as the array required to store
- * spatial and spectral coefficients.
+ * Represents a spherical harmonics transformation (SHT) for fixed spatial- and
+ * spectral grid sizes. A SHT object essentially acts as a wrapper around the
+ * SHTns library. Each object holds a SHTns configuration as well as the array
+ * required to store spatial and spectral coefficients.
  */
 // pxx :: export
 class SHT {
-
-public:
-
-    /**
-     * Create a spherical harmonics transformation object.
-     *
-     * @param l_max The maximum degree of the SHT.
-     * @param m_max The maximum order of the SHT.
-     * @param n_lat The number of co-latitude grid points.
-     * @param n_phi The number of longitude grid points.
-     * @param m_res The order-resolution of the SHT.
-     */
+ public:
+  /**
+   * Create a spherical harmonics transformation object.
+   *
+   * @param l_max The maximum degree of the SHT.
+   * @param m_max The maximum order of the SHT.
+   * @param n_lat The number of co-latitude grid points.
+   * @param n_phi The number of longitude grid points.
+   * @param m_res The order-resolution of the SHT.
+   */
   SHT(size_t l_max, size_t m_max, size_t n_lat, size_t n_phi, size_t m_res = 1)
       : l_max_(l_max),
         m_max_(m_max),
         n_lat_(n_lat),
         n_lon_(n_phi),
-        m_res_(m_res)
-    {
-        shtns_verbose(1);
-        shtns_use_threads(0);
-        shtns_reset();
-        shtns_ = shtns_init(sht_gauss, l_max_, m_max_, m_res_, n_lat_, n_lon_);
-        spectral_coeffs_ = sht::FFTWArray<std::complex<double>>(shtns_->nlm);
-        spatial_coeffs_ = sht::FFTWArray<double>(NSPAT_ALLOC(shtns_));
-    }
+        m_res_(m_res) {
+    shtns_verbose(1);
+    shtns_use_threads(0);
+    shtns_reset();
+    shtns_ = shtns_init(sht_gauss, l_max_, m_max_, m_res_, n_lat_, n_lon_);
+    spectral_coeffs_ = sht::FFTWArray<std::complex<double>>(shtns_->nlm);
+    spatial_coeffs_ = sht::FFTWArray<double>(NSPAT_ALLOC(shtns_));
+  }
 
-    CoefficientVector transform(Matrix m) {
-
-        copy(m, spatial_coeffs_);
-        spat_to_SH(shtns_, spatial_coeffs_, spectral_coeffs_);
-        CoefficientVector results(shtns_->nlm);
-        copy(spectral_coeffs_, results);
-        return results;
-    }
-
-    Matrix get_spatial_coefficients() const {
-      Matrix result(n_lat_, n_lon_);
+  /**
+   * Copy spatial field into the array that holds spatial data for
+   * spherical harmonics computations.
+   *
+   * @param m Matrix containing the data. Row indices should correspond to
+   * longitudes (azimuth angle) and columns to latitudes (zenith angle).
+   */
+  void set_spatial_coefficients(const Matrix &m) const {
       size_t index = 0;
-        for (size_t i = 0; i < result.rows(); ++i) {
-          for (size_t j = 0; j < result.cols(); ++j) {
-              result(i, j) = spatial_coeffs_[index];
-              std::cout << spatial_coeffs_[index] << std::endl;
+      for (int i = 0; i < m.rows(); ++i) {
+          for (int j = 0; j < m.cols(); ++j) {
+              spatial_coeffs_[index] = m(i, j);
               ++index;
           }
-        }
-        return result;
       }
+  }
 
-    CoefficientVector get_spectral_coefficients() const {
-        CoefficientVector result(shtns_->nlm);
-        for (size_t i = 0; i < shtns_->nlm; ++i) {
-            result(i) = spectral_coeffs_[i];
-        }
-        return result;
-    }
+  /**
+   * Copy spherical harmonics coefficients into the array that holds spectral data for
+   * spherical harmonics computations.
+   *
+   * @param m CoefficientVector The spherical harmonics coefficients representing the data.
+   */
+  void set_spectral_coefficients(const CoefficientVector &m) const {
+      size_t index = 0;
+      for (auto &x : m) {
+          spectral_coeffs_[index] = x;
+          ++index;
+      }
+  }
 
-    Matrix transform(CoefficientVector m) {
-        copy(m, spectral_coeffs_);
-        SH_to_spat(shtns_, spectral_coeffs_, spatial_coeffs_);
-        Matrix results(n_lon_, n_lat_);
-        copy(spatial_coeffs_, results);
-        return results;
-    }
+  /**
+   * Return content of the array that holds spatial data for
+   * spherical harmonics computations.
+   *
+   * @return m Matrix containing the data. Row indices should correspond to
+   * longitudes (azimuth angle) and columns to latitudes (zenith angle).
+   */
+  Matrix get_spatial_coefficients() const {
+      Matrix result(n_lon_, n_lat_);
+      size_t index = 0;
+      for (int i = 0; i < result.rows(); ++i) {
+          for (int j = 0; j < result.cols(); ++j) {
+              result(i, j) = spatial_coeffs_[index];
+              ++index;
+          }
+      }
+      return result;
+  }
 
+  /**
+   * Return content of the array that holds spectral data for
+   * spherical harmonics computations.
+   *
+   * @return m CoefficientVector The spherical harmonics coefficients representing the data.
+   */
+  CoefficientVector get_spectral_coefficients() const {
+      CoefficientVector result(shtns_->nlm);
+      size_t index = 0;
+      for (auto &x : result) {
+          x = spectral_coeffs_[index];
+          ++index;
+      }
+      return result;
+  }
 
+/** Apply forward SHT Transform
+  *
+  * Transforms discrete spherical data into spherical harmonics representation.
+  * @param m Matrix containing the data. Row indices should correspond to
+  * longitudes (azimuth angle) and columns to latitudes (zenith angle).
+  * @return Coefficient vector containing the spherical harmonics coefficients.
+  */
+  CoefficientVector transform(Matrix m) {
+    set_spatial_coefficients(m);
+    spat_to_SH(shtns_, spatial_coeffs_, spectral_coeffs_);
+    return get_spectral_coefficients();
+  }
+
+  /** Apply inverse SHT Transform
+  *
+  * Transforms discrete spherical data given in spherical harmonics representation
+  * back to spatial domain.
+  *
+  * @param m CoefficientVector The spherical harmonics coefficients representing the data.
+  * @return Matrix containing the spatial data.
+  */
+  Matrix transform(CoefficientVector m) {
+    set_spectral_coefficients(m);
+    SH_to_spat(shtns_, spectral_coeffs_, spatial_coeffs_);
+    return get_spatial_coefficients();
+  }
 
  private:
   size_t l_max_, m_max_, n_lat_, n_lon_, m_res_;
@@ -181,7 +181,6 @@ public:
   sht::FFTWArray<std::complex<double>> spectral_coeffs_;
   sht::FFTWArray<double> spatial_coeffs_;
 };
-
 }
 }  // namespace scatlib
 
