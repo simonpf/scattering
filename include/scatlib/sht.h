@@ -8,6 +8,7 @@
 #include <complex>
 #include <iostream>
 #include <memory>
+#include <map>
 
 #include "Eigen/Dense"
 
@@ -136,6 +137,18 @@ class SHT {
   }
 
   /**
+   * @return The size of the co-latitude grid.
+   */
+  size_t get_size_of_colatitude_grid() const {
+      return n_lat_;
+  }
+  /**
+   * @return The size of the longitude grid.
+   */
+  size_t get_size_of_longitude_grid() const {
+      return n_lon_;
+  }
+  /**
    * @return The number of spherical harmonics coefficients.
    */
   size_t get_number_of_spectral_coefficients() const {
@@ -194,6 +207,36 @@ class SHT {
   sht::FFTWArray<std::complex<double>> spectral_coeffs_;
   sht::FFTWArray<double> spatial_coeffs_;
 };
+
+/** SHT instance provider.
+ *
+ * Simple cache that caches created SHT instances.
+ */
+class SHTProvider {
+public:
+    using SHTParams = std::array<size_t, 4>;
+
+    SHTProvider();
+
+    /** Get SHT instance for given SHT parameters.
+     * @arg params Lenght-4 array containing the parameters required to initialize the SHT
+     * transform: l_max, m_max, n_lat, n_phi. See documention of SHT class for explanation
+     * of their significance.
+     * @return Reference to SHT instance.
+     */
+    SHT& get_sht_instance(SHTParams params) {
+        if (sht_instances_.count(params) == 0) {
+            sht_instances_[params] = std::make_unique<SHT>(params[0], params[1], params[2], params[3]);
+        }
+        return *sht_instances_[params];
+    }
+
+protected:
+    std::map<SHTParams, std::unique_ptr<SHT>> sht_instances_;
+};
+
+static SHTProvider default_provider{};
+
 }  // namespace sht
 }  // namespace scatlib
 
