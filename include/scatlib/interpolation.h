@@ -8,19 +8,10 @@
 #ifndef __SCATLIB_INTERPOLATION__
 #define __SCATLIB_INTERPOLATION__
 
-#include <Eigen/CXX11/Tensor>
-#include <Eigen/Core>
 #include <algorithm>
 #include <iostream>
+#include <scatlib/eigen.h>
 
-template <typename Scalar>
-using EigenMatrix = Eigen::Matrix<Scalar, -1, -1, Eigen::RowMajor>;
-template <typename Scalar, size_t N>
-using EigenMatrixFixedRows = Eigen::Matrix<Scalar, -1, N, Eigen::RowMajor>;
-template <typename Scalar>
-using EigenVector = Eigen::Matrix<Scalar, 1, -1, Eigen::RowMajor>;
-template <typename Scalar, size_t N>
-using EigenVectorFixedSize = Eigen::Matrix<Scalar, 1, N, Eigen::RowMajor>;
 
 namespace scatlib {
 namespace detail {
@@ -61,15 +52,15 @@ struct Interpolator {
   using Scalar = typename Tensor::Scalar;
 
   static inline Result compute(const Tensor& tensor,
-                               EigenVectorFixedSize<Scalar, N> weights,
-                               EigenVectorFixedSize<Eigen::Index, N> indices,
-                               EigenVectorFixedSize<Eigen::Index, I> offsets = {}) {
-    EigenVectorFixedSize<Eigen::Index, N> indices_new{indices};
+                               eigen::VectorFixedSize<Scalar, N> weights,
+                               eigen::VectorFixedSize<Eigen::Index, N> indices,
+                               eigen::VectorFixedSize<Eigen::Index, I> offsets = {}) {
+    eigen::VectorFixedSize<Eigen::Index, N> indices_new{indices};
     for (Eigen::Index i = 0; i < I; ++i) {
       indices_new[i] += offsets[i];
     }
 
-    EigenVectorFixedSize<Eigen::Index, I + 1> offsets_new{};
+    eigen::VectorFixedSize<Eigen::Index, I + 1> offsets_new{};
     for (Eigen::Index i = 0; i < I; ++i) {
       offsets_new[i] = offsets[i];
     }
@@ -95,9 +86,9 @@ struct Interpolator<Tensor, N, N> {
   using Scalar = typename Tensor::Scalar;
 
   static inline Result compute(const Tensor& tensor,
-                               EigenVectorFixedSize<Scalar, N> /*weights*/,
-                               EigenVectorFixedSize<Eigen::Index, N> indices,
-                               EigenVectorFixedSize<Eigen::Index, N> offsets = {}) {
+                               eigen::VectorFixedSize<Scalar, N> /*weights*/,
+                               eigen::VectorFixedSize<Eigen::Index, N> indices,
+                               eigen::VectorFixedSize<Eigen::Index, N> offsets = {}) {
     std::array<Eigen::Index, N> indices_new;
     for (Eigen::Index i = 0; i < N; ++i) {
       indices_new[i] = indices[i] + offsets[i];
@@ -111,8 +102,8 @@ struct Interpolator<Tensor, N, N> {
 //
 
 template <typename Scalar>
-EigenVector<Eigen::Index> indirect_sort(const EigenVector<Scalar>& v) {
-  EigenVector<Eigen::Index> indices;
+eigen::Vector<Eigen::Index> indirect_sort(const eigen::Vector<Scalar>& v) {
+  eigen::Vector<Eigen::Index> indices;
   indices.setLinSpaced(v.size(), 0, v.size() - 1);
 
   auto comp = [&v](size_t i, size_t j) { return v[i] < v[j]; };
@@ -121,15 +112,15 @@ EigenVector<Eigen::Index> indirect_sort(const EigenVector<Scalar>& v) {
 }
 
 template <typename Scalar>
-    using WeightIndexPair = std::pair<EigenVector<Scalar>,
-    EigenVector<Eigen::Index>>;
+    using WeightIndexPair = std::pair<eigen::Vector<Scalar>,
+    eigen::Vector<Eigen::Index>>;
 
 template <typename Scalar>
 WeightIndexPair<Scalar> calculate_weights(
-    const EigenVector<Scalar>& grid,
-    const EigenVector<Scalar>& positions) {
+    const eigen::Vector<Scalar>& grid,
+    const eigen::Vector<Scalar>& positions) {
   if (positions.size() == 0) {
-    return std::make_pair<EigenVector<Scalar>, EigenVector<Eigen::Index>>({},
+    return std::make_pair<eigen::Vector<Scalar>, eigen::Vector<Eigen::Index>>({},
                                                                           {});
   }
   auto indices_sorted = indirect_sort(positions);
@@ -138,9 +129,9 @@ WeightIndexPair<Scalar> calculate_weights(
   int position_index = indices_sorted[index];
   auto p = positions[position_index];
 
-  EigenVector<Scalar> weights = EigenVector<Scalar>::Zero(positions.size());
-  EigenVector<Eigen::Index> indices =
-      EigenVector<Eigen::Index>::Zero(positions.size());
+  eigen::Vector<Scalar> weights = eigen::Vector<Scalar>::Zero(positions.size());
+  eigen::Vector<Eigen::Index> indices =
+      eigen::Vector<Eigen::Index>::Zero(positions.size());
 
   for (int i = 0; i < grid.size() - 1; ++i) {
     auto& left = grid[i];
@@ -201,10 +192,10 @@ WeightIndexPair<Scalar> calculate_weights(
  * @return Rank-(k - degree) tensor containing the result.
  */
 template <typename Tensor, size_t degree>
-typename detail::InterpolationResult<Tensor, degree>::type interpolate(
-    const Tensor tensor,
-    Eigen::Ref<const EigenVectorFixedSize<typename Tensor::Scalar, degree>> weights,
-    Eigen::Ref<const EigenVectorFixedSize<typename Tensor::Index, degree>> indices) {
+inline typename detail::InterpolationResult<Tensor, degree>::type interpolate(
+    const Tensor &tensor,
+    Eigen::Ref<const eigen::VectorFixedSize<typename Tensor::Scalar, degree>> weights,
+    Eigen::Ref<const eigen::VectorFixedSize<typename Tensor::Index, degree>> indices) {
   return detail::Interpolator<Tensor, degree>::compute(tensor, weights, indices);
 }
 
@@ -219,56 +210,150 @@ typename detail::InterpolationResult<Tensor, degree>::type interpolate(
  * @tparam degree Along how many dimensions to interpolate.
  */
 template <typename Tensor, size_t degree>
-struct RegularGridInterpolator {
-  using Scalar = typename Tensor::Scalar;
-  using WeightVector = EigenVectorFixedSize<Scalar, degree>;
-  using IndexVector = EigenVectorFixedSize<Eigen::Index, degree>;
+class RegularGridInterpolator {
+public:
+ using Scalar = typename Tensor::Scalar;
+ using WeightVector = eigen::VectorFixedSize<Scalar, degree>;
+ using IndexVector = eigen::VectorFixedSize<Eigen::Index, degree>;
 
-  /** Sets up the interpolator for given grids.
-   * \grids Array containing the grids corresponding to the first degree
-   * dimensions of the tensor to interpolate.
-   */
-  RegularGridInterpolator(std::array<EigenVector<Scalar>, degree> grids)
-      : grids_(grids) {}
+ /** Sets up the interpolator for given grids.
+  * \grids Array containing the grids corresponding to the first degree
+  * dimensions of the tensor to interpolate.
+  */
+ RegularGridInterpolator(std::array<eigen::Vector<Scalar>, degree> grids)
+     : grids_(grids) {}
 
-  /** Compute interpolation weights and indices for interpolation points.
-   * @param positions Eigen matrix containing the positions at which to
-   * interpolate the given tensor.
-   */
-  std::pair<EigenMatrixFixedRows<Scalar, degree>, EigenMatrixFixedRows<typename Eigen::Index, degree>>
-  get_weights(EigenMatrixFixedRows<Scalar, degree> positions) const {
-    EigenMatrixFixedRows<Scalar, degree> weights(positions.rows(), degree);
-    EigenMatrixFixedRows<Eigen::Index, degree> indices(positions.rows(), degree);
-    for (size_t i = 0; i < degree; ++i) {
-      auto ws = detail::calculate_weights<Scalar>(grids_[i], positions.col(i));
-      weights.col(i) = std::get<0>(ws);
-      indices.col(i) = std::get<1>(ws);
+ /** Compute interpolation weights and indices for interpolation points.
+  * @param positions Eigen matrix containing the positions at which to
+  * interpolate the given tensor.
+  */
+ std::pair<eigen::MatrixFixedRows<Scalar, degree>, eigen::MatrixFixedRows<typename Eigen::Index, degree>>
+ get_weights(eigen::MatrixFixedRows<Scalar, degree> positions) const {
+   eigen::MatrixFixedRows<Scalar, degree> weights(positions.rows(), degree);
+   eigen::MatrixFixedRows<Eigen::Index, degree> indices(positions.rows(), degree);
+   for (size_t i = 0; i < degree; ++i) {
+     auto ws = detail::calculate_weights<Scalar>(grids_[i], positions.col(i));
+     weights.col(i) = std::get<0>(ws);
+     indices.col(i) = std::get<1>(ws);
+   }
+   return std::make_pair(weights, indices);
+ }
+
+ /** Interpolate tensor at given positions.
+  * @param t The tensor to interpolate.
+  * @param positions Eigen matrix containing the positions at which to interpolate t.
+  */
+ auto interpolate(const Tensor& t, eigen::MatrixFixedRows<Scalar, degree> positions) const
+     -> std::vector<
+         typename detail::InterpolationResult<Tensor, degree>::type> {
+   eigen::MatrixFixedRows<Scalar, degree> weights;
+   eigen::MatrixFixedRows<Eigen::Index, degree> indices;
+   std::tie(weights, indices) = get_weights(positions);
+   using ResultType =
+       typename detail::InterpolationResult<Tensor, degree>::type;
+   std::vector<ResultType> results;
+   for (int i = 0; i < positions.rows(); ++i) {
+       results.push_back(scatlib::interpolate<Tensor, degree>(t, weights.row(i), indices.row(i)));
+   }
+   return results;
+ }
+
+protected:
+ std::array<eigen::Vector<Scalar>, degree> grids_;
+};
+
+// pxx :: export
+// pxx :: instance(["double", "4", "2"])
+template <typename Scalar, eigen::Index rank, eigen::Index n_dimensions>
+class RegularRegridder {
+ public:
+  std::array<eigen::Index, rank> get_output_dimensions(
+      eigen::Tensor<Scalar, rank>& in) {
+    auto input_dimensions = in.dimensions();
+    std::array<eigen::Index, rank> output_dimensions;
+    std::copy(input_dimensions.begin(), input_dimensions.end(),
+              output_dimensions.begin());
+    for (eigen::Index i = 0; i < n_dimensions; ++i) {
+      output_dimensions[dimensions_[i]] = new_grids_[i].size();
     }
-    return std::make_pair(weights, indices);
+    return output_dimensions;
   }
 
-  /** Interpolate tensor at given positions.
-   * @param t The tensor to interpolate.
-   * @param positions Eigen matrix containing the positions at which to interpolate t.
-   */
-  auto interpolate(const Tensor& t, EigenMatrixFixedRows<Scalar, degree> positions) const
-      -> std::vector<
-          typename detail::InterpolationResult<Tensor, degree>::type> {
-    EigenMatrixFixedRows<Scalar, degree> weights;
-    EigenMatrixFixedRows<Eigen::Index, degree> indices;
-    std::tie(weights, indices) = get_weights(positions);
-    using ResultType =
-        typename detail::InterpolationResult<Tensor, degree>::type;
-    std::vector<ResultType> results;
-    for (int i = 0; i < positions.rows(); ++i) {
-        results.push_back(scatlib::interpolate<Tensor, degree>(t, weights.row(i), indices.row(i)));
+  std::array<eigen::Index, rank> get_strides(eigen::Tensor<Scalar, rank>& t) {
+    auto dimensions = get_output_dimensions(t);
+    std::array<eigen::Index, rank> strides;
+    eigen::Index c = 1;
+    for (eigen::Index i = rank - 1; i >= 0; --i) {
+      strides[i] = c;
+      c *= dimensions[i];
     }
-    return results;
+    return strides;
+  }
+
+  static std::array<eigen::Index, rank> get_indices(
+      eigen::Index index, std::array<eigen::Index, rank> strides) {
+    std::array<eigen::Index, rank> indices{0};
+    for (eigen::Index i = 0; i < rank; ++i) {
+      if (i > 0) {
+        indices[i] = (index % strides[i - 1]) / strides[i];
+      } else {
+        indices[i] = index / strides[i];
+      }
+    }
+    return indices;
+  }
+
+ public:
+  /** Sets up the regridder for given grids.
+   * @param old_grids std::vector containing the old grids, which should be
+   * regridded.
+   * @param new_grids std::vector containing the new grids
+   * @param dimensions Vector containing the tensor dimensions to which the
+   * given grids correspond.
+   */
+  RegularRegridder(std::array<eigen::Vector<Scalar>, n_dimensions> old_grids,
+                   std::array<eigen::Vector<Scalar>, n_dimensions> new_grids,
+                   std::array<eigen::Index, n_dimensions> dimensions)
+      : old_grids_(old_grids), new_grids_(new_grids), dimensions_(dimensions) {
+    for (size_t i = 0; i < dimensions.size(); ++i) {
+      auto ws = detail::calculate_weights<Scalar>(old_grids_[i], new_grids_[i]);
+      weights_[i] = std::get<0>(ws);
+      indices_[i] = std::get<1>(ws);
+    }
+  }
+
+  eigen::Tensor<Scalar, rank> regrid(eigen::Tensor<Scalar, rank> in) {
+      using WeightVector = eigen::VectorFixedSize<Scalar, rank>;
+      using IndexVector = eigen::VectorFixedSize<eigen::Index, rank>;
+      using Tensor = eigen::Tensor<Scalar, rank>;
+    WeightVector interpolation_weights = WeightVector::Constant(1.0);
+    IndexVector interpolation_indices = IndexVector::Constant(0);
+    eigen::Tensor<Scalar, rank> output{get_output_dimensions(in)};
+    std::array<eigen::Index, rank> strides = get_strides(output);
+
+    for (eigen::Index i = 0; i < output.size(); ++i) {
+      auto output_indices = get_indices(i, strides);
+      for (eigen::Index j = 0; j < rank; ++j) {
+          interpolation_indices[j] = output_indices[j];
+      }
+      for (eigen::Index j = 0; j < n_dimensions; ++j) {
+        eigen::Index dim = dimensions_[j];
+        interpolation_weights[dim] = weights_[j][output_indices[dim]];
+        interpolation_indices[dim] = indices_[j][output_indices[dim]];
+      }
+      output.coeffRef(output_indices) = interpolate<Tensor, rank>(in, interpolation_weights, interpolation_indices);
+    }
+    return output;
   }
 
  protected:
-  std::array<EigenVector<Scalar>, degree> grids_;
+  std::array<eigen::Vector<Scalar>, n_dimensions> old_grids_;
+  std::array<eigen::Vector<Scalar>, n_dimensions> new_grids_;
+  std::array<eigen::Index, n_dimensions> dimensions_;
+  std::array<eigen::Vector<Scalar>, n_dimensions> weights_;
+  std::array<eigen::Vector<eigen::Index>, n_dimensions> indices_;
 };
+
 }  // namespace scatlib
 
 #endif

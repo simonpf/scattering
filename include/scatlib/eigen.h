@@ -12,14 +12,19 @@
 
 namespace scatlib {
 namespace eigen {
-template <typename Scalar>
-using Matrix = Eigen::Matrix<Scalar, -1, -1, Eigen::RowMajor>;
-template <typename Scalar, size_t N>
-using MatrixFixedRows = Eigen::Matrix<Scalar, -1, N, Eigen::RowMajor>;
+
+using Index = Eigen::Index;
+
 template <typename Scalar>
 using Vector = Eigen::Matrix<Scalar, 1, -1, Eigen::RowMajor>;
 template <typename Scalar, size_t N>
 using VectorFixedSize = Eigen::Matrix<Scalar, 1, N, Eigen::RowMajor>;
+template <typename Scalar>
+using Matrix = Eigen::Matrix<Scalar, -1, -1, Eigen::RowMajor>;
+template <typename Scalar, size_t N>
+using MatrixFixedRows = Eigen::Matrix<Scalar, -1, N, Eigen::RowMajor>;
+template <typename Scalar, size_t rank>
+using Tensor = Eigen::Tensor<Scalar, rank, Eigen::RowMajor>;
 }  // namespace eigen
 }  // namespace scatlib
 
