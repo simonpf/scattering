@@ -264,9 +264,22 @@ protected:
 
 // pxx :: export
 // pxx :: instance(["double", "4", "2"])
+/** Regridder for regular grids.
+ *
+ * The RegularRegridder implements regridding of regular grids. It interpolates a
+ * gridded tensor to new grids along a given subset of its dimensions.
+ *
+ * @tparam Scalar The type used to represent scalars in the tensor.
+ * @tparam rank The rank of the tensor to regrid.
+ * @tparam n_dimensions The number of dimensions to regrid.
+ */
 template <typename Scalar, eigen::Index rank, eigen::Index n_dimensions>
 class RegularRegridder {
  public:
+  /** Dimensions of output tensor.
+   * @param in The tensor to regrid
+   * @returns std::array containing the dimensions of the regridded tensor.
+   */
   std::array<eigen::Index, rank> get_output_dimensions(
       eigen::Tensor<Scalar, rank>& in) {
     auto input_dimensions = in.dimensions();
@@ -279,6 +292,10 @@ class RegularRegridder {
     return output_dimensions;
   }
 
+  /** Get strides of output tensor.
+   * @param in The tensor to regrid
+   * @returns std::array containing the strides of the regridded tensor.
+   */
   std::array<eigen::Index, rank> get_strides(eigen::Tensor<Scalar, rank>& t) {
     auto dimensions = get_output_dimensions(t);
     std::array<eigen::Index, rank> strides;
@@ -290,6 +307,11 @@ class RegularRegridder {
     return strides;
   }
 
+  /** Convert single-integer index to tensor-index array.
+   * @param index The single-integer index
+   * @strides index The strides of the tensor
+   * @returns std::array containing the tensor-index array corresponding to index.
+   */
   static std::array<eigen::Index, rank> get_indices(
       eigen::Index index, std::array<eigen::Index, rank> strides) {
     std::array<eigen::Index, rank> indices{0};
@@ -303,7 +325,6 @@ class RegularRegridder {
     return indices;
   }
 
- public:
   /** Sets up the regridder for given grids.
    * @param old_grids std::vector containing the old grids, which should be
    * regridded.
@@ -322,6 +343,10 @@ class RegularRegridder {
     }
   }
 
+  /** Regrid tensor.
+   * @param in The tensor to regrid.
+   * @return The regridded tensor.
+   */
   eigen::Tensor<Scalar, rank> regrid(eigen::Tensor<Scalar, rank> in) {
       using WeightVector = eigen::VectorFixedSize<Scalar, rank>;
       using IndexVector = eigen::VectorFixedSize<eigen::Index, rank>;
