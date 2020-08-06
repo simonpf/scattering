@@ -92,7 +92,7 @@ class SHT {
    * @param m GridCoeffs containing the data. Row indices should correspond to
    * longitudes (azimuth angle) and columns to latitudes (zenith angle).
    */
-  void set_spatial_coefficients(const GridCoeffs &m) const {
+  void set_spatial_coeffs(const GridCoeffs &m) const {
     size_t index = 0;
     for (int i = 0; i < m.rows(); ++i) {
       for (int j = 0; j < m.cols(); ++j) {
@@ -109,7 +109,7 @@ class SHT {
    * @param m SpectralCoeffs The spherical harmonics coefficients
    * representing the data.
    */
-  void set_spectral_coefficients(const SpectralCoeffs &m) const {
+  void set_spectral_coeffs(const SpectralCoeffs &m) const {
     size_t index = 0;
     for (auto &x : m) {
       spectral_coeffs_[index] = x;
@@ -124,7 +124,7 @@ class SHT {
    * @return m GridCoeffs containing the data. Row indices should correspond to
    * longitudes (azimuth angle) and columns to latitudes (zenith angle).
    */
-  GridCoeffs get_spatial_coefficients() const {
+  GridCoeffs get_spatial_coeffs() const {
       GridCoeffs result(n_lon_, n_lat_);
     size_t index = 0;
     for (int i = 0; i < result.rows(); ++i) {
@@ -151,7 +151,7 @@ class SHT {
   /**
    * @return The number of spherical harmonics coefficients.
    */
-  size_t get_number_of_spectral_coefficients() const {
+  size_t get_number_of_spectral_coeffs() const {
     return shtns_->nlm;
   }
 
@@ -162,7 +162,7 @@ class SHT {
    * @return m SpectralCoeffs The spherical harmonics coefficients
    * representing the data.
    */
-  SpectralCoeffs get_spectral_coefficients() const {
+  SpectralCoeffs get_spectral_coeffs() const {
     SpectralCoeffs result(shtns_->nlm);
     size_t index = 0;
     for (auto &x : result) {
@@ -180,9 +180,9 @@ class SHT {
    * @return Coefficient vector containing the spherical harmonics coefficients.
    */
   SpectralCoeffs transform(GridCoeffs m) {
-    set_spatial_coefficients(m);
+    set_spatial_coeffs(m);
     spat_to_SH(shtns_, spatial_coeffs_, spectral_coeffs_);
-    return get_spectral_coefficients();
+    return get_spectral_coeffs();
   }
 
   /** Apply inverse SHT Transform
@@ -195,9 +195,9 @@ class SHT {
    * @return GridCoeffs containing the spatial data.
    */
   GridCoeffs transform(SpectralCoeffs m) {
-    set_spectral_coefficients(m);
+    set_spectral_coeffs(m);
     SH_to_spat(shtns_, spectral_coeffs_, spatial_coeffs_);
-    return get_spatial_coefficients();
+    return get_spatial_coeffs();
   }
 
  private:
@@ -234,8 +234,6 @@ public:
 protected:
     std::map<SHTParams, std::unique_ptr<SHT>> sht_instances_;
 };
-
-static SHTProvider default_provider{};
 
 }  // namespace sht
 }  // namespace scatlib
