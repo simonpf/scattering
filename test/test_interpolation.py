@@ -47,6 +47,32 @@ def test_interpolation():
 
     assert(np.all(np.isclose(results, sp_results)))
 
+def test_interpolation_degenerate_dimensions():
+    rank = 5
+    degree = 3
+
+    interpolation_axis = np.random.choice(list(range(3)))
+    sizes = [1, 1, 1] + list(np.random.randint(4, 10, rank - 3))
+    sizes[interpolation_axis] = np.random.randint(4, 10)
+
+    t = np.random.randn(*sizes)
+    grids = [np.arange(sizes[i]) for i in range(degree)]
+
+    positions = [[0]] * 3
+    g = grids[interpolation_axis]
+    positions[interpolation_axis] = g[:-1] + np.random.uniform(size=g.size - 1)
+    positions = np.array(list(itertools.product(*positions)))
+
+    sp_interpolator = sp.interpolate.RegularGridInterpolator([grids[interpolation_axis]], np.squeeze(t))
+    print(positions, grids)
+    sp_results = sp_interpolator(positions[:, interpolation_axis])
+
+    interpolator = RegularGridInterpolator(grids)
+    results = interpolator.interpolate(t, positions)
+
+    assert(np.all(np.isclose(results, sp_results)))
+
+
 #
 # Regridding
 #

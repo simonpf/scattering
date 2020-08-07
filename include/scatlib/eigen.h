@@ -34,6 +34,12 @@ using VectorFixedSize = Eigen::Matrix<Scalar, 1, N, Eigen::RowMajor>;
  */
 template <typename Scalar>
 using VectorMap = Eigen::Map<Vector<Scalar>>;
+template <typename Scalar>
+using ConstVectorMap = Eigen::Map<const Vector<Scalar>>;
+template <typename Scalar>
+using VectorRef = Eigen::Ref<Vector<Scalar>>;
+template <typename Scalar>
+using ConstVectorRef = Eigen::Ref<const Vector<Scalar>>;
 
 //
 // Matrices
@@ -54,15 +60,64 @@ using MatrixFixedRows = Eigen::Matrix<Scalar, -1, N, Eigen::RowMajor>;
  */
 template <typename Scalar>
 using MatrixMap = Eigen::Map<Matrix<Scalar>>;
+template <typename Scalar>
+using ConstMatrixMap = Eigen::Map<const Matrix<Scalar>>;
 
 //
 // Tensors
 //
 
-template <typename Scalar, size_t rank>
+template <typename Scalar, int rank>
 using Tensor = Eigen::Tensor<Scalar, rank, Eigen::RowMajor>;
 
-}  // namespace eigen
+//
+// Tensor map
+//
+
+namespace detail {
+template <size_t i>
+struct MapOverDimensionsImpl {
+    template <typename TensorTypeOut, typename TensorTypeIn, typename f, typename ... Indices>
+    inline static void run(TensorTypeIn &out, const TensorTypeOut &in, Indices ... indices) {
+    int current_dimension = sizeof...(indices);
+    for (eigen::Index j = 0; j < in.dimension(current_dimension); ++j) {
+      MapOverDimensionsImpl::run(out, in, indices..., j);
+    }
+  }
+};
+
+template <>
+struct MapOverDimensionsImpl<0> {
+    template <typename TensorTypeOut, typename TensorTypeIn, typename f, typename ... Indices>
+        inline static void run(TensorTypeOut out, TensorTypeIn in, Indices ... indices) {
+    int current_dimension = sizeof...(indices);
+    for (eigen::Index j = 0; j < in.dimension(current_dimension); ++j) {
+      out(indices...) = f(indices...);
+    }
+  }
+};
+
+template <typename T> struct TensorTransformTrait;
+
+template <typename TensorIn, typename TensorOut>
+    struct TensorTransformTrait<std::function<TensorOut(TensorIn)>> {
+    using TensorTypeOut = TensorOut;
+    static constexpr int rank_out = TensorOut::NumIndices;
+    using TensorTypeIn = TensorIn;
+    static constexpr int rank_in = TensorIn::NumIndices;
+};
+
+}  // namespace detail
+
+template <typename TensorTypeOut, typename TensorTypeIn, typename f>
+void map_over_dimensions(TensorTypeOut &out, const TensorTypeIn &in) {
+  static constexpr int ranks_in = TensorTypeIn::NumIndices;
+  static constexpr int ranks_to_map_over =
+      ranks_in - detail::TensorTransformTrait<f>::rank_in;
+  detail::MapOverDimensionsImpl<ranks_to_map_over>::run(out, in);
+}
+
+}  // namespace detail
 }  // namespace scatlib
 
 #endif

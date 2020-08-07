@@ -200,7 +200,7 @@ inline typename detail::InterpolationResult<Tensor, degree>::type interpolate(
 }
 
 // pxx :: export
-// pxx :: instance(["Eigen::Tensor<double, 5, Eigen::RowMajor>", "3"])
+// pxx :: instance(["Eigen::Tensor<double, 5, Eigen::RowMajor>", "3", "Eigen::VectorXd"])
 //
 /** Regular grid interpolator.
  *
@@ -209,7 +209,7 @@ inline typename detail::InterpolationResult<Tensor, degree>::type interpolate(
  * @tparam Tensor The Eigen tensor type to interpolate.
  * @tparam degree Along how many dimensions to interpolate.
  */
-template <typename Tensor, size_t degree>
+template <typename Tensor, size_t degree, typename Vector>
 class RegularGridInterpolator {
 public:
  using Scalar = typename Tensor::Scalar;
@@ -220,7 +220,7 @@ public:
   * \grids Array containing the grids corresponding to the first degree
   * dimensions of the tensor to interpolate.
   */
- RegularGridInterpolator(std::array<eigen::Vector<Scalar>, degree> grids)
+ RegularGridInterpolator(std::array<Vector, degree> grids)
      : grids_(grids) {}
 
  /** Compute interpolation weights and indices for interpolation points.
@@ -252,14 +252,15 @@ public:
    using ResultType =
        typename detail::InterpolationResult<Tensor, degree>::type;
    std::vector<ResultType> results;
+   results.resize(positions.rows());
    for (int i = 0; i < positions.rows(); ++i) {
-       results.push_back(scatlib::interpolate<Tensor, degree>(t, weights.row(i), indices.row(i)));
+       results[i] = scatlib::interpolate<Tensor, degree>(t, weights.row(i), indices.row(i));
    }
    return results;
  }
 
 protected:
- std::array<eigen::Vector<Scalar>, degree> grids_;
+ std::array<Vector, degree> grids_;
 };
 
 // pxx :: export

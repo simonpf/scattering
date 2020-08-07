@@ -68,19 +68,19 @@ class SHT {
    * @param l_max The maximum degree of the SHT.
    * @param m_max The maximum order of the SHT.
    * @param n_lat The number of co-latitude grid points.
-   * @param n_phi The number of longitude grid points.
+   * @param n_lon The number of longitude grid points.
    * @param m_res The order-resolution of the SHT.
    */
-  SHT(size_t l_max, size_t m_max, size_t n_lat, size_t n_phi, size_t m_res = 1)
+  SHT(size_t l_max, size_t m_max, size_t n_lat, size_t n_lon, size_t m_res = 1)
       : l_max_(l_max),
         m_max_(m_max),
         n_lat_(n_lat),
-        n_lon_(n_phi),
+        n_lon_(n_lon),
         m_res_(m_res) {
     shtns_verbose(1);
     shtns_use_threads(0);
     shtns_reset();
-    shtns_ = shtns_init(sht_gauss, l_max_, m_max_, m_res_, n_lat_, n_lon_);
+    shtns_ = shtns_init(sht_quick_init, l_max_, m_max_, m_res_, n_lat_, n_lon_);
     spectral_coeffs_ = sht::FFTWArray<std::complex<double>>(shtns_->nlm);
     spatial_coeffs_ = sht::FFTWArray<double>(NSPAT_ALLOC(shtns_));
   }
@@ -179,7 +179,7 @@ class SHT {
    * longitudes (azimuth angle) and columns to latitudes (zenith angle).
    * @return Coefficient vector containing the spherical harmonics coefficients.
    */
-  SpectralCoeffs transform(GridCoeffs m) {
+  SpectralCoeffs transform(const GridCoeffs &m) {
     set_spatial_coeffs(m);
     spat_to_SH(shtns_, spatial_coeffs_, spectral_coeffs_);
     return get_spectral_coeffs();
@@ -220,7 +220,7 @@ public:
 
     /** Get SHT instance for given SHT parameters.
      * @arg params Lenght-4 array containing the parameters required to initialize the SHT
-     * transform: l_max, m_max, n_lat, n_phi. See documention of SHT class for explanation
+     * transform: l_max, m_max, n_lat, n_lon. See documention of SHT class for explanation
      * of their significance.
      * @return Reference to SHT instance.
      */
