@@ -215,23 +215,55 @@ public:
 // Scattering data.
 //
 
-enum class DataFormat { Gridded, Spectral, FullySpectral };
+enum class DataFormat { Gridded, Spectral, FullySpectral};
+enum class DataType {Spherical, TotallyRandom, AzimuthallyRandom, General};
 
 /** Base class for scattering data.
  * Holds frequency and temperature grids.
  */
+class ScatteringDataBase {
+ public:
+  ScatteringDataBase(DataType type) : type_(type) {}
+
+  DataType get_type() const { return type_; }
+
+ protected:
+  DataType type_;
+};
+
 template <typename Scalar, DataFormat format>
 class ScatteringData;
 
 // pxx :: export
 // pxx :: instance("ScatteringDataGridded", ["double"])
 template <typename Scalar>
-class ScatteringData<Scalar, DataFormat::Gridded> {
+class ScatteringData<Scalar, DataFormat::Gridded> : public ScatteringDataBase {
  public:
   using CoeffType = Scalar;
   using VectorType = eigen::Vector<Scalar>;
   template <int rank>
   using TensorType = eigen::Tensor<Scalar, rank>;
+
+  using ScatteringDataBase::get_type;
+
+  static DataType determine_type(const TensorType<5> &phase_matrix) {
+    auto n_zenith_angles_scat = phase_matrix.dimension(4);
+    auto n_azimuth_angles_scat = phase_matrix.dimension(3);
+    auto n_zenith_angles_inc = phase_matrix.dimension(2);
+    auto n_azimuth_angles_inc = phase_matrix.dimension(1);
+    if ((n_zenith_angles_scat == 1) && (n_azimuth_angles_scat == 1) &&
+        (n_zenith_angles_inc == 1) && (n_azimuth_angles_inc == 1)) {
+      return DataType::Spherical;
+    }
+    if ((n_azimuth_angles_scat == 1) && (n_zenith_angles_inc == 1) &&
+        (n_azimuth_angles_inc == 1)) {
+      return DataType::TotallyRandom;
+    }
+    if (n_azimuth_angles_inc == 1) {
+      return DataType::TotallyRandom;
+    }
+    return DataType::General;
+  }
 
   ScatteringData(VectorType azimuth_angles_incoming,
                  VectorType zenith_angles_incoming,
@@ -242,7 +274,8 @@ class ScatteringData<Scalar, DataFormat::Gridded> {
                  TensorType<5> absorption_vector,
                  TensorType<4> backscattering_coeff,
                  TensorType<4> forwardscattering_coeff)
-      : azimuth_angles_incoming_(azimuth_angles_incoming),
+      : ScatteringDataBase(determine_type(phase_matrix)),
+        azimuth_angles_incoming_(azimuth_angles_incoming),
         zenith_angles_incoming_(zenith_angles_incoming),
         azimuth_angles_scattering_(azimuth_angles_scattering),
         zenith_angles_scattering_(zenith_angles_scattering),

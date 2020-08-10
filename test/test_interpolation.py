@@ -47,6 +47,26 @@ def test_interpolation():
 
     assert(np.all(np.isclose(results, sp_results)))
 
+def test_interpolation_with_precalculated_weights():
+    rank = 5
+    degree = 3
+
+    sizes = np.random.randint(4, 10, rank)
+    t = np.random.randn(*sizes)
+    grids = [np.arange(sizes[i]) for i in range(degree)]
+
+    positions = [g[:-1] + np.random.uniform(size=g.size - 1) for g in grids]
+    positions = list(itertools.product(*positions))
+
+    sp_interpolator = sp.interpolate.RegularGridInterpolator(grids, t)
+    sp_results = sp_interpolator(positions)
+
+    interpolator = RegularGridInterpolator(grids)
+    weights = interpolator.calcuate_weights(positions)
+    results = interpolator.interpolate(t, weights)
+
+    assert(np.all(np.isclose(results, sp_results)))
+
 def test_interpolation_degenerate_dimensions():
     rank = 5
     degree = 3
