@@ -24,8 +24,8 @@ class ScatteringDataAzymuthallyRandom:
         self.phase_matrix = handle["phase_matrix"][:].data
         self.extinction_matrix = handle["extinction_matrix"][:].data
         self.absorption_vector = handle["absorption_vector"][:].data
-        self.backscattering_coeff = np.zeros((0, 0, 0))
-        self.forwardscattering_coeff = np.zeros((0, 0, 0))
+        self.backscattering_coeff = np.zeros((0, 0))
+        self.forwardscattering_coeff = np.zeros((0, 0))
 
     def get_data(self):
         return [self.azimuth_angles_incoming,
@@ -40,14 +40,32 @@ class ScatteringDataAzymuthallyRandom:
 
     def interpolate_phase_matrix(self, angles):
         grid = self.zenith_angles_scattering.ravel()
-        data = self.phase_matrix[:, ..., :].T
+        data = np.squeeze(self.phase_matrix[:, ..., :].T)
         interpolator = sp.interpolate.RegularGridInterpolator([grid], data)
         return interpolator(angles)
 
-
-
-
 scattering_data = ScatteringDataAzymuthallyRandom(utils.get_azimuthally_random_scattering_data())
-
 scattering_data_gridded = ScatteringDataGridded(*scattering_data.get_data())
+
+def test_phase_matrix_interpolation():
+    n = 1000
+    thetas = 180 * np.random.uniform(size=n)
+    pm_ref = scattering_data.interpolate_phase_matrix(thetas)
+    pm = scattering_data_gridded.get_phase_matrix(thetas)
+    assert(np.all(np.isclose(pm, pm_ref)))
+
+def test_phase_matrix_interpolation_3_angles():
+    n = 1000
+    thetas = 180 * np.random.uniform(size=(n, 3))
+    pm = scattering_data_gridded.get_phase_matrix(thetas)
+    pm_ref = scattering_data.interpolate_phase_matrix(thetas[:, -1])
+    assert(np.all(np.isclose(pm, pm_ref)))
+
+def test_phase_matrix_interpolation_4_angles():
+    n = 1000
+    thetas = 180 * np.random.uniform(size=(n, 4))
+    pm = scattering_data_gridded.get_phase_matrix(thetas)
+    pm_ref = scattering_data.interpolate_phase_matrix(thetas[:, -1])
+    assert(np.all(np.isclose(pm, pm_ref)))
+
 
