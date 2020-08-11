@@ -62,7 +62,7 @@ def test_interpolation_with_precalculated_weights():
     sp_results = sp_interpolator(positions)
 
     interpolator = RegularGridInterpolator(grids)
-    weights = interpolator.calcuate_weights(positions)
+    weights = interpolator.calculate_weights(positions)
     results = interpolator.interpolate(t, weights)
 
     assert(np.all(np.isclose(results, sp_results)))

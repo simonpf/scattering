@@ -11,6 +11,7 @@
 #include <scatlib/eigen.h>
 #include <scatlib/sht.h>
 #include <scatlib/interpolation.h>
+#include <cassert>
 
 namespace scatlib {
 
@@ -239,10 +240,17 @@ class ScatteringData;
 template <typename Scalar>
 class ScatteringData<Scalar, DataFormat::Gridded> : public ScatteringDataBase {
  public:
+
   using CoeffType = Scalar;
   using VectorType = eigen::Vector<Scalar>;
+  using VectorMapType = eigen::VectorMap<Scalar>;
+  using MatrixType = eigen::Matrix<Scalar>;
   template <int rank>
   using TensorType = eigen::Tensor<Scalar, rank>;
+  template <int rank>
+  using TensorMapType = eigen::TensorMap<Scalar, rank>;
+  template <int rank>
+  using ConstTensorMapType = eigen::TensorConstMap<Scalar, rank>;
 
   using ScatteringDataBase::get_type;
 
@@ -265,120 +273,268 @@ class ScatteringData<Scalar, DataFormat::Gridded> : public ScatteringDataBase {
     return DataType::General;
   }
 
-  ScatteringData(VectorType azimuth_angles_incoming,
-                 VectorType zenith_angles_incoming,
-                 VectorType azimuth_angles_scattering,
-                 VectorType zenith_angles_scattering,
+  ScatteringData(VectorType azimuth_angles_inc,
+                 VectorType zenith_angles_inc,
+                 VectorType azimuth_angles_scat,
+                 VectorType zenith_angles_scat,
                  TensorType<5> phase_matrix,
-                 TensorType<5> extinction_matrix,
-                 TensorType<5> absorption_vector,
-                 TensorType<4> backscattering_coeff,
-                 TensorType<4> forwardscattering_coeff)
+                 TensorType<3> extinction_matrix,
+                 TensorType<3> absorption_vector,
+                 TensorType<2> backscattering_coeff,
+                 TensorType<2> forwardscattering_coeff)
       : ScatteringDataBase(determine_type(phase_matrix)),
-        azimuth_angles_incoming_(azimuth_angles_incoming),
-        zenith_angles_incoming_(zenith_angles_incoming),
-        azimuth_angles_scattering_(azimuth_angles_scattering),
-        zenith_angles_scattering_(zenith_angles_scattering),
+      n_azimuth_angles_inc_(azimuth_angles_inc.size()),
+      n_zenith_angles_inc_(zenith_angles_inc.size()),
+      n_azimuth_angles_scat_(azimuth_angles_scat.size()),
+      n_zenith_angles_scat_(zenith_angles_scat.size()),
+        azimuth_angles_inc_(azimuth_angles_inc),
+        zenith_angles_inc_(zenith_angles_inc),
+        azimuth_angles_scat_(azimuth_angles_scat),
+        zenith_angles_scat_(zenith_angles_scat),
+        azimuth_angle_map_inc_(azimuth_angles_inc_.data(), n_azimuth_angles_inc_),
+        zenith_angle_map_inc_(zenith_angles_inc_.data(), n_zenith_angles_inc_),
+        azimuth_angle_map_scat_(azimuth_angles_scat_.data(), n_azimuth_angles_scat_),
+        zenith_angle_map_scat_(zenith_angles_scat_.data(), n_zenith_angles_scat_),
         phase_matrix_(phase_matrix),
         extinction_matrix_(extinction_matrix),
         absorption_vector_(absorption_vector),
         backscattering_coeff_(backscattering_coeff),
-        forwardscattering_coeff_(forwardscattering_coeff),
-        interpolator_({azimuth_angles_incoming_,
-                         zenith_angles_incoming_,
-                         azimuth_angles_scattering_,
-                         zenith_angles_scattering_})
+        forwardscattering_coeff_(forwardscattering_coeff)
+  {
+  }
 
-  {}
+            VectorType
+            & get_azimuth_angles_inc() {
+    return azimuth_angles_inc_;
+  }
+  const eigen::Vector<Scalar> & get_azimuth_angles_inc() const {return azimuth_angles_inc_;}
+  VectorType & get_zenith_angles_inc() {return zenith_angles_inc_;}
+  const eigen::Vector<Scalar> & get_zenith_angles_inc() const {return zenith_angles_inc_;}
+  VectorType & get_azimuth_angles_scattering() {return azimuth_angles_scat_;}
+  const eigen::Vector<Scalar> & get_azimuth_angles_scattering() const {return azimuth_angles_scat_;}
+  VectorType & get_zenith_angles_scattering() {return zenith_angles_scat_;}
+  const eigen::Vector<Scalar> & get_zenith_angles_scattering() const {return zenith_angles_scat_;}
 
-  VectorType & get_azimuth_angles_incoming() {return azimuth_angles_incoming_;}
-  const eigen::Vector<Scalar> & get_azimuth_angles_incoming() const {return azimuth_angles_incoming_;}
-  VectorType & get_zenith_angles_incoming() {return zenith_angles_incoming_;}
-  const eigen::Vector<Scalar> & get_zenith_angles_incoming() const {return zenith_angles_incoming_;}
-  VectorType & get_azimuth_angles_scattering() {return azimuth_angles_scattering_;}
-  const eigen::Vector<Scalar> & get_azimuth_angles_scattering() const {return azimuth_angles_scattering_;}
-  VectorType & get_zenith_angles_scattering() {return zenith_angles_scattering_;}
-  const eigen::Vector<Scalar> & get_zenith_angles_scattering() const {return zenith_angles_scattering_;}
+  size_t get_n_azimuth_angles_inc() const { return n_azimuth_angles_inc_; }
+  size_t get_n_zenith_angles_inc() const { return n_zenith_angles_inc_; }
+  size_t get_n_azimuth_angles_scat() const { return n_azimuth_angles_scat_; }
+  size_t get_n_zenith_angles_scat() const { return n_zenith_angles_scat_; }
 
-  size_t get_n_azimuth_angles_incoming() const { return azimuth_angles_incoming_.size(); }
-  size_t get_n_zenith_angles_incoming() const { return zenith_angles_incoming_.size(); }
-  size_t get_n_azimuth_angles_scattering() const { return azimuth_angles_scattering_.size(); }
-  size_t get_n_zenith_angles_scattering() const { return zenith_angles_scattering_.size(); }
+  //
+  // Phase matrix.
+  //
 
-  const eigen::Tensor<Scalar, 5> &get_phase_matrix() const { return phase_matrix_; }
-  eigen::Tensor<Scalar, 5> &get_phase_matrix() { return phase_matrix_; };
-  const TensorType<5> &get_extinction_matrix() const {
+  const eigen::Tensor<Scalar, 5> &get_phase_matrix_data() const { return phase_matrix_; }
+  eigen::Tensor<Scalar, 5> &get_phase_matrix_data() { return phase_matrix_; };
+
+  Scalar get_phase_matrix() const {
+      assert(get_type() == DataType::Spherical);
+      return phase_matrix_({0, 0, 0, 0, 0});
+  }
+
+  MatrixType get_phase_matrix(
+      const eigen::MatrixFixedRows<Scalar, 1> &angles) const {
+
+    eigen::Index phase_matrix_size = phase_matrix_.dimension(0);
+    eigen::Index n_points = angles.rows();
+
+    auto type = get_type();
+    if (type == DataType::Spherical) {
+        return MatrixType::Constant(n_points, phase_matrix_size, get_phase_matrix());
+    }
+    assert(get_type() == DataType::TotallyRandom);
+
+    eigen::Matrix<Scalar> result(n_points, phase_matrix_size);
+    using Interpolator = RegularGridInterpolator<eigen::ConstVectorMap<Scalar>,
+                                                 1,
+                                                 VectorMapType>;
+    auto interpolator = Interpolator({zenith_angle_map_scat_});
+    auto weights = interpolator.calculate_weights(angles);
+
+    for (eigen::Index i = 0; i < phase_matrix_size; ++i) {
+      std::array<Eigen::Index, 4> index{i, 0, 0, 0};
+      interpolator.interpolate(result.col(i), phase_matrix_(index), weights);
+    }
+    return result;
+  }
+
+  const eigen::Matrix<Scalar> get_phase_matrix(
+      const eigen::MatrixFixedRows<Scalar, 3> &angles) const {
+
+      eigen::Index phase_matrix_size = phase_matrix_.dimension(0);
+      eigen::Index n_points = angles.rows();
+
+      auto type = get_type();
+      if (type == DataType::Spherical) {
+          return MatrixType::Constant(n_points, phase_matrix_size, get_phase_matrix());
+      }
+      if (type == DataType::TotallyRandom) {
+          return get_phase_matrix(static_cast<eigen::MatrixFixedRows<Scalar, 1>>(angles.col(2)));
+      }
+      assert(get_type() == DataType::AzimuthallyRandom);
+
+      eigen::Matrix<Scalar> result(n_points, phase_matrix_size);
+      using Interpolator = RegularGridInterpolator<ConstTensorMapType<3>, 3, VectorMapType>;
+      auto interpolator = Interpolator({azimuth_angle_map_inc_,
+                                        zenith_angle_map_inc_,
+                                        zenith_angle_map_scat_});
+      auto weights = interpolator.calculate_weights(angles);
+
+      for (eigen::Index i = 0; i < phase_matrix_size; ++i) {
+          std::array<Eigen::Index, 2> index{i, 0};
+          interpolator.interpolate(result.col(i), phase_matrix_(index), weights);
+      }
+      return result;
+  }
+
+  const eigen::Matrix<Scalar> get_phase_matrix(
+      const eigen::MatrixFixedRows<Scalar, 4> &angles) const {
+
+      eigen::Index phase_matrix_size = phase_matrix_.dimension(0);
+      eigen::Index n_points = angles.rows();
+
+      auto type = get_type();
+      if (type == DataType::Spherical) {
+          return MatrixType::Constant(n_points, phase_matrix_size, get_phase_matrix());
+      }
+      if (type == DataType::TotallyRandom) {
+          return get_phase_matrix(static_cast<eigen::MatrixFixedRows<Scalar, 1>>(angles.col(3)));
+      }
+      if (type == DataType::AzimuthallyRandom) {
+          return get_phase_matrix(static_cast<eigen::MatrixFixedRows<Scalar, 3>>(angles.rightCols(1)));
+      }
+      assert(get_type() == DataType::AzimuthallyRandom);
+
+      eigen::Matrix<Scalar> result(n_points, phase_matrix_size);
+      using Interpolator = RegularGridInterpolator<ConstTensorMapType<4>, 4, VectorMapType>;
+      auto interpolator = Interpolator({zenith_angle_map_inc_,
+                                        azimuth_angle_map_inc_,
+                                        zenith_angle_map_inc_,
+                                        zenith_angle_map_scat_});
+      auto weights = interpolator.calculate_weights(angles);
+
+      for (eigen::Index i = 0; i < phase_matrix_size; ++i) {
+          std::array<Eigen::Index, 1> index{i};
+          interpolator.interpolate(result.col(i), phase_matrix_(index), weights);
+      }
+      return result;
+  }
+
+  //
+  // Extinction matrix interpolation.
+  //
+
+  const TensorType<3> &get_extinction_matrix_data() const {
       return extinction_matrix_;
   };
+  TensorType<3> &get_extinction_matrix_data() { return extinction_matrix_; };
 
+  Scalar get_extinction_matrix() const {
+      auto type = get_type();
+      assert((type == DataType::Spherical) || (type == DataType::TotallyRandom));
+      return extinction_matrix_(0, 0, 0);
+  };
 
-  const eigen::Matrix<Scalar> get_phase_matrix(const eigen::MatrixFixedRows<Scalar, 2> & angles) const {
-      eigen::Index phase_matrix_size = phase_matrix_.dimension(0);
-      eigen::Index n_points = angles.rows();
+  MatrixType get_extinction_matrix(
+      const eigen::MatrixFixedRows<Scalar, 1> &angles) const {
+    eigen::Index extinction_matrix_size = extinction_matrix_.dimension(0);
+    eigen::Index n_points = angles.rows();
 
-      eigen::MatrixFixedRows<Scalar, 4> angles_extended(n_points, 4);
-      angles_extended.col(0).fill(azimuth_angles_incoming_[0]);
-      angles_extended.col(1).fill(zenith_angles_incoming_[0]);
-      angles_extended.col(2) = angles.col(0);
-      angles_extended.col(3) = angles.col(1);
+    auto type = get_type();
+    if ((type == DataType::Spherical || type == DataType::TotallyRandom)) {
+      return MatrixType::Constant(n_points,
+                                  extinction_matrix_size,
+                                  get_extinction_matrix());
+    }
+    assert(get_type() == DataType::AzimuthallyRandom);
 
-      eigen::Matrix<Scalar> result(n_points, phase_matrix_size);
+    eigen::Matrix<Scalar> result(n_points, extinction_matrix_size);
+    using Interpolator = RegularGridInterpolator<eigen::ConstVectorMap<Scalar>,
+                                                 1,
+                                                 VectorMapType>;
+    auto interpolator = Interpolator({zenith_angle_map_inc_});
+    auto weights = interpolator.calculate_weights(angles);
 
-      for (eigen::Index i = 0; i < phase_matrix_size; ++i) {
-          std::array<eigen::Index, 1> index{i};
-          auto result_vector = interpolator_.interpolate(phase_matrix_(index), angles_extended);
-          result.col(i) = eigen::VectorMap<Scalar>(result_vector.data(), n_points);
-      }
-      return result;
+    for (eigen::Index i = 0; i < extinction_matrix_size; ++i) {
+      std::array<Eigen::Index, 2> index{i, 0};
+      interpolator.interpolate(result.col(i),
+                               extinction_matrix_(index),
+                               weights);
+    }
+    return result;
   }
 
-  const eigen::Matrix<Scalar> get_phase_matrix(const eigen::MatrixFixedRows<Scalar, 4> & angles) const {
-      eigen::Index phase_matrix_size = phase_matrix_.dimension(0);
-      eigen::Index n_points = angles.rows();
-      eigen::Matrix<Scalar> result(n_points, phase_matrix_size);
+  MatrixType get_extinction_matrix(
+      const eigen::MatrixFixedRows<Scalar, 2> &angles) const {
+    eigen::Index extinction_matrix_size = extinction_matrix_.dimension(0);
+    eigen::Index n_points = angles.rows();
 
-      for (eigen::Index i = 0; i < phase_matrix_size; ++i) {
-          std::array<eigen::Index, 1> index{i};
-          auto result_vector = interpolator_.interpolate(phase_matrix_(index), angles);
-          result.col(i) = eigen::VectorMap<Scalar>(result_vector.data(), n_points);
-      }
-      return result;
+    auto type = get_type();
+    if ((type == DataType::Spherical || type == DataType::TotallyRandom)) {
+      return MatrixType::Constant(n_points,
+                                  extinction_matrix_size,
+                                  get_extinction_matrix());
+    }
+    if ((type == DataType::AzimuthallyRandom)) {
+        return get_extinction_matrix(static_cast<eigen::MatrixFixedRows<Scalar, 1>>(angles.col(1)));
+    }
+    assert(get_type() == DataType::AzimuthallyRandom);
+
+    eigen::Matrix<Scalar> result(n_points, extinction_matrix_size);
+    using Interpolator = RegularGridInterpolator<eigen::ConstMatrixMap<Scalar>,
+                                                 2,
+                                                 VectorMapType>;
+    auto interpolator = Interpolator({azimuth_angle_map_inc_, zenith_angle_map_inc_});
+    auto weights = interpolator.calculate_weights(angles);
+
+    for (eigen::Index i = 0; i < extinction_matrix_size; ++i) {
+      std::array<Eigen::Index, 1> index{i};
+      interpolator.interpolate(result.col(i),
+                               extinction_matrix_(index),
+                               weights);
+    }
+    return result;
   }
 
 
-  TensorType<5> &get_extinction_matrix() { return extinction_matrix_; };
-  const TensorType<5> &get_absorption_vector() const {
+  const TensorType<3> &get_absorption_vector() const {
       return absorption_vector_;
   };
-  TensorType<5> &get_absorption_vector() { return absorption_vector_; };
-  const TensorType<4> &get_backscattering_coeff() const {
+  TensorType<3> &get_absorption_vector() { return absorption_vector_; };
+  const TensorType<2> &get_backscattering_coeff() const {
       return backscattering_coeff_;
   };
-  TensorType<4> &get_backscattering_coeff() {
+  TensorType<2> &get_backscattering_coeff() {
       return backscattering_coeff_;
   }
-  const TensorType<4> &get_forwardscattering_coeff() const {
+  const TensorType<2> &get_forwardscattering_coeff() const {
       return forwardscattering_coeff_;
   }
-  TensorType<4> &get_forwardscattering_coeff() {
+  TensorType<2> &get_forwardscattering_coeff() {
       return forwardscattering_coeff_;
   }
 
  protected:
-  VectorType azimuth_angles_incoming_;
-  VectorType zenith_angles_incoming_;
-  VectorType azimuth_angles_scattering_;
-  VectorType zenith_angles_scattering_;
+  int n_azimuth_angles_inc_;
+  int n_zenith_angles_inc_;
+  int n_azimuth_angles_scat_;
+  int n_zenith_angles_scat_;
+
+  VectorType azimuth_angles_inc_;
+  VectorType zenith_angles_inc_;
+  VectorType azimuth_angles_scat_;
+  VectorType zenith_angles_scat_;
+  VectorMapType azimuth_angle_map_inc_;
+  VectorMapType zenith_angle_map_inc_;
+  VectorMapType azimuth_angle_map_scat_;
+  VectorMapType zenith_angle_map_scat_;
 
   TensorType<5> phase_matrix_;       // elements x (inc. ang.) x (scat. ang.)
-  TensorType<5> extinction_matrix_;  // elements x (inc. ang.) x (scat. ang.)
-  TensorType<5> absorption_vector_;  // elements x (inc. ang.) x (scat. ang.)
-  TensorType<4>
-      backscattering_coeff_;  // elements x (inc. ang.) x (scat. ang.)
-  TensorType<4> forwardscattering_coeff_;  // elements x (inc. angles) x
+  TensorType<3> extinction_matrix_;  // elements x (inc. ang.) x (scat. ang.)
+  TensorType<3> absorption_vector_;  // elements x (inc. ang.) x (scat. ang.)
+  TensorType<2> backscattering_coeff_;  // (inc. ang.)
+  TensorType<2> forwardscattering_coeff_;  // (inc. angles)
   // (scat. ang.)
-
-  RegularGridInterpolator<TensorType<4>, 4, eigen::ConstVectorRef<Scalar>> interpolator_;
 
 };
 
@@ -394,11 +550,11 @@ class ScatteringData<Scalar, DataFormat::Spectral> {
 
   ScatteringData(VectorType azimuth_angles_incoming,
                  VectorType zenith_angles_incoming,
-                 TensorType<6> phase_matrix,
-                 TensorType<6> extinction_matrix,
-                 TensorType<6> absorption_vector,
-                 TensorType<5> backscattering_coeff,
-                 TensorType<5> forwardscattering_coeff)
+                 TensorType<4> phase_matrix,
+                 TensorType<4> extinction_matrix,
+                 TensorType<4> absorption_vector,
+                 TensorType<3> backscattering_coeff,
+                 TensorType<3> forwardscattering_coeff)
       : azimuth_angles_incoming_(azimuth_angles_incoming),
         zenith_angles_incoming_(zenith_angles_incoming),
         phase_matrix_(phase_matrix),
@@ -455,18 +611,16 @@ class ScatteringData<Scalar, DataFormat::FullySpectral> {
  public:
   using CoeffType = std::complex<Scalar>;
   using VectorType = eigen::Vector<Scalar>;
-
- private:
   template <int rank>
   using TensorType = eigen::Tensor<CoeffType, rank>;
 
  public:
   ScatteringData(
-                 TensorType<6> phase_matrix,
-                 TensorType<6> extinction_matrix,
-                 TensorType<6> absorption_vector,
-                 TensorType<5> backscattering_coeff,
-                 TensorType<5> forwardscattering_coeff)
+                 TensorType<4> phase_matrix,
+                 TensorType<4> extinction_matrix,
+                 TensorType<4> absorption_vector,
+                 TensorType<3> backscattering_coeff,
+                 TensorType<3> forwardscattering_coeff)
       : phase_matrix_(phase_matrix),
         extinction_matrix_(extinction_matrix),
         absorption_vector_(absorption_vector),
@@ -506,33 +660,33 @@ class ScatteringData<Scalar, DataFormat::FullySpectral> {
 
 // pxx :: export
 // pxx :: instance(["double"])
-template <typename Scalar>
-ScatteringData<Scalar, DataFormat::Spectral> gridded_to_spectral(
-    const ScatteringData<Scalar, DataFormat::Gridded> &in,
-    size_t l_max,
-    size_t m_max) {
-  size_t n_lat = in.get_n_zenith_angles_scattering();
-  size_t n_lon = in.get_n_azimuth_angles_scattering();
-  sht::SHT sht(l_max, m_max, n_lat, n_lon);
-  auto transformer = detail::GriddedToSpectralTransformer<Scalar>(sht);
+/* template <typename Scalar> */
+/* ScatteringData<Scalar, DataFormat::Spectral> gridded_to_spectral( */
+/*     const ScatteringData<Scalar, DataFormat::Gridded> &in, */
+/*     size_t l_max, */
+/*     size_t m_max) { */
+/*   size_t n_lat = in.get_n_zenith_angles_scattering(); */
+/*   size_t n_lon = in.get_n_azimuth_angles_scattering(); */
+/*   sht::SHT sht(l_max, m_max, n_lat, n_lon); */
+/*   auto transformer = detail::GriddedToSpectralTransformer<Scalar>(sht); */
 
-  auto zenith_angles_incoming = in.get_zenith_angles_incoming();
-  auto azimuth_angles_incoming = in.get_azimuth_angles_incoming();
-  auto phase_matrix = transformer.transform(in.get_phase_matrix());
-  auto extinction_matrix = transformer.transform(in.get_phase_matrix());
-  auto absorption_vector = transformer.transform(in.get_absorption_vector());
-  auto backscattering_coeff = transformer.transform(in.get_backscattering_coeff());
-  auto forwardscattering_coeff = transformer.transform(in.get_forwardscattering_coeff());
+/*   auto zenith_angles_incoming = in.get_zenith_angles_incoming(); */
+/*   auto azimuth_angles_incoming = in.get_azimuth_angles_incoming(); */
+/*   auto phase_matrix = transformer.transform(in.get_phase_matrix()); */
+/*   auto extinction_matrix = transformer.transform(in.get_phase_matrix()); */
+/*   auto absorption_vector = transformer.transform(in.get_absorption_vector()); */
+/*   auto backscattering_coeff = transformer.transform(in.get_backscattering_coeff()); */
+/*   auto forwardscattering_coeff = transformer.transform(in.get_forwardscattering_coeff()); */
 
-  auto spectral = ScatteringData<Scalar, DataFormat::Spectral>(zenith_angles_incoming,
-                                                               azimuth_angles_incoming,
-                                                               phase_matrix,
-                                                               extinction_matrix,
-                                                               absorption_vector,
-                                                               backscattering_coeff,
-                                                               forwardscattering_coeff);
-  return spectral;
-}
+/*   auto spectral = ScatteringData<Scalar, DataFormat::Spectral>(zenith_angles_incoming, */
+/*                                                                azimuth_angles_incoming, */
+/*                                                                phase_matrix, */
+/*                                                                extinction_matrix, */
+/*                                                                absorption_vector, */
+/*                                                                backscattering_coeff, */
+/*                                                                forwardscattering_coeff); */
+/*   return spectral; */
+/* } */
 
 }  // namespace scatlib
 

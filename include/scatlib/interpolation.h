@@ -11,8 +11,10 @@
 #include <scatlib/eigen.h>
 
 #include <algorithm>
+#include <utility>
 #include <chrono>
 #include <iostream>
+#include <type_traits>
 #include <vector>
 
 namespace scatlib {
@@ -21,6 +23,12 @@ namespace detail {
 //
 // Interpolation helper.
 //
+
+template <typename Derived>
+struct is_vector {
+  static constexpr bool value =
+      (Derived::RowsAtCompileTime == 1) || (Derived::ColsAtCompileTime == 1);
+};
 
 template <typename Tensor, Eigen::Index N>
 struct InterpolationResult {
@@ -48,6 +56,23 @@ struct InterpolationResult {
   using type = decltype(test_fun(reinterpret_cast<Tensor*>(0)));
 };
 
+template <typename Derived, Eigen::Index N>
+struct InterpolationResult<Eigen::Map<Derived>, N> {
+
+    using Scalar = typename Derived::Scalar;
+
+    template <typename T>
+    static eigen::Vector<Scalar> type_helper(T *, typename std::enable_if<(!is_vector<T>::value) && (N == 1)>::type * = 0) {
+        return {};
+    }
+    template <typename T>
+        static Scalar type_helper(const T *, typename std::enable_if<is_vector<T>::value || (N == 2)>::type * = 0) {
+        return nullptr;
+    }
+
+    using type = decltype(type_helper((Derived *) nullptr));
+};
+
 template <typename Tensor, Eigen::Index N, Eigen::Index I = 0>
 struct Interpolator {
   using Result = typename InterpolationResult<Tensor, N>::type;
@@ -55,9 +80,9 @@ struct Interpolator {
 
   static inline Result compute(
       const Tensor& tensor,
-      eigen::VectorFixedSize<Scalar, N> weights,
-      eigen::VectorFixedSize<Eigen::Index, N> indices,
-      eigen::VectorFixedSize<Eigen::Index, I> offsets = {}) {
+      const eigen::VectorFixedSize<Scalar, N> &weights,
+      const eigen::VectorFixedSize<Eigen::Index, N> &indices,
+      const eigen::VectorFixedSize<Eigen::Index, I> &offsets = {}) {
     eigen::VectorFixedSize<Eigen::Index, N> indices_new{indices};
     for (Eigen::Index i = 0; i < I; ++i) {
       indices_new[i] += offsets[i];
@@ -94,9 +119,9 @@ struct Interpolator<Tensor, N, N> {
 
   static inline Result compute(
       const Tensor& tensor,
-      eigen::VectorFixedSize<Scalar, N> /*weights*/,
-      eigen::VectorFixedSize<Eigen::Index, N> indices,
-      eigen::VectorFixedSize<Eigen::Index, N> offsets = {}) {
+      const eigen::VectorFixedSize<Scalar, N> &/*weights*/,
+      const eigen::VectorFixedSize<Eigen::Index, N> &indices,
+      const eigen::VectorFixedSize<Eigen::Index, N> &offsets = {}) {
     std::array<Eigen::Index, N> indices_new;
     for (Eigen::Index i = 0; i < N; ++i) {
       indices_new[i] = indices[i] + offsets[i];
@@ -104,6 +129,125 @@ struct Interpolator<Tensor, N, N> {
     return tensor(indices_new);
   }
 };
+
+
+template <typename Derived>
+    struct Interpolator<Eigen::Map<Derived>, 2, 2> {
+    using Matrix = Eigen::Map<Derived>;
+    using Scalar = typename Derived::Scalar;
+
+    static inline Scalar compute(
+        const Matrix& matrix,
+        const eigen::VectorFixedSize<Scalar, 2> &/*weights*/,
+        const eigen::VectorFixedSize<Eigen::Index, 2> &indices,
+        const eigen::VectorFixedSize<Eigen::Index, 2> &offsets = {}) {
+        return matrix(indices[0] + offsets[0], indices[1] + offsets[1]);
+    }
+};
+
+
+template <typename Derived>
+    struct Interpolator<Eigen::Map<Derived>, 1, 1> {
+    using Vector = Eigen::Map<Derived>;
+    using Matrix = Eigen::Map<Derived>;
+    using Scalar = typename Derived::Scalar;
+
+    template <typename T>
+    static inline auto compute(
+        const Eigen::Map<T>& matrix,
+        const eigen::VectorFixedSize<Scalar, 1> &/*weights*/,
+        const eigen::VectorFixedSize<Eigen::Index, 1> &indices,
+        const eigen::VectorFixedSize<Eigen::Index, 1> &offsets = {},
+        typename std::enable_if<!is_vector<T>::value>::type * = 0) {
+        return matrix.row(indices[0] + offsets[0]);
+    }
+
+    template <typename T>
+    static inline Scalar compute(
+        const Eigen::Map<T>& vector,
+        const eigen::VectorFixedSize<Scalar, 1> &/*weights*/,
+        const eigen::VectorFixedSize<Eigen::Index, 1> &indices,
+        const eigen::VectorFixedSize<Eigen::Index, 1> &offsets = {},
+        typename std::enable_if<is_vector<T>::value>::type * = 0) {
+        return vector[indices[0] + offsets[0]];
+    }
+};
+
+/* template <typename Scalar, int rows, int cols, int Options,> */
+/*     struct Interpolator<Eigen::Matrix<Scalar, rows, cols, Options>, 2, 2> { */
+/*     using Matrix = Eigen::ConstMatrix<Scalar, 1, -1, Options>; */
+
+/*     template <typename VectorType> */
+/*         static inline Scalar compute( */
+/*             const Matrix& vector, */
+/*             const eigen::VectorFixedSize<Scalar, 1> &/\*weights*\/, */
+/*             const eigen::VectorFixedSize<Eigen::Index, 1> &indices, */
+/*             const eigen::VectorFixedSize<Eigen::Index, 1> &offsets = {}) { */
+/*         return vector(indices[0] + offsets[0], indices[0] + offsets[0]); */
+/*     } */
+/* }; */
+
+/* template <typename Scalar, int Options> */
+/* struct Interpolator<Eigen::Matrix<Scalar, 1, -1, Options>, 1, 1> { */
+/*   using Vector = Eigen::Matrix<Scalar, 1, -1, Options>; */
+
+/*   template <typename VectorType> */
+/*   static inline Scalar compute( */
+/*       const VectorType& vector, */
+/*       const eigen::VectorFixedSize<Scalar, 1> &/\*weights*\/, */
+/*       const eigen::VectorFixedSize<Eigen::Index, 1> &indices, */
+/*       const eigen::VectorFixedSize<Eigen::Index, 1> &offsets = {}) { */
+/*     return vector[indices[0] + offsets[0]]; */
+/*   } */
+/* }; */
+
+/* template <typename Scalar, int Options> */
+/* struct Interpolator<Eigen::Matrix<Scalar, -1, 1, Options>, 1, 1> { */
+/*   using Vector = Eigen::Matrix<Scalar, -1, 1, Options>; */
+
+/*   template <typename VectorType> */
+/*   static inline Scalar compute( */
+/*       const VectorType& vector, */
+/*       const eigen::VectorFixedSize<Scalar, 1> &/\*weights*\/, */
+/*       const eigen::VectorFixedSize<Eigen::Index, 1> &indices, */
+/*       const eigen::VectorFixedSize<Eigen::Index, 1> &offsets = {}) { */
+/*     return vector[indices[0] + offsets[0]]; */
+/*   } */
+/* }; */
+
+/* template <typename Scalar, int Options> */
+/* struct Interpolator<Eigen::Map<const Eigen::Matrix<Scalar, 1, -1, Options>>, 1, 1> { */
+/* using Vector = Eigen::Map<const Eigen::Matrix<Scalar, 1, -1, Options>>; */
+
+/*         static inline Scalar compute( */
+/*             const Vector& vector, */
+/*             eigen::VectorFixedSize<Scalar, 1> /\*weights*\/, */
+/*             eigen::VectorFixedSize<Eigen::Index, 1> indices, */
+/*             eigen::VectorFixedSize<Eigen::Index, 1> offsets = {}) { */
+/*         return vector[indices[0] + offsets[0]]; */
+/*     } */
+/* }; */
+
+/* template <typename Scalar, int Options> */
+/*     struct Interpolator<Eigen::Map<const Eigen::Matrix<Scalar, -1, 1, Options>>, 1, 1> { */
+/*     using Vector = Eigen::Map<const Eigen::Matrix<Scalar, -1, 1, Options>>; */
+
+/*     static inline Scalar compute( */
+/*         const Vector& vector, */
+/*         eigen::VectorFixedSize<Scalar, 1> /\*weights*\/, */
+/*         eigen::VectorFixedSize<Eigen::Index, 1> indices, */
+/*         eigen::VectorFixedSize<Eigen::Index, 1> offsets = {}) { */
+/*         return vector[indices[0] + offsets[0]]; */
+/*     } */
+/* }; */
+
+/* template <typename Derived, Eigen::Index N> */
+/* struct Interpolator<Eigen::Map<Derived>, N> { */
+/*   template <typename... Types> */
+/*   static inline auto compute(const Types& ... types) { */
+/*       return Interpolator<std::remove_cvref_t<Derived>, N>::compute(types ...); */
+/*   } */
+/* }; */
 
 //
 // Calculating interpolation weights.
@@ -132,7 +276,7 @@ void calculate_weights(WeightVector weights,
                        const GridVector& grid,
                        const PositionVector& positions) {
   using Scalar = typename WeightVector::Scalar;
-  for (size_t i = 0; i < positions.size(); ++i) {
+  for (int i = 0; i < positions.size(); ++i) {
     auto p = positions[i];
     auto f = std::lower_bound(grid.begin(), grid.end(), p);
     if (f != grid.end()) {
@@ -179,7 +323,7 @@ WeightIndexPair<Scalar> calculate_weights(
   return std::make_pair(weights, indices);
 }
 
-}  // namespace detail
+}
 
 // pxx :: export
 // pxx :: instance(["Eigen::Tensor<float, 4, Eigen::RowMajor>", "3"])
@@ -239,7 +383,9 @@ class RegularGridInterpolator {
   using Scalar = typename Tensor::Scalar;
   using WeightVector = eigen::VectorFixedSize<Scalar, degree>;
   using IndexVector = eigen::VectorFixedSize<Eigen::Index, degree>;
-  using InterpolationWeights = std::pair<WeightVector, IndexVector>;
+  using WeightMatrix = eigen::MatrixFixedRows<Scalar, degree>;
+  using IndexMatrix = eigen::MatrixFixedRows<Eigen::Index, degree>;
+  using InterpolationWeights = std::pair<WeightMatrix, IndexMatrix>;
 
   /** Sets up the interpolator for given grids.
    * \grids Array containing the grids corresponding to the first degree
@@ -274,12 +420,12 @@ class RegularGridInterpolator {
    * interpolate t.
    */
   auto interpolate(const Tensor& t,
-                   const InterpolationWeights& interp_weights)
+                   const InterpolationWeights& interp_weights) const
       -> std::vector<
           typename detail::InterpolationResult<Tensor, degree>::type> {
-    const WeightVector& weights =
+    const WeightMatrix& weights =
         std::get<0>(interp_weights);
-    const IndexVector& indices =
+    const IndexMatrix& indices =
         std::get<1>(interp_weights);
     using ResultType =
         typename detail::InterpolationResult<Tensor, degree>::type;
@@ -295,13 +441,36 @@ class RegularGridInterpolator {
     return results;
   }
 
+  /** Interpolate tensor using precomputed weights.
+   * @param t The tensor to interpolate.
+   * @param interp_weights The interpolation weights precomuted using the
+   * calculate weights member function.
+   * @param positions Eigen matrix containing the positions at which to
+   * interpolate t.
+   */
+  template <typename ResultContainer>
+  void interpolate(ResultContainer results,
+                   const Tensor& t,
+                   const InterpolationWeights& interp_weights) const {
+    const WeightMatrix& weights = std::get<0>(interp_weights);
+    const IndexMatrix& indices = std::get<1>(interp_weights);
+
+    int n_results = weights.rows();
+    results.resize(n_results);
+    for (int i = 0; i < n_results; ++i) {
+      results[i] = scatlib::interpolate<Tensor, degree>(t,
+                                                        weights.row(i),
+                                                        indices.row(i));
+    }
+  }
+
   /** Interpolate tensor at given positions.
    * @param t The tensor to interpolate.
    * @param positions Eigen matrix containing the positions at which to
    * interpolate t.
    */
   auto interpolate(const Tensor& t,
-                   eigen::MatrixFixedRows<Scalar, degree> positions)
+                   eigen::MatrixFixedRows<Scalar, degree> positions) const
       -> std::vector<
       typename detail::InterpolationResult<Tensor, degree>::type> {
       auto interp_weights = calculate_weights(positions);

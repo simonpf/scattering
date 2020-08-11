@@ -1,10 +1,17 @@
 import sys
 import netCDF4
 import os
+import numpy as np
+import scipy as sp
+import scipy.interpolate
 from scatlib.scattering_data import ScatteringDataGridded
 
 # Import test utils.
-sys.path.append(os.path.dirname(__file__))
+try:
+    sys.path.append(os.path.dirname(__file__))
+except:
+    pass
+
 import utils
 
 class ScatteringDataAzymuthallyRandom:
@@ -17,19 +24,28 @@ class ScatteringDataAzymuthallyRandom:
         self.phase_matrix = handle["phase_matrix"][:].data
         self.extinction_matrix = handle["extinction_matrix"][:].data
         self.absorption_vector = handle["absorption_vector"][:].data
-        self.backscattering_coeff = np.zeros((0, 0, 0, 0))
-        self.forwardscattering_coeff = np.zeros((0, 0, 0, 0))
+        self.backscattering_coeff = np.zeros((0, 0, 0))
+        self.forwardscattering_coeff = np.zeros((0, 0, 0))
 
-    def get_data():
+    def get_data(self):
         return [self.azimuth_angles_incoming,
                 self.zenith_angles_incoming,
                 self.azimuth_angles_scattering,
                 self.zenith_angles_scattering,
                 self.phase_matrix,
                 self.extinction_matrix,
-                self.absorption_vecotr,
+                self.absorption_vector,
                 self.backscattering_coeff,
                 self.forwardscattering_coeff]
+
+    def interpolate_phase_matrix(self, angles):
+        grid = self.zenith_angles_scattering.ravel()
+        data = self.phase_matrix[:, ..., :].T
+        interpolator = sp.interpolate.RegularGridInterpolator([grid], data)
+        return interpolator(angles)
+
+
+
 
 scattering_data = ScatteringDataAzymuthallyRandom(utils.get_azimuthally_random_scattering_data())
 

@@ -54,7 +54,7 @@ template <typename Scalar, size_t N>
 /** Matrix with fixed number of rows.
  * @tparam Scalar The type used to represent coefficients of the matrix.
  */
-using MatrixFixedRows = Eigen::Matrix<Scalar, -1, N, Eigen::RowMajor>;
+using MatrixFixedRows = Eigen::Matrix<Scalar, -1, N, (N>1) ? Eigen::RowMajor : Eigen::ColMajor>;
 /** A matrix that doesn't own its data.
  * @tparam Scalar The type used to represent coefficients of the matrix.
  */
@@ -69,6 +69,10 @@ using ConstMatrixMap = Eigen::Map<const Matrix<Scalar>>;
 
 template <typename Scalar, int rank>
 using Tensor = Eigen::Tensor<Scalar, rank, Eigen::RowMajor>;
+template <typename Scalar, int rank>
+using TensorMap = Eigen::TensorMap<Eigen::Tensor<Scalar, rank, Eigen::RowMajor>>;
+template <typename Scalar, int rank>
+using TensorConstMap = Eigen::TensorMap<const Eigen::Tensor<Scalar, rank, Eigen::RowMajor>>;
 
 //
 // Tensor map

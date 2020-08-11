@@ -35,5 +35,6 @@ add_pxx_module(
   MODULE scattering_data
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
+add_dependencies(scattering_data libshtns)
 target_link_libraries(scattering_data ${SHTNS_LIBRARY})
 target_link_libraries(scattering_data fftw3)
