@@ -250,7 +250,7 @@ class ScatteringData<Scalar, DataFormat::Gridded> : public ScatteringDataBase {
   template <int rank>
   using TensorMapType = eigen::TensorMap<Scalar, rank>;
   template <int rank>
-  using ConstTensorMapType = eigen::TensorConstMap<Scalar, rank>;
+  using ConstTensorMapType = eigen::ConstTensorMap<Scalar, rank>;
 
   using ScatteringDataBase::get_type;
 
@@ -475,7 +475,7 @@ class ScatteringData<Scalar, DataFormat::Gridded> : public ScatteringDataBase {
                                   extinction_matrix_size,
                                   get_extinction_matrix());
     }
-    if ((type == DataType::AzimuthallyRandom)) {
+    if (type == DataType::AzimuthallyRandom) {
         return get_extinction_matrix(static_cast<eigen::MatrixFixedRows<Scalar, 1>>(angles.col(1)));
     }
     assert(get_type() == DataType::AzimuthallyRandom);

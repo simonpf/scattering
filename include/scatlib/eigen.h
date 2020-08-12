@@ -72,7 +72,7 @@ using Tensor = Eigen::Tensor<Scalar, rank, Eigen::RowMajor>;
 template <typename Scalar, int rank>
 using TensorMap = Eigen::TensorMap<Eigen::Tensor<Scalar, rank, Eigen::RowMajor>>;
 template <typename Scalar, int rank>
-using TensorConstMap = Eigen::TensorMap<const Eigen::Tensor<Scalar, rank, Eigen::RowMajor>>;
+using ConstTensorMap = Eigen::TensorMap<const Eigen::Tensor<Scalar, rank, Eigen::RowMajor>>;
 
 //
 // Tensor map
