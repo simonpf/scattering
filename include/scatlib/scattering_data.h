@@ -737,16 +737,19 @@ class ScatteringData<Scalar, DataFormat::Spectral> {
  public:
   using CoeffType = std::complex<Scalar>;
   using VectorType = eigen::Vector<Scalar>;
+  using CmplxVectorType = eigen::Vector<std::complex<Scalar>>;
   template <int rank>
-  using TensorType = eigen::Tensor<CoeffType, rank>;
+  using TensorType = eigen::Tensor<Scalar, rank>;
+  template <int rank>
+  using CmplxTensorType = eigen::Tensor<std::complex<Scalar>, rank>;
 
   ScatteringData(VectorType azimuth_angles_incoming,
                  VectorType zenith_angles_incoming,
-                 TensorType<4> phase_matrix,
-                 TensorType<4> extinction_matrix,
-                 TensorType<4> absorption_vector,
-                 TensorType<3> backscattering_coeff,
-                 TensorType<3> forwardscattering_coeff)
+                 CmplxTensorType<4> phase_matrix,
+                 TensorType<3> extinction_matrix,
+                 TensorType<3> absorption_vector,
+                 TensorType<2> backscattering_coeff,
+                 TensorType<2> forwardscattering_coeff)
       : azimuth_angles_incoming_(azimuth_angles_incoming),
         zenith_angles_incoming_(zenith_angles_incoming),
         phase_matrix_(phase_matrix),
@@ -763,37 +766,37 @@ class ScatteringData<Scalar, DataFormat::Spectral> {
   size_t get_n_azimuth_angles_incoming() const { return azimuth_angles_incoming_.size(); }
   size_t get_n_zenith_angles_incoming() const { return zenith_angles_incoming_.size(); }
 
-  const TensorType<4> &get_phase_matrix() const { return phase_matrix_; }
-  TensorType<4> &get_phase_matrix() { return phase_matrix_; };
-  const TensorType<4> &get_extinction_matrix() const {
+  const CmplxTensorType<4> &get_phase_matrix() const { return phase_matrix_; }
+  CmplxTensorType<4> &get_phase_matrix() { return phase_matrix_; };
+  const TensorType<3> &get_extinction_matrix() const {
       return extinction_matrix_;
   };
-  TensorType<4> &get_extinction_matrix() { return extinction_matrix_; };
-  const TensorType<4> &get_absorption_vector() const {
+  TensorType<3> &get_extinction_matrix() { return extinction_matrix_; };
+  const TensorType<3> &get_absorption_vector() const {
       return absorption_vector_;
   };
-  TensorType<4> &get_absorption_vector() { return absorption_vector_; };
-  const TensorType<3> &get_backscattering_coeff() const {
+  TensorType<3> &get_absorption_vector() { return absorption_vector_; };
+  const TensorType<2> &get_backscattering_coeff() const {
       return backscattering_coeff_;
   };
-  TensorType<3> &get_backscattering_coeff() {
+  TensorType<2> &get_backscattering_coeff() {
       return backscattering_coeff_;
   }
-  const TensorType<3> &get_forwardscattering_coeff() const {
+  const TensorType<2> &get_forwardscattering_coeff() const {
       return forwardscattering_coeff_;
   }
-  TensorType<3> &get_forwardscattering_coeff() {
+  TensorType<2> &get_forwardscattering_coeff() {
       return forwardscattering_coeff_;
   }
 
  protected:
   VectorType azimuth_angles_incoming_;
   VectorType zenith_angles_incoming_;
-  TensorType<4> phase_matrix_;                   // elements x (inc. ang.) x nlm
-  TensorType<4> extinction_matrix_;              // elements x (inc. ang.) x nlm
-  TensorType<4> absorption_vector_;              // elements x (inc. ang.) x nlm
-  TensorType<3> backscattering_coeff_;     // (inc. ang.) x nlm
-  TensorType<3> forwardscattering_coeff_;  // (inc. ang.) x nlm
+  CmplxTensorType<4> phase_matrix_;                   // elements x (inc. ang.) x nlm
+  TensorType<3> extinction_matrix_;              // elements x (inc. ang.) x nlm
+  TensorType<3> absorption_vector_;              // elements x (inc. ang.) x nlm
+  TensorType<2> backscattering_coeff_;     // (inc. ang.) x nlm
+  TensorType<2> forwardscattering_coeff_;  // (inc. ang.) x nlm
 };
 
 // pxx :: export
@@ -852,33 +855,34 @@ class ScatteringData<Scalar, DataFormat::FullySpectral> {
 
 // pxx :: export
 // pxx :: instance(["double"])
-/* template <typename Scalar> */
-/* ScatteringData<Scalar, DataFormat::Spectral> gridded_to_spectral( */
-/*     const ScatteringData<Scalar, DataFormat::Gridded> &in, */
-/*     size_t l_max, */
-/*     size_t m_max) { */
-/*   size_t n_lat = in.get_n_zenith_angles_scattering(); */
-/*   size_t n_lon = in.get_n_azimuth_angles_scattering(); */
-/*   sht::SHT sht(l_max, m_max, n_lat, n_lon); */
-/*   auto transformer = detail::GriddedToSpectralTransformer<Scalar>(sht); */
+template <typename Scalar>
+ScatteringData<Scalar, DataFormat::Spectral> gridded_to_spectral(
+    const ScatteringData<Scalar, DataFormat::Gridded> &in,
+    size_t l_max,
+    size_t m_max) {
+    size_t n_lat = in.get_n_zenith_angles_scat(); 
+    n_lat = n_lat - n_lat % 2;
+  size_t n_lon = in.get_n_azimuth_angles_scat();
+  sht::SHT sht(l_max, m_max, n_lat, n_lon);
+  auto transformer = detail::GriddedToSpectralTransformer<Scalar>(sht);
 
-/*   auto zenith_angles_incoming = in.get_zenith_angles_incoming(); */
-/*   auto azimuth_angles_incoming = in.get_azimuth_angles_incoming(); */
-/*   auto phase_matrix = transformer.transform(in.get_phase_matrix()); */
-/*   auto extinction_matrix = transformer.transform(in.get_phase_matrix()); */
-/*   auto absorption_vector = transformer.transform(in.get_absorption_vector()); */
-/*   auto backscattering_coeff = transformer.transform(in.get_backscattering_coeff()); */
-/*   auto forwardscattering_coeff = transformer.transform(in.get_forwardscattering_coeff()); */
+  auto zenith_angles_incoming = in.get_zenith_angles_inc();
+  auto azimuth_angles_incoming = in.get_azimuth_angles_inc();
+  auto phase_matrix = transformer.transform(in.get_phase_matrix_data());
+  auto extinction_matrix = in.get_extinction_matrix_data();
+  auto absorption_vector = in.get_absorption_vector_data();
+  auto backscattering_coeff = in.get_backscattering_coeff_data();
+  auto forwardscattering_coeff = in.get_forwardscattering_coeff_data();
 
-/*   auto spectral = ScatteringData<Scalar, DataFormat::Spectral>(zenith_angles_incoming, */
-/*                                                                azimuth_angles_incoming, */
-/*                                                                phase_matrix, */
-/*                                                                extinction_matrix, */
-/*                                                                absorption_vector, */
-/*                                                                backscattering_coeff, */
-/*                                                                forwardscattering_coeff); */
-/*   return spectral; */
-/* } */
+  auto spectral = ScatteringData<Scalar, DataFormat::Spectral>(zenith_angles_incoming,
+                                                               azimuth_angles_incoming,
+                                                               phase_matrix,
+                                                               extinction_matrix,
+                                                               absorption_vector,
+                                                               backscattering_coeff,
+                                                               forwardscattering_coeff);
+  return spectral;
+}
 
 }  // namespace scatlib
 

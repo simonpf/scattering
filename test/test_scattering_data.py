@@ -7,7 +7,7 @@ import netCDF4
 import numpy as np
 import scipy as sp
 import scipy.interpolate
-from scatlib.scattering_data import ScatteringDataGridded
+from scatlib.scattering_data import ScatteringDataGridded, gridded_to_spectral
 
 # Import test utils.
 try:
@@ -279,4 +279,12 @@ class TestScatteringDataGridded:
         thetas = 180 * np.random.uniform(size=(n, 2))
         forwardscattering_ref = self.scattering_data.interpolate_forwardscattering_coeff(thetas[:, 1])
         forwardscattering = self.scattering_data_gridded.get_forwardscattering_coeff(thetas)
- 
+
+class TestScatteringDataSpectral:
+
+    def setup_method(self):
+        self.scattering_data = ScatteringDataAzymuthallyRandom(utils.get_data_azimuthally_random())
+        self.scattering_data_gridded = ScatteringDataGridded(*self.scattering_data.get_data())
+        n_lat = self.scattering_data.zenith_angles_scattering.size
+        n_lon = 1
+        self.scattering_data_spectral = gridded_to_spectral(self.scattering_data_gridded, n_lat, 0)

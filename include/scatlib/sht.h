@@ -62,6 +62,8 @@ class FFTWArray {
 // pxx :: export
 class SHT {
  public:
+  using Vector = eigen::Vector<double>;
+  using ConstVectorMap = eigen::ConstVectorMap<double>;
   /**
    * Create a spherical harmonics transformation object.
    *
@@ -83,6 +85,20 @@ class SHT {
     shtns_ = shtns_init(sht_quick_init, l_max_, m_max_, m_res_, n_lat_, n_lon_);
     spectral_coeffs_ = sht::FFTWArray<std::complex<double>>(shtns_->nlm);
     spatial_coeffs_ = sht::FFTWArray<double>(NSPAT_ALLOC(shtns_));
+  }
+
+  /** Return latitude grid used by SHTns.
+   * @return Eigen vector containing the latitude grid in radians.
+   */
+  Vector get_latitude_grid() {
+      return ConstVectorMap(shtns_->ct, n_lat_).array().acos();
+  }
+
+  /** Return co-latitude grid used by SHTns.
+   * @return Eigen vector containing the co-latitude grid.
+   */
+  Vector get_colatitude_grid() {
+      return ConstVectorMap(shtns_->ct, n_lat_);
   }
 
   /**
@@ -194,10 +210,32 @@ class SHT {
    * representing the data.
    * @return GridCoeffs containing the spatial data.
    */
-  GridCoeffs transform(SpectralCoeffs m) {
+  GridCoeffs transform(const SpectralCoeffs &m) {
     set_spectral_coeffs(m);
     SH_to_spat(shtns_, spectral_coeffs_, spatial_coeffs_);
     return get_spatial_coeffs();
+  }
+
+  /** Evaluate spectral representation at given point.
+   *
+   * @param m Spectral coefficient vector containing the SH coefficients.
+   * @param points 2-row matrix containing the points (lon, lat) at which
+   * to evaluate the function.
+   * @return A vector containing the values corresponding to the points
+   * in points.
+   */
+  eigen::Vector<double> evaluate(const SpectralCoeffs &m,
+                                 const eigen::MatrixFixedRows<double, 2> &points) {
+    set_spectral_coeffs(m);
+    int n_points = points.rows();
+    eigen::Vector<double> result(n_points);
+    for (int i = 0; i < n_points; ++i) {
+      result[i] = SH_to_point(shtns_,
+                              spectral_coeffs_,
+                              cos(points(i, 1)),
+                              points(i, 0));
+    }
+    return result;
   }
 
  private:
