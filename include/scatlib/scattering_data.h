@@ -254,6 +254,7 @@ class ScatteringData<Scalar, DataFormat::Gridded> : public ScatteringDataBase {
 
   using ScatteringDataBase::get_type;
 
+
   static DataType determine_type(const TensorType<5> &phase_matrix) {
     auto n_zenith_angles_scat = phase_matrix.dimension(4);
     auto n_azimuth_angles_scat = phase_matrix.dimension(3);
@@ -271,6 +272,44 @@ class ScatteringData<Scalar, DataFormat::Gridded> : public ScatteringDataBase {
       return DataType::TotallyRandom;
     }
     return DataType::General;
+  }
+
+  template <typename Tensor, int N>
+      MatrixType interpolate_angles(const eigen::MatrixFixedRows<Scalar, N> &angles,
+                                    std::array<VectorMapType, N> angle_grids,
+                                    const Tensor &data) const {
+      eigen::Index n_points = angles.rows();
+      eigen::Index n_cols_output = data.dimension(0);
+      eigen::Matrix<Scalar> result(n_points, n_cols_output);
+      using Interpolator = RegularGridInterpolator<typename eigen::Map<const Tensor>::type,
+                                                 N,
+                                                 VectorMapType>;
+    auto interpolator = Interpolator(angle_grids);
+    auto weights = interpolator.calculate_weights(angles);
+
+    std::array<Eigen::Index, N> index{0};
+    for (eigen::Index i = 0; i < n_cols_output; ++i) {
+      index[0] = i;
+      interpolator.interpolate(result.col(i), data(index), weights);
+    }
+    return result;
+  }
+
+  template <typename Tensor, int N>
+  VectorType interpolate_angles_scalar(
+      const eigen::MatrixFixedRows<Scalar, N> &angles,
+      std::array<VectorMapType, N> angle_grids,
+      const Tensor &data) const {
+    eigen::Index n_points = angles.rows();
+    VectorType result(n_points);
+    using Interpolator =
+        RegularGridInterpolator<typename eigen::Map<const Tensor>::type,
+                                N,
+                                VectorMapType>;
+    auto interpolator = Interpolator(angle_grids);
+    auto weights = interpolator.calculate_weights(angles);
+    interpolator.interpolate(result, data, weights);
+    return result;
   }
 
   ScatteringData(VectorType azimuth_angles_inc,
@@ -496,22 +535,176 @@ class ScatteringData<Scalar, DataFormat::Gridded> : public ScatteringDataBase {
     return result;
   }
 
+  //
+  // Absorption vector interpolation.
+  //
 
-  const TensorType<3> &get_absorption_vector() const {
+  const TensorType<3> &get_absorption_vector_data() const {
       return absorption_vector_;
   };
-  TensorType<3> &get_absorption_vector() { return absorption_vector_; };
-  const TensorType<2> &get_backscattering_coeff() const {
+  TensorType<3> &get_absorption_vector_data() { return absorption_vector_; };
+
+  Scalar get_absorption_vector() const {
+      auto type = get_type();
+      assert((type == DataType::Spherical) || (type == DataType::TotallyRandom));
+      return absorption_vector_(0, 0, 0);
+  };
+
+  MatrixType get_absorption_vector(
+      const eigen::MatrixFixedRows<Scalar, 1> &angles) const {
+    eigen::Index absorption_vector_size = absorption_vector_.dimension(0);
+    eigen::Index n_points = angles.rows();
+
+    auto type = get_type();
+    if ((type == DataType::Spherical || type == DataType::TotallyRandom)) {
+      return MatrixType::Constant(n_points,
+                                  absorption_vector_size,
+                                  get_absorption_vector());
+    }
+    assert(get_type() == DataType::AzimuthallyRandom);
+
+    eigen::Matrix<Scalar> result(n_points, absorption_vector_size);
+    using Interpolator = RegularGridInterpolator<eigen::ConstVectorMap<Scalar>,
+                                                 1,
+                                                 VectorMapType>;
+    auto interpolator = Interpolator({zenith_angle_map_inc_});
+    auto weights = interpolator.calculate_weights(angles);
+
+    for (eigen::Index i = 0; i < absorption_vector_size; ++i) {
+      std::array<Eigen::Index, 2> index{i, 0};
+      interpolator.interpolate(result.col(i),
+                               absorption_vector_(index),
+                               weights);
+    }
+    return result;
+  }
+
+  MatrixType get_absorption_vector(
+      const eigen::MatrixFixedRows<Scalar, 2> &angles) const {
+    eigen::Index absorption_vector_size = absorption_vector_.dimension(0);
+    eigen::Index n_points = angles.rows();
+
+    auto type = get_type();
+    if ((type == DataType::Spherical || type == DataType::TotallyRandom)) {
+      return MatrixType::Constant(n_points,
+                                  absorption_vector_size,
+                                  get_absorption_vector());
+    }
+    if (type == DataType::AzimuthallyRandom) {
+        return get_absorption_vector(static_cast<eigen::MatrixFixedRows<Scalar, 1>>(angles.col(1)));
+    }
+    assert(get_type() == DataType::AzimuthallyRandom);
+
+    eigen::Matrix<Scalar> result(n_points, absorption_vector_size);
+    using Interpolator = RegularGridInterpolator<eigen::ConstMatrixMap<Scalar>,
+                                                 2,
+                                                 VectorMapType>;
+    auto interpolator = Interpolator({azimuth_angle_map_inc_, zenith_angle_map_inc_});
+    auto weights = interpolator.calculate_weights(angles);
+
+    for (eigen::Index i = 0; i < absorption_vector_size; ++i) {
+      std::array<Eigen::Index, 1> index{i};
+      interpolator.interpolate(result.col(i),
+                               absorption_vector_(index),
+                               weights);
+    }
+    return result;
+  }
+
+  //
+  // Backscattering coefficient.
+  //
+
+  const TensorType<2> &get_backscattering_coeff_data() const {
       return backscattering_coeff_;
   };
-  TensorType<2> &get_backscattering_coeff() {
+  TensorType<2> &get_backscattering_coeff_data() {
       return backscattering_coeff_;
   }
-  const TensorType<2> &get_forwardscattering_coeff() const {
+
+  Scalar get_backscattering_coeff() const {
+      return backscattering_coeff_({0, 0});
+  }
+
+  VectorType get_backscattering_coeff(
+      const eigen::MatrixFixedRows<Scalar, 1> &angles) const {
+    eigen::Index n_points = angles.rows();
+
+    auto type = get_type();
+    if ((type == DataType::Spherical || type == DataType::TotallyRandom)) {
+      return VectorType::Constant(n_points, get_backscattering_coeff());
+    }
+    assert(get_type() == DataType::AzimuthallyRandom);
+
+    std::array<eigen::Index, 1> index = {0};
+    return interpolate_angles_scalar(angles, {zenith_angle_map_inc_}, backscattering_coeff_(index));
+  }
+
+  VectorType get_backscattering_coeff(
+      const eigen::MatrixFixedRows<Scalar, 2> &angles) const {
+    eigen::Index n_points = angles.rows();
+
+    auto type = get_type();
+    if ((type == DataType::Spherical || type == DataType::TotallyRandom)) {
+      return VectorType::Constant(n_points, get_backscattering_coeff());
+    }
+    if (type == DataType::AzimuthallyRandom) {
+      return get_backscattering_coeff(static_cast<eigen::MatrixFixedRows<Scalar, 1>>(angles.col(1)));
+    }
+    assert(get_type() == DataType::General);
+
+    auto tensor_map = ConstTensorMapType<2>(backscattering_coeff_.data(), backscattering_coeff_.dimensions());
+    return interpolate_angles_scalar(angles,
+                                     {azimuth_angle_map_inc_, zenith_angle_map_inc_},
+                                     tensor_map);
+  }
+
+  //
+  // Forwardscattering coefficient.
+  //
+
+  const TensorType<2> &get_forwardscattering_coeff_data() const {
+      return forwardscattering_coeff_;
+  };
+  TensorType<2> &get_forwardscattering_coeff_data() {
       return forwardscattering_coeff_;
   }
-  TensorType<2> &get_forwardscattering_coeff() {
-      return forwardscattering_coeff_;
+
+  Scalar get_forwardscattering_coeff() const {
+      return forwardscattering_coeff_({0, 0});
+  }
+
+  VectorType get_forwardscattering_coeff(
+      const eigen::MatrixFixedRows<Scalar, 1> &angles) const {
+    eigen::Index n_points = angles.rows();
+
+    auto type = get_type();
+    if ((type == DataType::Spherical || type == DataType::TotallyRandom)) {
+      return VectorType::Constant(n_points, get_forwardscattering_coeff());
+    }
+    assert(get_type() == DataType::AzimuthallyRandom);
+
+    std::array<eigen::Index, 1> index = {0};
+    return interpolate_angles_scalar(angles, {zenith_angle_map_inc_}, forwardscattering_coeff_(index));
+  }
+
+  VectorType get_forwardscattering_coeff(
+      const eigen::MatrixFixedRows<Scalar, 2> &angles) const {
+    eigen::Index n_points = angles.rows();
+
+    auto type = get_type();
+    if ((type == DataType::Spherical || type == DataType::TotallyRandom)) {
+      return VectorType::Constant(n_points, get_forwardscattering_coeff());
+    }
+    if (type == DataType::AzimuthallyRandom) {
+      return get_forwardscattering_coeff(static_cast<eigen::MatrixFixedRows<Scalar, 1>>(angles.col(1)));
+    }
+    assert(get_type() == DataType::General);
+
+    auto tensor_map = ConstTensorMapType<2>(forwardscattering_coeff_.data(), forwardscattering_coeff_.dimensions());
+    return interpolate_angles_scalar(angles,
+                                     {azimuth_angle_map_inc_, zenith_angle_map_inc_},
+                                     tensor_map);
   }
 
  protected:
@@ -534,7 +727,6 @@ class ScatteringData<Scalar, DataFormat::Gridded> : public ScatteringDataBase {
   TensorType<3> absorption_vector_;  // elements x (inc. ang.) x (scat. ang.)
   TensorType<2> backscattering_coeff_;  // (inc. ang.)
   TensorType<2> forwardscattering_coeff_;  // (inc. angles)
-  // (scat. ang.)
 
 };
 

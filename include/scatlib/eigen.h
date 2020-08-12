@@ -121,6 +121,45 @@ void map_over_dimensions(TensorTypeOut &out, const TensorTypeIn &in) {
   detail::MapOverDimensionsImpl<ranks_to_map_over>::run(out, in);
 }
 
+//
+// General map type.
+//
+
+template <typename Tensor>
+struct Map {
+  using type = Eigen::TensorMap<Tensor>;
+};
+
+template <typename Scalar, int rows, int cols, int options>
+struct Map<Eigen::Matrix<Scalar, rows, cols, options>> {
+  using type = Eigen::Map<Eigen::Matrix<Scalar, rows, cols, options>>;
+};
+
+template <typename Scalar, int rows, int cols, int options>
+struct Map<const Eigen::Matrix<Scalar, rows, cols, options>> {
+  using type = Eigen::Map <const Eigen::Matrix<Scalar, rows, cols, options>>;
+};
+
+template <typename Derived>
+    struct Map<Eigen::TensorMap<Derived>> {
+    using type = typename Map<Derived>::type;
+};
+
+template <typename Derived>
+    struct Map<Eigen::Map<Derived>> {
+    using type = typename Map<Derived>::type;
+};
+
+template <typename Derived>
+    struct Map<const Eigen::TensorMap<Derived>> {
+    using type = typename Map<Derived>::type;
+};
+
+template <typename Derived>
+    struct Map<const Eigen::Map<Derived>> {
+    using type = typename Map<Derived>::type;
+};
+
 }  // namespace detail
 }  // namespace scatlib
 
