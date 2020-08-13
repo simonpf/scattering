@@ -83,7 +83,6 @@ class TestSHT:
         print(m, l, self.n_lat, self.n_lon, self.l_max)
 
         assert np.all(np.isclose(zz, zz_ref.real.ravel()))
-        return xx, yy, zz, zz_ref.real
 
 
 class TestLegendreExpansion:
@@ -96,6 +95,8 @@ class TestLegendreExpansion:
         self.n_lat = 2 * self.l_max
         self.n_lon = 1
         self.sht = SHT(self.l_max, self.m_max, self.n_lat, self.n_lon, 1)
+        self.lat_grid, _ = np.sort(np.arccos(roots_legendre(self.n_lat)))
+        self.lon_grid = np.linspace(0, 2.0 * np.pi, self.n_lon + 1)[:-1]
 
     def test_legendre_transform(self):
         """
@@ -105,10 +106,26 @@ class TestLegendreExpansion:
         l = np.random.randint(1, self.l_max)
         m = 0
 
-        lat_grid, _ = np.arccos(roots_legendre(self.n_lat))
-        lon_grid = np.linspace(0, 2.0 * np.pi, self.n_lon + 1)[:-1]
-        xx, yy = np.meshgrid(lat_grid, lon_grid, indexing="xy")
-        zz = sph_harm(m, l, yy, xx) 
+        xx, yy = np.meshgrid(self.lat_grid, self.lon_grid, indexing="xy")
+        zz = sph_harm(m, l, yy, xx)
         coeffs = self.sht.transform(zz.real)
 
         assert np.sum(np.abs(coeffs) > 1e-6) == 1
+
+    def test_evaluate(self):
+        """
+        Test that evaluating the spectral representation reproduces the spatial
+        input.
+        """
+        l = np.random.randint(1, self.l_max)
+        m = 0
+
+        xx, yy = np.meshgrid(self.lat_grid, self.lon_grid, indexing="xy")
+        zz_ref = sph_harm(m, l, yy, xx) 
+        coeffs = self.sht.transform(zz_ref.real)
+        points = xx.ravel()
+        zz = self.sht.evaluate(coeffs, points)
+
+        print(m, l, self.n_lat, self.n_lon, self.l_max)
+
+        assert np.all(np.isclose(zz, zz_ref.real.ravel()))

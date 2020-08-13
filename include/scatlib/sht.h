@@ -155,13 +155,13 @@ class SHT {
   /**
    * @return The size of the co-latitude grid.
    */
-  size_t get_size_of_colatitude_grid() const {
+  size_t get_n_latitudes() const {
       return n_lat_;
   }
   /**
    * @return The size of the longitude grid.
    */
-  size_t get_size_of_longitude_grid() const {
+  size_t get_n_longitudes() const {
       return n_lon_;
   }
   /**
@@ -236,6 +236,32 @@ class SHT {
                               points(i, 0));
     }
     return result;
+  }
+
+  /** Evaluate 1D spectral representation at given point.
+   *
+   * This method covers the special case of 1D data that varies
+   * only along latitudes. In this case the SH transform degenerates
+   * to a Legendre transform.
+   *
+   * @param m Spectral coefficient vector containing the SH coefficients.
+   * @param Vector containing the latitudes within [0, PI] to evaluate the function.
+   * @return A vector containing the values corresponding to the points
+   * in points.
+   */
+  eigen::Vector<double> evaluate(const SpectralCoeffs &m,
+                                 const eigen::Vector<double> &thetas) {
+      assert(m_max_ == 0);
+      set_spectral_coeffs(m);
+      int n_points = thetas.size();
+      eigen::Vector<double> result(n_points);
+      for (int i = 0; i < n_points; ++i) {
+          result[i] = SH_to_point(shtns_,
+                                  spectral_coeffs_,
+                                  cos(thetas[i]),
+                                  0.0);
+      }
+      return result;
   }
 
  private:

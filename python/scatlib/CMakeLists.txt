@@ -17,6 +17,16 @@ target_link_libraries(sht Eigen3::Eigen)
 target_link_libraries(sht fftw3)
 
 #
+# eigen
+#
+
+add_pxx_module(
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/eigen.h
+  MODULE eigen
+  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
+  )
+
+#
 # Interpolation
 #
 
