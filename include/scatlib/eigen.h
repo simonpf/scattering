@@ -10,6 +10,7 @@
 #include <Eigen/CXX11/Tensor>
 #include <Eigen/Core>
 #include <iostream>
+#include <type_traits>
 
 namespace scatlib {
 namespace eigen {
@@ -121,21 +122,27 @@ template <typename Derived>
 //
 // Helper trait to reduce rank.
 //
+template <typename T> int foo(T *t);
 
-template <typename T>
-struct ResultTypeHelper;
+template <typename T, int n_indices>
+struct IndexResult {
 
-template <typename T>
-struct ResultTypeHelper<Eigen::TensorMap<T, Eigen::RowMajor>> {
-    template <int rank>
-    using type = typename ResultTypeHelper<T>::template type<rank>;
-};
+    using CoeffType = decltype(((T *) nullptr)->operator()({}));
+    using Scalar = typename std::remove_cvref<CoeffType>::type;
 
-template <typename Scalar, int NumIndices, int Options, typename IndexType>
-struct ResultTypeHelper<Eigen::Tensor<Scalar, NumIndices, Options, IndexType>> {
-  template <int rank>
-  using type = Eigen::TensorMap<
-      Eigen::Tensor<Scalar, NumIndices - rank, Options, IndexType>>;
+    static constexpr int rank = T::NumIndices;
+    static constexpr bool is_const = std::is_const<CoeffType>::value || std::is_const<T>::value;
+
+    using NonConstReturnType = Eigen::TensorMap<
+        Eigen::Tensor<Scalar, rank - n_indices, Eigen::RowMajor, Eigen::Index>,
+        Eigen::RowMajor>;
+    using ConstReturnType = Eigen::TensorMap<
+        const Eigen::
+            Tensor<Scalar, rank - n_indices, Eigen::RowMajor, Eigen::Index>,
+        Eigen::RowMajor>;
+    using ReturnType = typename std::conditional<is_const, ConstReturnType, NonConstReturnType>::type;
+
+    using type = typename std::conditional<(n_indices < rank), ReturnType, Scalar>::type;
 };
 
 //
@@ -146,14 +153,12 @@ template <typename T, int rank_in, int n_indices>
 struct TensorIndexer {
   using Tensor = typename std::remove_reference<T>::type;
   using TensorIndex = typename Tensor::Index;
-  using ReturnType = typename Map<
-      typename ResultTypeHelper<Tensor>::template type<n_indices>>::type;
+  using ReturnType = typename IndexResult<Tensor, n_indices>::type;
   using Scalar = typename Tensor::Scalar;
   static constexpr int rank_out = rank_in - n_indices;
 
 
-  template <typename InputType>
-  static inline ReturnType get(InputType &t,
+  static inline ReturnType get(T &t,
                  std::array<TensorIndex, n_indices> index_array)
         {
     auto dimensions_in = t.dimensions();
@@ -186,8 +191,7 @@ struct TensorIndexer<T, rank_in, rank_in> {
   using TensorIndex = typename Tensor::Index;
   using Scalar = typename Tensor::Scalar;
 
-  template <typename InputType>
-  static inline Scalar get(InputType &t, std::array<TensorIndex, rank_in> index_array) {
+  static inline Scalar get(T &t, std::array<TensorIndex, rank_in> index_array) {
     return t(index_array);
   };
 };
@@ -202,9 +206,11 @@ struct TensorIndexer<T, rank_in, rank_in> {
 // pxx :: instance(["Eigen::TensorMap<Eigen::Tensor<double, 3, Eigen::RowMajor>, Eigen::RowMajor>", "Eigen::Index", "3"])
 // pxx :: instance(["Eigen::TensorMap<Eigen::Tensor<double, 2, Eigen::RowMajor>, Eigen::RowMajor>", "Eigen::Index", "1"])
 // pxx :: instance(["Eigen::TensorMap<Eigen::Tensor<double, 2, Eigen::RowMajor>, Eigen::RowMajor>", "Eigen::Index", "2"])
-// pxx :: instance(["Eigen::TensorMap<Eigen::Tensor<double, 4, Eigen::RowMajor>, Eigen::RowMajor>", "Eigen::Index", "1"])
+// pxx :: instance(["Eigen::TensorMap<Eigen::Tensor<double, 1, Eigen::RowMajor>, Eigen::RowMajor>", "Eigen::Index", "1"])
 template <typename T, typename Index, size_t N>
-auto tensor_index(T &t, std::array<Index, N> indices) {
+auto tensor_index(T &t, std::array<Index, N> indices)
+    -> typename IndexResult<T, N>::type
+{
     return TensorIndexer<T, T::NumIndices, N>::get(t, indices);
 }
 
@@ -214,47 +220,78 @@ auto tensor_index(T &t, std::array<Index, N> indices) {
 
 
 namespace detail {
-template <size_t i>
+
+template <int N, int i = 0>
 struct MapOverDimensionsImpl {
-    template <typename TensorTypeOut, typename TensorTypeIn, typename f, typename ... Indices>
-    inline static void run(TensorTypeIn &out, const TensorTypeOut &in, Indices ... indices) {
-    int current_dimension = sizeof...(indices);
-    for (eigen::Index j = 0; j < in.dimension(current_dimension); ++j) {
-      MapOverDimensionsImpl::run(out, in, indices..., j);
+  template <typename TensorTypeOut,
+            typename TensorTypeIn,
+            typename F,
+            typename... Indices>
+  inline static void run(TensorTypeIn &&out,
+                         const TensorTypeOut &&in,
+                         F f,
+                         Indices... indices) {
+    for (eigen::Index j = 0; j < in.dimension(i); ++j) {
+      MapOverDimensionsImpl<N, i + 1>::run(out, in, f, indices..., j);
     }
   }
 };
 
-template <>
-struct MapOverDimensionsImpl<0> {
-    template <typename TensorTypeOut, typename TensorTypeIn, typename f, typename ... Indices>
-        inline static void run(TensorTypeOut out, TensorTypeIn in, Indices ... indices) {
-    int current_dimension = sizeof...(indices);
-    for (eigen::Index j = 0; j < in.dimension(current_dimension); ++j) {
-        out({indices...}) = f({indices...});
+template <int N>
+struct MapOverDimensionsImpl<N, N - 1> {
+  template <typename TensorTypeOut,
+            typename TensorTypeIn,
+            typename F,
+            typename... Indices>
+  inline static void run(TensorTypeOut &&out,
+                         TensorTypeIn &&in,
+                         F f,
+                         Indices... indices) {
+    for (eigen::Index j = 0; j < in.dimension(N - 1); ++j) {
+        f(tensor_index(out, {indices...}), tensor_index(in, {indices...}));
     }
   }
-};
-
-template <typename T> struct TensorTransformTrait;
-
-template <typename TensorIn, typename TensorOut>
-    struct TensorTransformTrait<std::function<TensorOut(TensorIn)>> {
-    using TensorTypeOut = TensorOut;
-    static constexpr int rank_out = TensorOut::NumIndices;
-    using TensorTypeIn = TensorIn;
-    static constexpr int rank_in = TensorIn::NumIndices;
 };
 
 }  // namespace detail
 
-template <typename TensorTypeOut, typename TensorTypeIn, typename f>
-void map_over_dimensions(TensorTypeOut &out, const TensorTypeIn &in) {
-  static constexpr int ranks_in = TensorTypeIn::NumIndices;
-  static constexpr int ranks_to_map_over =
-      ranks_in - detail::TensorTransformTrait<f>::rank_in;
-  detail::MapOverDimensionsImpl<ranks_to_map_over>::run(out, in);
+template <int N, typename TensorTypeOut, typename TensorTypeIn, typename F>
+void map_over_dimensions(TensorTypeOut &&out, TensorTypeIn &&in, F f) {
+  detail::MapOverDimensionsImpl<N>::run(out, in, f);
 }
+
+template <typename T>
+auto  to_matrix_map(T &t)
+    -> MatrixMap<typename T::Scalar> {
+    static_assert(T::NumIndices == 2,
+                       "Tensor must be of rank 2 to be convertible to matrix.");
+    MatrixMap(t.data(), t.dimension(0), t.dimensions(1));
+}
+
+template <typename T>
+    auto  to_matrix_map(const T &t)
+    -> ConstMatrixMap<typename T::Scalar> {
+    static_assert(T::NumIndices == 2,
+                  "Tensor must be of rank 2 to be convertible to matrix.");
+    ConstMatrixMap(t.data(), t.dimension(0), t.dimensions(1));
+}
+
+template <typename T>
+    auto  to_vector_map(T &t)
+    -> VectorMap<typename T::Scalar> {
+    static_assert(T::NumIndices == 1,
+                       "Tensor must be of rank 1 to be convertible to vector.");
+    VectorMap(t.data(), t.dimension(0));
+}
+
+template <typename T>
+    auto  to_vector_map(const T &t)
+    -> ConstVectorMap<typename T::Scalar> {
+    static_assert(T::NumIndices == 1,
+                       "Tensor must be of rank 1 to be convertible to vector.");
+    ConstVectorMap(t.data(), t.dimension(0));
+}
+
 
 }  // namespace detail
 }  // namespace scatlib

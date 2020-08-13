@@ -30,47 +30,33 @@ struct is_vector {
       (Derived::RowsAtCompileTime == 1) || (Derived::ColsAtCompileTime == 1);
 };
 
-template <typename Tensor, Eigen::Index N>
+template <typename T, Eigen::Index N>
 struct InterpolationResult {
-  using TensorType = Eigen::
-      Tensor<typename Tensor::Scalar, Tensor::NumIndices - N, Tensor::Options>;
-  using MatrixType =
-      Eigen::Matrix<typename Tensor::Scalar, -1, -1, Tensor::Options>;
-  using VectorType =
-      Eigen::Matrix<typename Tensor::Scalar, 1, -1, Tensor::Options>;
-  using ScalarType = typename Tensor::Scalar;
+    using Scalar = typename T::Scalar;
+  static constexpr int rank = T::NumIndices;
+    using ReturnType = eigen::Tensor<Scalar, rank - N>;
 
-  template <typename T,
-            typename std::enable_if<(T::NumIndices > N + 2)>::type* = nullptr>
-  static TensorType test_fun(T* ptr);
-  template <typename T,
-            typename std::enable_if<(T::NumIndices == N + 2)>::type* = nullptr>
-  static MatrixType test_fun(T* ptr);
-  template <typename T,
-            typename std::enable_if<(T::NumIndices == N + 1)>::type* = nullptr>
-  static VectorType test_fun(T* ptr);
-  template <typename T,
-            typename std::enable_if<(T::NumIndices == N)>::type* = nullptr>
-  static ScalarType test_fun(T* ptr);
-
-  using type = decltype(test_fun(reinterpret_cast<Tensor*>(0)));
+    using type = typename std::conditional<(N < rank), ReturnType, Scalar>::type;
 };
 
 template <typename Derived, Eigen::Index N>
 struct InterpolationResult<Eigen::Map<Derived>, N> {
+  using Scalar = typename Derived::Scalar;
 
-    using Scalar = typename Derived::Scalar;
+  template <typename T>
+  static eigen::Vector<Scalar> type_helper(
+      T*,
+      typename std::enable_if<(!is_vector<T>::value) && (N == 1)>::type* = 0) {
+    return {};
+  }
+  template <typename T>
+  static Scalar type_helper(
+      const T*,
+      typename std::enable_if<is_vector<T>::value || (N == 2)>::type* = 0) {
+    return nullptr;
+  }
 
-    template <typename T>
-    static eigen::Vector<Scalar> type_helper(T *, typename std::enable_if<(!is_vector<T>::value) && (N == 1)>::type * = 0) {
-        return {};
-    }
-    template <typename T>
-        static Scalar type_helper(const T *, typename std::enable_if<is_vector<T>::value || (N == 2)>::type * = 0) {
-        return nullptr;
-    }
-
-    using type = decltype(type_helper((Derived *) nullptr));
+  using type = decltype(type_helper((Derived*)nullptr));
 };
 
 template <typename Tensor, Eigen::Index N, Eigen::Index I = 0>
@@ -114,7 +100,7 @@ struct Interpolator {
 
 template <typename Tensor, Eigen::Index N>
 struct Interpolator<Tensor, N, N> {
-  using Result = typename InterpolationResult<Tensor, N>::type;
+  using Result = typename eigen::IndexResult<const Tensor, N>::type;
   using Scalar = typename Tensor::Scalar;
 
   static inline Result compute(
@@ -126,7 +112,7 @@ struct Interpolator<Tensor, N, N> {
     for (Eigen::Index i = 0; i < N; ++i) {
       indices_new[i] = indices[i] + offsets[i];
     }
-    return tensor(indices_new);
+    return eigen::tensor_index(tensor, indices_new);
   }
 };
 
@@ -271,11 +257,12 @@ template <typename WeightVector,
           typename IndexVector,
           typename GridVector,
           typename PositionVector>
-void calculate_weights(WeightVector weights,
-                       IndexVector indices,
+void calculate_weights(WeightVector&& weights,
+                       IndexVector&& indices,
                        const GridVector& grid,
                        const PositionVector& positions) {
-  using Scalar = typename WeightVector::Scalar;
+  using Scalar = typename std::remove_reference<WeightVector>::type::Scalar;
+
   for (int i = 0; i < positions.size(); ++i) {
     auto p = positions[i];
     auto f = std::lower_bound(grid.begin(), grid.end(), p);
@@ -284,12 +271,15 @@ void calculate_weights(WeightVector weights,
         indices[i] = 0;
         weights[i] = 1.0;
       } else {
-        indices[i] = f - grid.begin() - 1;
-        Scalar l = *(f - 1);
+        indices[i] = f - grid.begin();
+        if (*f != p) {
+          indices[i] -= 1;
+        }
+        Scalar l = grid[indices[i]];
         if (l == p) {
           weights[i] = 1.0;
         } else {
-          Scalar r = *f;
+          Scalar r = grid[indices[i] + 1];
           weights[i] = (r - p) / (r - l);
         }
       }
@@ -320,6 +310,7 @@ WeightIndexPair<Scalar> calculate_weights(
   }
 
   calculate_weights(weights, indices, grid, positions);
+
   return std::make_pair(weights, indices);
 }
 

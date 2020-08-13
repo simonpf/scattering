@@ -132,4 +132,15 @@ def test_regrid():
         old_grids, new_grids, dimensions, t = setup_grids(rank, n_dims, 4, 10)
         results_sp = regrid_scipy(old_grids, new_grids, dimensions, t)
         results = regrid_scatlib(old_grids, new_grids, dimensions, t)
+        print(results_sp[0], results[0])
+        print(results_sp[0] - results[0])
         assert(np.all(np.isclose(results_sp, results)))
+
+rank = 4
+n_dims = 2
+old_grids, new_grids, dimensions, t = setup_grids(rank, n_dims, 10, 20)
+results_sp = regrid_scipy(old_grids, new_grids, dimensions, t)
+results = regrid_scatlib(old_grids, new_grids, dimensions, t)
+print(results_sp[0], results[0])
+print(results_sp[0] - results[0])
+assert(np.all(np.isclose(results_sp, results)))
