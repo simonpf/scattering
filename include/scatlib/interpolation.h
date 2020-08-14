@@ -63,19 +63,20 @@ template <typename Tensor, Eigen::Index N, Eigen::Index I = 0>
 struct Interpolator {
   using Result = typename InterpolationResult<Tensor, N>::type;
   using Scalar = typename Tensor::Scalar;
+  using Index = typename Tensor::Index;
 
   static inline Result compute(
       const Tensor& tensor,
       const eigen::VectorFixedSize<Scalar, N> &weights,
-      const eigen::VectorFixedSize<Eigen::Index, N> &indices,
-      const eigen::VectorFixedSize<Eigen::Index, I> &offsets = {}) {
-    eigen::VectorFixedSize<Eigen::Index, N> indices_new{indices};
-    for (Eigen::Index i = 0; i < I; ++i) {
+      const eigen::VectorFixedSize<Index, N> &indices,
+      const eigen::VectorFixedSize<Index, I> &offsets = {}) {
+    eigen::VectorFixedSize<Index, N> indices_new{indices};
+    for (Index i = 0; i < I; ++i) {
       indices_new[i] += offsets[i];
     }
 
-    eigen::VectorFixedSize<Eigen::Index, I + 1> offsets_new{};
-    for (Eigen::Index i = 0; i < I; ++i) {
+    eigen::VectorFixedSize<Index, I + 1> offsets_new{};
+    for (Index i = 0; i < I; ++i) {
       offsets_new[i] = offsets[i];
     }
     offsets_new[I] = 0;
@@ -102,14 +103,15 @@ template <typename Tensor, Eigen::Index N>
 struct Interpolator<Tensor, N, N> {
   using Result = typename eigen::IndexResult<const Tensor, N>::type;
   using Scalar = typename Tensor::Scalar;
+  using Index = typename Tensor::Index;
 
   static inline Result compute(
       const Tensor& tensor,
       const eigen::VectorFixedSize<Scalar, N> &/*weights*/,
-      const eigen::VectorFixedSize<Eigen::Index, N> &indices,
-      const eigen::VectorFixedSize<Eigen::Index, N> &offsets = {}) {
-    std::array<Eigen::Index, N> indices_new;
-    for (Eigen::Index i = 0; i < N; ++i) {
+      const eigen::VectorFixedSize<Index, N> &indices,
+      const eigen::VectorFixedSize<Index, N> &offsets = {}) {
+    std::array<Index, N> indices_new;
+    for (Index i = 0; i < N; ++i) {
       indices_new[i] = indices[i] + offsets[i];
     }
     return eigen::tensor_index(tensor, indices_new);
@@ -447,9 +449,8 @@ class RegularGridInterpolator {
     const IndexMatrix& indices = std::get<1>(interp_weights);
 
     int n_results = weights.rows();
-    results.resize(n_results);
     for (int i = 0; i < n_results; ++i) {
-      results[i] = scatlib::interpolate<Tensor, degree>(t,
+      results(i) = scatlib::interpolate<Tensor, degree>(t,
                                                         weights.row(i),
                                                         indices.row(i));
     }
