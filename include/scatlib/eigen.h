@@ -183,6 +183,17 @@ struct TensorIndexer<T, rank_in, rank_in> {
   };
 };
 
+template <typename T, int rank_in>
+    struct TensorIndexer<T, rank_in, rank_in> {
+    using Tensor = typename std::remove_reference<T>::type;
+    using TensorIndex = typename Tensor::Index;
+    using Scalar = typename Tensor::Scalar;
+
+    static inline Scalar get(T &t, std::array<TensorIndex, rank_in> index_array) {
+        return t(index_array);
+    };
+};
+
 // pxx :: export
 // pxx :: instance(["4", "scatlib::eigen::TensorMap<double, 4>"])
 // pxx :: instance(["3", "scatlib::eigen::TensorMap<double, 4>"])
@@ -280,6 +291,23 @@ auto to_vector_map(const T &t) -> ConstVectorMap<typename T::Scalar> {
                 "Tensor must be of rank 1 to be convertible to vector.");
   return ConstVectorMap<Scalar>(t.data(), t.dimension(0));
 }
+
+//
+// Access to sub-matrix of tensor.
+//
+
+template <int m,
+    int n,
+    typename TensorType,
+    typename IndexArray = std::array<typename TensorType::Index, TensorType::NumIndices - 2>>
+void get_submatrix(TensorType &t,
+                   IndexArray matrix_index) {
+}
+
+    
+    
+}
+
 
 }  // namespace eigen
 }  // namespace scatlib

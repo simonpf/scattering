@@ -441,6 +441,7 @@ class RegularGridInterpolator {
    * @param positions Eigen matrix containing the positions at which to
    * interpolate t.
    */
+  // pxx :: hide
   template <typename ResultContainer>
   void interpolate(ResultContainer results,
                    const Tensor& t,
@@ -450,9 +451,9 @@ class RegularGridInterpolator {
 
     int n_results = weights.rows();
     for (int i = 0; i < n_results; ++i) {
-      results(i) = scatlib::interpolate<Tensor, degree>(t,
-                                                        weights.row(i),
-                                                        indices.row(i));
+        eigen::tensor_index<1>(results, {i}) = scatlib::interpolate<Tensor, degree>(t,
+                                                                                    weights.row(i),
+                                                                                    indices.row(i));
     }
   }
 
@@ -492,7 +493,7 @@ class RegularRegridder {
    * @returns std::array containing the dimensions of the regridded tensor.
    */
   std::array<eigen::Index, rank> get_output_dimensions(
-      eigen::Tensor<Scalar, rank>& in) {
+      const eigen::Tensor<Scalar, rank>& in) {
     auto input_dimensions = in.dimensions();
     std::array<eigen::Index, rank> output_dimensions;
     std::copy(input_dimensions.begin(),
@@ -508,7 +509,7 @@ class RegularRegridder {
    * @param in The tensor to regrid
    * @returns std::array containing the strides of the regridded tensor.
    */
-  std::array<eigen::Index, rank> get_strides(eigen::Tensor<Scalar, rank>& t) {
+  std::array<eigen::Index, rank> get_strides(const eigen::Tensor<Scalar, rank>& t) {
     auto dimensions = get_output_dimensions(t);
     std::array<eigen::Index, rank> strides;
     eigen::Index c = 1;
@@ -561,7 +562,7 @@ class RegularRegridder {
    * @param in The tensor to regrid.
    * @return The regridded tensor.
    */
-  eigen::Tensor<Scalar, rank> regrid(eigen::Tensor<Scalar, rank> in) {
+  eigen::Tensor<Scalar, rank> regrid(const eigen::Tensor<Scalar, rank> &in) {
     using WeightVector = eigen::VectorFixedSize<Scalar, rank>;
     using IndexVector = eigen::VectorFixedSize<eigen::Index, rank>;
     using Tensor = eigen::Tensor<Scalar, rank>;
@@ -586,6 +587,38 @@ class RegularRegridder {
                                     interpolation_indices);
     }
     return output;
+  }
+
+  /** Regrid tensor.
+   * @param output The tensor to hold the result.
+   * @param input The tensor to regrid.
+   * @return The regridded tensor.
+   */
+  // pxx :: hide
+  template <typename TensorOut, typename TensorIn>
+    void regrid(TensorOut output, TensorIn input) {
+    using WeightVector = eigen::VectorFixedSize<Scalar, rank>;
+    using IndexVector = eigen::VectorFixedSize<eigen::Index, rank>;
+    using Tensor = eigen::Tensor<Scalar, rank>;
+    WeightVector interpolation_weights = WeightVector::Constant(1.0);
+    IndexVector interpolation_indices = IndexVector::Constant(0);
+    std::array<eigen::Index, rank> strides = get_strides(output);
+
+    for (eigen::Index i = 0; i < output.size(); ++i) {
+      auto output_indices = get_indices(i, strides);
+      for (eigen::Index j = 0; j < rank; ++j) {
+        interpolation_indices[j] = output_indices[j];
+      }
+      for (eigen::Index j = 0; j < n_dimensions; ++j) {
+        eigen::Index dim = dimensions_[j];
+        interpolation_weights[dim] = weights_[j][output_indices[dim]];
+        interpolation_indices[dim] = indices_[j][output_indices[dim]];
+      }
+      output(output_indices) =
+          interpolate<TensorIn, rank>(input,
+                                      interpolation_weights,
+                                      interpolation_indices);
+    }
   }
 
  protected:

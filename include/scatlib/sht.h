@@ -63,6 +63,7 @@ class FFTWArray {
 class SHT {
  public:
   using Vector = eigen::Vector<double>;
+  using IndexVector = eigen::Vector<size_t>;
   using ConstVectorMap = eigen::ConstVectorMap<double>;
   /**
    * Create a spherical harmonics transformation object.
@@ -83,7 +84,8 @@ class SHT {
     shtns_use_threads(0);
     shtns_reset();
     shtns_ = shtns_init(sht_quick_init, l_max_, m_max_, m_res_, n_lat_, n_lon_);
-    spectral_coeffs_ = sht::FFTWArray<std::complex<double>>(shtns_->nlm);
+    n_spectral_coeffs_ = shtns_->nlm;
+    spectral_coeffs_ = sht::FFTWArray<std::complex<double>>(n_spectral_coeffs_);
     spatial_coeffs_ = sht::FFTWArray<double>(NSPAT_ALLOC(shtns_));
   }
 
@@ -99,6 +101,32 @@ class SHT {
    */
   Vector get_colatitude_grid() {
       return ConstVectorMap(shtns_->ct, n_lat_);
+  }
+
+  /** L-indices of the SHT modes.
+   *
+   * @return A vector of indices containing the l-value corresponding to each
+   * element in a spectral coefficient vector.
+   */
+  IndexVector get_l_indices() {
+    IndexVector result(n_spectral_coeffs_);
+    for (size_t i = 0; i < n_spectral_coeffs_; ++i) {
+      result[i] = shtns_->li[i];
+    }
+    return result;
+  }
+
+  /** M-indices of the SHT modes.
+   *
+   * @return A vector of indices containing the m-value corresponding to each
+   * element in a spectral coefficient vector.
+   */
+  IndexVector get_m_indices() {
+    IndexVector result(n_spectral_coeffs_);
+    for (size_t i = 0; i < n_spectral_coeffs_; ++i) {
+      result[i] = shtns_->mi[i];
+    }
+    return result;
   }
 
   /**
@@ -265,7 +293,7 @@ class SHT {
   }
 
  private:
-  size_t l_max_, m_max_, n_lat_, n_lon_, m_res_;
+  size_t l_max_, m_max_, n_lat_, n_lon_, m_res_, n_spectral_coeffs_;
   shtns_cfg shtns_;
 
   sht::FFTWArray<std::complex<double>> spectral_coeffs_;
