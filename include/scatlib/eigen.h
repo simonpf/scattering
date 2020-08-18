@@ -296,18 +296,59 @@ auto to_vector_map(const T &t) -> ConstVectorMap<typename T::Scalar> {
 // Access to sub-matrix of tensor.
 //
 
+namespace detail {
+template <typename Index, int rank>
+Eigen::DSizes<Index, rank> calculate_strides(
+    Eigen::DSizes<Index, rank> dimensions) {
+  Eigen::DSizes<Index, rank> strides{0};
+  Index stride = 1;
+  for (int i = 0; i < rank; ++i) {
+    strides[i] = stride;
+    stride *= dimensions[i];
+  }
+}
+
+}  // namespace detail
+
+// pxx :: export
+// pxx :: instance(["1", "3", "scatlib::eigen::TensorMap<double, 5>"])
 template <int m,
-    int n,
-    typename TensorType,
-    typename IndexArray = std::array<typename TensorType::Index, TensorType::NumIndices - 2>>
-void get_submatrix(TensorType &t,
-                   IndexArray matrix_index) {
-}
+          int n,
+          typename TensorType,
+          typename IndexArray = std::array<typename TensorType::Index,
+                                           TensorType::NumIndices - 2>>
+auto inline get_submatrix(TensorType &t, IndexArray matrix_index) {
+  using CoeffType = decltype(((TensorType *)nullptr)->data());
+  using ResultType = typename std::conditional<
+      std::is_const<TensorType>::value,
+      MatrixMap<typename TensorType::Scalar>,
+      ConstMatrixMap<typename TensorType::Scalar>>::type;
 
-    
-    
-}
+  using TensorIndex = typename TensorType::Index;
+  constexpr int rank = TensorType::NumIndices;
 
+  // Extend matrix dimensions to tensor dimension
+  // to calculate offset.
+  auto dimensions_in = t.dimensions();
+  std::array<TensorIndex, rank> index{0};
+  int dimension_index = 0;
+  for (int i = 0; i < rank; ++i) {
+    if ((i != m) && (i != n)) {
+      index[i] = matrix_index[dimension_index];
+      dimension_index++
+    }
+  }
+  auto offset = dimensions_in.IndexOfRowMajor(index);
+  auto strides = detail::calculate_strides(t);
+
+  return ReturnType(t.data() + offset, strides[m], strides[n]);
+
+  Eigen::DSizes<TensorIndex, rank_out> dimensions_out{};
+  for (int i = 0; i < rank_out; ++i) {
+    dimensions_out[i] = dimensions_in[n_indices + i];
+  }
+  return ReturnType(t.data() + offset, dimensions_out);
+}
 
 }  // namespace eigen
 }  // namespace scatlib
