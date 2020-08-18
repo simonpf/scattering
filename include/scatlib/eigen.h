@@ -37,7 +37,13 @@ using VectorFixedSize = Eigen::Matrix<Scalar, 1, N, Eigen::RowMajor>;
 template <typename Scalar>
 using VectorMap = Eigen::Map<Vector<Scalar>>;
 template <typename Scalar>
+using VectorMapDynamic =
+    Eigen::Map<Vector<Scalar>, 0, Eigen::Stride<1, Eigen::Dynamic>>;
+template <typename Scalar>
 using ConstVectorMap = Eigen::Map<const Vector<Scalar>>;
+template <typename Scalar>
+using ConstVectorMapDynamic =
+    Eigen::Map<const Vector<Scalar>, 0, Eigen::Stride<1, Eigen::Dynamic>>;
 template <typename Scalar>
 using VectorRef = Eigen::Ref<Vector<Scalar>>;
 template <typename Scalar>
@@ -64,7 +70,17 @@ using MatrixFixedRows =
 template <typename Scalar>
 using MatrixMap = Eigen::Map<Matrix<Scalar>>;
 template <typename Scalar>
+using MatrixMapDynamic =
+    Eigen::Map<Matrix<Scalar>,
+               Eigen::RowMajor,
+               Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>;
+template <typename Scalar>
 using ConstMatrixMap = Eigen::Map<const Matrix<Scalar>>;
+template <typename Scalar>
+using ConstMatrixMapDynamic =
+    Eigen::Map<const Matrix<Scalar>,
+               Eigen::RowMajor,
+               Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>;
 
 //
 // Tensors
@@ -183,17 +199,6 @@ struct TensorIndexer<T, rank_in, rank_in> {
   };
 };
 
-template <typename T, int rank_in>
-    struct TensorIndexer<T, rank_in, rank_in> {
-    using Tensor = typename std::remove_reference<T>::type;
-    using TensorIndex = typename Tensor::Index;
-    using Scalar = typename Tensor::Scalar;
-
-    static inline Scalar get(T &t, std::array<TensorIndex, rank_in> index_array) {
-        return t(index_array);
-    };
-};
-
 // pxx :: export
 // pxx :: instance(["4", "scatlib::eigen::TensorMap<double, 4>"])
 // pxx :: instance(["3", "scatlib::eigen::TensorMap<double, 4>"])
@@ -297,32 +302,39 @@ auto to_vector_map(const T &t) -> ConstVectorMap<typename T::Scalar> {
 //
 
 namespace detail {
-template <typename Index, int rank>
-Eigen::DSizes<Index, rank> calculate_strides(
-    Eigen::DSizes<Index, rank> dimensions) {
-  Eigen::DSizes<Index, rank> strides{0};
+template <typename TensorType>
+auto calculate_strides(const TensorType &t) {
+  constexpr int rank = TensorType::NumIndices;
+  auto dimensions = t.dimensions();
+  decltype(dimensions) strides{};
   Index stride = 1;
   for (int i = 0; i < rank; ++i) {
-    strides[i] = stride;
-    stride *= dimensions[i];
+    strides[rank - i - 1] = stride;
+    stride *= dimensions[rank - i - 1];
   }
+  return strides;
 }
 
 }  // namespace detail
 
 // pxx :: export
-// pxx :: instance(["1", "3", "scatlib::eigen::TensorMap<double, 5>"])
+// pxx :: instance(["1", "3", "scatlib::eigen::TensorMap<double, 5>", "std::array<int, 3>"])
 template <int m,
           int n,
           typename TensorType,
           typename IndexArray = std::array<typename TensorType::Index,
                                            TensorType::NumIndices - 2>>
-auto inline get_submatrix(TensorType &t, IndexArray matrix_index) {
+auto inline get_submatrix(TensorType &t, IndexArray matrix_index) ->
+    typename std::conditional<
+        std::is_const<decltype(((TensorType *)nullptr)->data())>::value,
+        MatrixMapDynamic<typename TensorType::Scalar>,
+        ConstMatrixMapDynamic<typename TensorType::Scalar>>::type
+{
   using CoeffType = decltype(((TensorType *)nullptr)->data());
   using ResultType = typename std::conditional<
-      std::is_const<TensorType>::value,
-      MatrixMap<typename TensorType::Scalar>,
-      ConstMatrixMap<typename TensorType::Scalar>>::type;
+      std::is_const<CoeffType>::value,
+      MatrixMapDynamic<typename TensorType::Scalar>,
+      ConstMatrixMapDynamic<typename TensorType::Scalar>>::type;
 
   using TensorIndex = typename TensorType::Index;
   constexpr int rank = TensorType::NumIndices;
@@ -335,19 +347,61 @@ auto inline get_submatrix(TensorType &t, IndexArray matrix_index) {
   for (int i = 0; i < rank; ++i) {
     if ((i != m) && (i != n)) {
       index[i] = matrix_index[dimension_index];
-      dimension_index++
+      dimension_index++;
     }
   }
   auto offset = dimensions_in.IndexOfRowMajor(index);
   auto strides = detail::calculate_strides(t);
 
-  return ReturnType(t.data() + offset, strides[m], strides[n]);
+  Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> matrix_strides{strides[m], strides[n]};
+  auto map = ResultType(t.data() + offset,
+                        dimensions_in[m],
+                        dimensions_in[n],
+                        matrix_strides);
+  return map;
+}
 
-  Eigen::DSizes<TensorIndex, rank_out> dimensions_out{};
-  for (int i = 0; i < rank_out; ++i) {
-    dimensions_out[i] = dimensions_in[n_indices + i];
+// pxx :: export
+// pxx :: instance(["3", "scatlib::eigen::TensorMap<double, 5>", "std::array<int, 4>"])
+template <int m,
+          typename TensorType,
+          typename IndexArray = std::array<typename TensorType::Index,
+                                           TensorType::NumIndices - 1>>
+auto inline get_subvector(TensorType &t, IndexArray vector_index) ->
+    typename std::conditional<
+        std::is_const<decltype(((TensorType *)nullptr)->data())>::value,
+        VectorMapDynamic<typename TensorType::Scalar>,
+        ConstVectorMapDynamic<typename TensorType::Scalar>>::type
+{
+  using CoeffType = decltype(((TensorType *)nullptr)->data());
+  using ResultType = typename std::conditional<
+      std::is_const<CoeffType>::value,
+      VectorMapDynamic<typename TensorType::Scalar>,
+      ConstVectorMapDynamic<typename TensorType::Scalar>>::type;
+
+  using TensorIndex = typename TensorType::Index;
+  constexpr int rank = TensorType::NumIndices;
+
+  // Extend vector dimensions to tensor dimension
+  // to calculate offset.
+  auto dimensions_in = t.dimensions();
+  std::array<TensorIndex, rank> index{0};
+  int dimension_index = 0;
+  for (int i = 0; i < rank; ++i) {
+    if (i != m) {
+      index[i] = vector_index[dimension_index];
+      dimension_index++;
+    }
   }
-  return ReturnType(t.data() + offset, dimensions_out);
+  auto offset = dimensions_in.IndexOfRowMajor(index);
+  auto strides = detail::calculate_strides(t);
+
+  Eigen::Stride<1, Eigen::Dynamic> vector_strides{1, strides[m]};
+  auto map = ResultType(t.data() + offset,
+                        1,
+                        dimensions_in[m],
+                        vector_strides);
+  return map;
 }
 
 }  // namespace eigen
