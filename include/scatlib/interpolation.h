@@ -63,13 +63,16 @@ template <typename Tensor, Eigen::Index N, Eigen::Index I = 0>
 struct Interpolator {
   using Result = typename InterpolationResult<Tensor, N>::type;
   using Scalar = typename Tensor::Scalar;
+  using Real = decltype(std::real(std::declval<Scalar>()));
   using Index = typename Tensor::Index;
 
-  static inline Result compute(
+     static inline Result compute(
       const Tensor& tensor,
-      const eigen::VectorFixedSize<Scalar, N> &weights,
+      const eigen::VectorFixedSize<Real, N> &weights,
       const eigen::VectorFixedSize<Index, N> &indices,
-      const eigen::VectorFixedSize<Index, I> &offsets = {}) {
+      const eigen::VectorFixedSize<Index, I> &offsets = {})
+
+        {
     eigen::VectorFixedSize<Index, N> indices_new{indices};
     for (Index i = 0; i < I; ++i) {
       indices_new[i] += offsets[i];
@@ -81,7 +84,7 @@ struct Interpolator {
     }
     offsets_new[I] = 0;
 
-    Scalar w = weights[I];
+    Real w = weights[I];
     Result t = Interpolator<Tensor, N, I + 1>::compute(tensor,
                                                        weights,
                                                        indices,
@@ -89,7 +92,7 @@ struct Interpolator {
     if (w < 1.0) {
       offsets_new[I] = 1;
       t = w * t;
-      t += static_cast<Scalar>(1.0 - w) *
+      t += static_cast<Real>(1.0 - w) *
            Interpolator<Tensor, N, I + 1>::compute(tensor,
                                                    weights,
                                                    indices,
@@ -103,11 +106,12 @@ template <typename Tensor, Eigen::Index N>
 struct Interpolator<Tensor, N, N> {
   using Result = typename eigen::IndexResult<const Tensor, N>::type;
   using Scalar = typename Tensor::Scalar;
+  using Real = decltype(std::real(std::declval<Scalar>()));
   using Index = typename Tensor::Index;
 
-  static inline Result compute(
+   static inline Result compute(
       const Tensor& tensor,
-      const eigen::VectorFixedSize<Scalar, N> &/*weights*/,
+      const eigen::VectorFixedSize<Real, N> &/*weights*/,
       const eigen::VectorFixedSize<Index, N> &indices,
       const eigen::VectorFixedSize<Index, N> &offsets = {}) {
     std::array<Index, N> indices_new;
@@ -123,10 +127,11 @@ template <typename Derived>
     struct Interpolator<Eigen::Map<Derived>, 2, 2> {
     using Matrix = Eigen::Map<Derived>;
     using Scalar = typename Derived::Scalar;
+    using Real = decltype(std::real(std::declval<Scalar>()));
 
-    static inline Scalar compute(
+    __attribute__((always_inline)) static inline Scalar compute(
         const Matrix& matrix,
-        const eigen::VectorFixedSize<Scalar, 2> &/*weights*/,
+        const eigen::VectorFixedSize<Real, 2> &/*weights*/,
         const eigen::VectorFixedSize<Eigen::Index, 2> &indices,
         const eigen::VectorFixedSize<Eigen::Index, 2> &offsets = {}) {
         return matrix(indices[0] + offsets[0], indices[1] + offsets[1]);
@@ -139,11 +144,12 @@ template <typename Derived>
     using Vector = Eigen::Map<Derived>;
     using Matrix = Eigen::Map<Derived>;
     using Scalar = typename Derived::Scalar;
+    using Real = decltype(std::real(std::declval<Scalar>()));
 
     template <typename T>
-    static inline auto compute(
+    __attribute__((always_inline)) static inline auto compute(
         const Eigen::Map<T>& matrix,
-        const eigen::VectorFixedSize<Scalar, 1> &/*weights*/,
+        const eigen::VectorFixedSize<Real, 1> &/*weights*/,
         const eigen::VectorFixedSize<Eigen::Index, 1> &indices,
         const eigen::VectorFixedSize<Eigen::Index, 1> &offsets = {},
         typename std::enable_if<!is_vector<T>::value>::type * = 0) {
@@ -151,9 +157,9 @@ template <typename Derived>
     }
 
     template <typename T>
-    static inline Scalar compute(
+        __attribute__((always_inline)) static inline Scalar compute(
         const Eigen::Map<T>& vector,
-        const eigen::VectorFixedSize<Scalar, 1> &/*weights*/,
+        const eigen::VectorFixedSize<Real, 1> &/*weights*/,
         const eigen::VectorFixedSize<Eigen::Index, 1> &indices,
         const eigen::VectorFixedSize<Eigen::Index, 1> &offsets = {},
         typename std::enable_if<is_vector<T>::value>::type * = 0) {
@@ -319,21 +325,21 @@ WeightIndexPair<Scalar> calculate_weights(
 }
 
 // pxx :: export
-// pxx :: instance(["Eigen::Tensor<float, 4, Eigen::RowMajor>", "3"])
-// pxx :: instance(["Eigen::Tensor<float, 5, Eigen::RowMajor>", "3"])
-// pxx :: instance(["Eigen::Tensor<float, 6, Eigen::RowMajor>", "3"])
-// pxx :: instance(["Eigen::Tensor<float, 7, Eigen::RowMajor>", "3"])
-// pxx :: instance(["Eigen::Tensor<float, 3, Eigen::RowMajor>", "2"])
-// pxx :: instance(["Eigen::Tensor<float, 4, Eigen::RowMajor>", "2"])
-// pxx :: instance(["Eigen::Tensor<float, 5, Eigen::RowMajor>", "2"])
-// pxx :: instance(["Eigen::Tensor<float, 6, Eigen::RowMajor>", "2"])
-// pxx :: instance(["Eigen::Tensor<float, 7, Eigen::RowMajor>", "2"])
-// pxx :: instance(["Eigen::Tensor<float, 2, Eigen::RowMajor>", "1"])
-// pxx :: instance(["Eigen::Tensor<float, 3, Eigen::RowMajor>", "1"])
-// pxx :: instance(["Eigen::Tensor<float, 4, Eigen::RowMajor>", "1"])
-// pxx :: instance(["Eigen::Tensor<float, 5, Eigen::RowMajor>", "1"])
-// pxx :: instance(["Eigen::Tensor<float, 6, Eigen::RowMajor>", "1"])
-// pxx :: instance(["Eigen::Tensor<float, 7, Eigen::RowMajor>", "1"])
+// pxx :: instance(["Eigen::Tensor<float, 4, Eigen::RowMajor>", "3", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 5, Eigen::RowMajor>", "3", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 6, Eigen::RowMajor>", "3", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 7, Eigen::RowMajor>", "3", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 3, Eigen::RowMajor>", "2", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 4, Eigen::RowMajor>", "2", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 5, Eigen::RowMajor>", "2", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 6, Eigen::RowMajor>", "2", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 7, Eigen::RowMajor>", "2", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 2, Eigen::RowMajor>", "1", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 3, Eigen::RowMajor>", "1", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 4, Eigen::RowMajor>", "1", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 5, Eigen::RowMajor>", "1", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 6, Eigen::RowMajor>", "1", "float"])
+// pxx :: instance(["Eigen::Tensor<float, 7, Eigen::RowMajor>", "1", "float"])
 //
 /** Interpolate tensor using given weights and indices.
  *
@@ -348,12 +354,12 @@ WeightIndexPair<Scalar> calculate_weights(
  * interpolation domain.
  * @return Rank-(k - degree) tensor containing the result.
  */
-template <typename Tensor, size_t degree>
-inline typename detail::InterpolationResult<Tensor, degree>::type interpolate(
+template <typename Tensor, size_t degree, typename Scalar>
+    __attribute__((always_inline)) inline typename detail::InterpolationResult<Tensor, degree>::type interpolate(
     const Tensor& tensor,
-    Eigen::Ref<const eigen::VectorFixedSize<typename Tensor::Scalar, degree>>
+    Eigen::Ref<const eigen::VectorFixedSize<Scalar, degree>>
         weights,
-    Eigen::Ref<const eigen::VectorFixedSize<typename Tensor::Index, degree>>
+    Eigen::Ref<const eigen::VectorFixedSize<Eigen::Index, degree>>
         indices) {
   return detail::Interpolator<Tensor, degree>::compute(tensor,
                                                        weights,
@@ -373,7 +379,7 @@ inline typename detail::InterpolationResult<Tensor, degree>::type interpolate(
 template <typename Tensor, size_t degree, typename Vector>
 class RegularGridInterpolator {
  public:
-  using Scalar = typename Tensor::Scalar;
+  using Scalar = typename Vector::Scalar;
   using WeightVector = eigen::VectorFixedSize<Scalar, degree>;
   using IndexVector = eigen::VectorFixedSize<Eigen::Index, degree>;
   using WeightMatrix = eigen::MatrixFixedRows<Scalar, degree>;
@@ -427,7 +433,7 @@ class RegularGridInterpolator {
     int n_results = weights.rows();
     results.resize(n_results);
     for (int i = 0; i < n_results; ++i) {
-      results[i] = scatlib::interpolate<Tensor, degree>(t,
+        results[i] = scatlib::interpolate<Tensor, degree, Scalar>(t,
                                                         weights.row(i),
                                                         indices.row(i));
     }
@@ -451,7 +457,7 @@ class RegularGridInterpolator {
 
     int n_results = weights.rows();
     for (int i = 0; i < n_results; ++i) {
-        eigen::tensor_index<1>(results, {i}) = scatlib::interpolate<Tensor, degree>(t,
+        eigen::tensor_index<1>(results, {i}) = scatlib::interpolate<Tensor, degree, Scalar>(t,
                                                                                     weights.row(i),
                                                                                     indices.row(i));
     }
@@ -474,8 +480,42 @@ class RegularGridInterpolator {
   std::array<Vector, degree> grids_;
 };
 
-// pxx :: export
-// pxx :: instance(["double", "4", "2"])
+template <int ... Axis>
+struct RegridImpl;
+
+template <int i, int a, int... Axis>
+struct RegridImpl<i, a, Axis...> {
+  template <typename Tensor, typename Weights, typename Indices>
+      __attribute__((always_inline)) auto static inline compute(const Tensor& t,
+                             std::array<Eigen::DenseIndex, Tensor::NumIndices> coords,
+                             const Weights& weights,
+                             const Indices& indices) {
+    auto w = weights[i][coords[a]];
+    auto index = indices[i][coords[a]];
+    decltype(coords) new_coords = coords;
+
+    new_coords[a] = index;
+    auto l = RegridImpl<i + 1, Axis...>::compute(t, new_coords, weights, indices);
+    if (w == 1.0) {
+      return l;
+    }
+    new_coords[a] += 1;
+    auto r = RegridImpl<i + 1, Axis...>::compute(t, new_coords, weights, indices);
+    return w * l + (1.0 - w) * r;
+  }
+};
+
+template <int i>
+struct RegridImpl<i> {
+  template <typename Tensor, typename Weights, typename Indices>
+      __attribute__((always_inline)) auto static inline compute(const Tensor& t,
+                             std::array<Eigen::DenseIndex, Tensor::NumIndices> coords,
+                             const Weights&/*weights*/,
+                             const Indices&/*indices*/) {
+    return t(coords);
+  }
+};
+
 /** Regridder for regular grids.
  *
  * The RegularRegridder implements regridding of regular grids. It interpolates
@@ -485,17 +525,23 @@ class RegularGridInterpolator {
  * @tparam rank The rank of the tensor to regrid.
  * @tparam n_dimensions The number of dimensions to regrid.
  */
-template <typename Scalar, eigen::Index rank, eigen::Index n_dimensions>
+template <typename Scalar, int ... Axes>
 class RegularRegridder {
  public:
+
+    static constexpr size_t n_dimensions = sizeof...(Axes);
+
   /** Dimensions of output tensor.
    * @param in The tensor to regrid
    * @returns std::array containing the dimensions of the regridded tensor.
    */
-  std::array<eigen::Index, rank> get_output_dimensions(
-      const eigen::Tensor<Scalar, rank>& in) {
+  // pxx :: hide
+  template <typename Tensor,
+            typename IndexArray =
+                std::array<typename Tensor::Index, Tensor::NumIndices>>
+  IndexArray get_output_dimensions(const Tensor& in) {
     auto input_dimensions = in.dimensions();
-    std::array<eigen::Index, rank> output_dimensions;
+    IndexArray output_dimensions;
     std::copy(input_dimensions.begin(),
               input_dimensions.end(),
               output_dimensions.begin());
@@ -509,11 +555,15 @@ class RegularRegridder {
    * @param in The tensor to regrid
    * @returns std::array containing the strides of the regridded tensor.
    */
-  std::array<eigen::Index, rank> get_strides(const eigen::Tensor<Scalar, rank>& t) {
+  // pxx :: hide
+  template <typename Tensor,
+            typename IndexArray =
+                std::array<typename Tensor::Index, Tensor::NumIndices>>
+  IndexArray get_strides(const Tensor& t) {
     auto dimensions = get_output_dimensions(t);
-    std::array<eigen::Index, rank> strides;
+    IndexArray strides;
     eigen::Index c = 1;
-    for (eigen::Index i = rank - 1; i >= 0; --i) {
+    for (eigen::Index i = Tensor::NumIndices - 1; i >= 0; --i) {
       strides[i] = c;
       c *= dimensions[i];
     }
@@ -526,11 +576,11 @@ class RegularRegridder {
    * @returns std::array containing the tensor-index array corresponding to
    * index.
    */
-  static std::array<eigen::Index, rank> get_indices(
-      eigen::Index index,
-      std::array<eigen::Index, rank> strides) {
-    std::array<eigen::Index, rank> indices{0};
-    for (eigen::Index i = 0; i < rank; ++i) {
+  // pxx :: hide
+  template <typename Index, typename IndexArray>
+  static inline IndexArray get_indices(Index index, IndexArray strides) {
+    IndexArray indices{0};
+    for (eigen::Index i = 0; i < strides.size(); ++i) {
       if (i > 0) {
         indices[i] = (index % strides[i - 1]) / strides[i];
       } else {
@@ -548,10 +598,9 @@ class RegularRegridder {
    * given grids correspond.
    */
   RegularRegridder(std::array<eigen::Vector<Scalar>, n_dimensions> old_grids,
-                   std::array<eigen::Vector<Scalar>, n_dimensions> new_grids,
-                   std::array<eigen::Index, n_dimensions> dimensions)
-      : old_grids_(old_grids), new_grids_(new_grids), dimensions_(dimensions) {
-    for (size_t i = 0; i < dimensions.size(); ++i) {
+                   std::array<eigen::Vector<Scalar>, n_dimensions> new_grids)
+      : old_grids_(old_grids), new_grids_(new_grids) {
+    for (size_t i = 0; i < dimensions_.size(); ++i) {
       auto ws = detail::calculate_weights<Scalar>(old_grids_[i], new_grids_[i]);
       weights_[i] = std::get<0>(ws);
       indices_[i] = std::get<1>(ws);
@@ -562,31 +611,20 @@ class RegularRegridder {
    * @param in The tensor to regrid.
    * @return The regridded tensor.
    */
-  eigen::Tensor<Scalar, rank> regrid(const eigen::Tensor<Scalar, rank> &in) {
-    using WeightVector = eigen::VectorFixedSize<Scalar, rank>;
-    using IndexVector = eigen::VectorFixedSize<eigen::Index, rank>;
-    using Tensor = eigen::Tensor<Scalar, rank>;
-    WeightVector interpolation_weights = WeightVector::Constant(1.0);
-    IndexVector interpolation_indices = IndexVector::Constant(0);
-    eigen::Tensor<Scalar, rank> output{get_output_dimensions(in)};
-    std::array<eigen::Index, rank> strides = get_strides(output);
+  template <typename Tensor>
+  Tensor regrid(const Tensor &input) {
+    constexpr int rank = Tensor::NumIndices;
+    eigen::Tensor<Scalar, rank> output{get_output_dimensions(input)};
 
-    for (eigen::Index i = 0; i < output.size(); ++i) {
-      auto output_indices = get_indices(i, strides);
-      for (eigen::Index j = 0; j < rank; ++j) {
-        interpolation_indices[j] = output_indices[j];
-      }
-      for (eigen::Index j = 0; j < n_dimensions; ++j) {
-        eigen::Index dim = dimensions_[j];
-        interpolation_weights[dim] = weights_[j][output_indices[dim]];
-        interpolation_indices[dim] = indices_[j][output_indices[dim]];
-      }
-      output.coeffRef(output_indices) =
-          interpolate<Tensor, rank>(in,
-                                    interpolation_weights,
-                                    interpolation_indices);
-    }
-    return output;
+    using IndexArray = std::array<Eigen::DenseIndex, rank>;
+    auto generator = [this, &input](const IndexArray &coordinates) {
+        return RegridImpl<0, Axes ...>::compute(input,
+                                                coordinates,
+                                                this->weights_,
+                                                this->indices_);
+    };
+
+    return output.generate(generator);
   }
 
   /** Regrid tensor.
@@ -596,37 +634,29 @@ class RegularRegridder {
    */
   // pxx :: hide
   template <typename TensorOut, typename TensorIn>
-    void regrid(TensorOut output, TensorIn input) {
-    using WeightVector = eigen::VectorFixedSize<Scalar, rank>;
-    using IndexVector = eigen::VectorFixedSize<eigen::Index, rank>;
-    using Tensor = eigen::Tensor<Scalar, rank>;
-    WeightVector interpolation_weights = WeightVector::Constant(1.0);
-    IndexVector interpolation_indices = IndexVector::Constant(0);
-    std::array<eigen::Index, rank> strides = get_strides(output);
+    void regrid(TensorOut &output, TensorIn &input) {
+    constexpr int rank = TensorOut::NumIndices;
 
-    for (eigen::Index i = 0; i < output.size(); ++i) {
-      auto output_indices = get_indices(i, strides);
-      for (eigen::Index j = 0; j < rank; ++j) {
-        interpolation_indices[j] = output_indices[j];
-      }
-      for (eigen::Index j = 0; j < n_dimensions; ++j) {
-        eigen::Index dim = dimensions_[j];
-        interpolation_weights[dim] = weights_[j][output_indices[dim]];
-        interpolation_indices[dim] = indices_[j][output_indices[dim]];
-      }
-      output(output_indices) =
-          interpolate<TensorIn, rank>(input,
-                                      interpolation_weights,
-                                      interpolation_indices);
-    }
+    using IndexArray = std::array<Eigen::DenseIndex, rank>;
+    auto generator = [this, &input](const IndexArray &coordinates) {
+        return RegridImpl<0, Axes ...>::compute(input,
+                                                coordinates,
+                                                this->weights_,
+                                                this->indices_);
+    };
+
+    output = output.generate(generator);
   }
 
  protected:
+
+
   std::array<eigen::Vector<Scalar>, n_dimensions> old_grids_;
   std::array<eigen::Vector<Scalar>, n_dimensions> new_grids_;
-  std::array<eigen::Index, n_dimensions> dimensions_;
   std::array<eigen::Vector<Scalar>, n_dimensions> weights_;
   std::array<eigen::Vector<eigen::Index>, n_dimensions> indices_;
+  static constexpr std::array<int, n_dimensions> dimensions_{Axes ...};
+
 };
 
 }  // namespace scatlib

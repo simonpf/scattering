@@ -13,7 +13,9 @@
 #include "Eigen/Dense"
 
 using GridCoeffs = scatlib::eigen::Matrix<double>;
+using GridCoeffsRef = scatlib::eigen::ConstMatrixRef<double>;
 using SpectralCoeffs = scatlib::eigen::Vector<std::complex<double>>;
+using SpectralCoeffsRef = scatlib::eigen::ConstVectorRef<std::complex<double>>;
 
 namespace scatlib {
 namespace sht {
@@ -101,6 +103,15 @@ class SHT {
    */
   Vector get_colatitude_grid() {
       return ConstVectorMap(shtns_->ct, n_lat_);
+  }
+
+  Vector get_longitude_grid() {
+      Vector v{n_lon_};
+      double dx = M_PI / (n_lon_ + 1);
+      for (size_t i = 0; i < n_lon_; ++i) {
+          v[i] = dx * i;
+      }
+      return v;
   }
 
   /** L-indices of the SHT modes.
@@ -195,7 +206,7 @@ class SHT {
   /**
    * @return The number of spherical harmonics coefficients.
    */
-  size_t get_number_of_spectral_coeffs() const {
+  size_t get_n_spectral_coeffs() const {
     return shtns_->nlm;
   }
 
@@ -223,7 +234,7 @@ class SHT {
    * longitudes (azimuth angle) and columns to latitudes (zenith angle).
    * @return Coefficient vector containing the spherical harmonics coefficients.
    */
-  SpectralCoeffs transform(const GridCoeffs &m) {
+  SpectralCoeffs transform(const GridCoeffsRef &m) {
     set_spatial_coeffs(m);
     spat_to_SH(shtns_, spatial_coeffs_, spectral_coeffs_);
     return get_spectral_coeffs();
@@ -238,7 +249,7 @@ class SHT {
    * representing the data.
    * @return GridCoeffs containing the spatial data.
    */
-  GridCoeffs transform(const SpectralCoeffs &m) {
+  GridCoeffs transform(const SpectralCoeffsRef &m) {
     set_spectral_coeffs(m);
     SH_to_spat(shtns_, spectral_coeffs_, spatial_coeffs_);
     return get_spatial_coeffs();
@@ -252,7 +263,7 @@ class SHT {
    * @return A vector containing the values corresponding to the points
    * in points.
    */
-  eigen::Vector<double> evaluate(const SpectralCoeffs &m,
+  eigen::Vector<double> evaluate(const SpectralCoeffsRef &m,
                                  const eigen::MatrixFixedRows<double, 2> &points) {
     set_spectral_coeffs(m);
     int n_points = points.rows();
@@ -277,7 +288,7 @@ class SHT {
    * @return A vector containing the values corresponding to the points
    * in points.
    */
-  eigen::Vector<double> evaluate(const SpectralCoeffs &m,
+  eigen::Vector<double> evaluate(const SpectralCoeffsRef &m,
                                  const eigen::Vector<double> &thetas) {
       assert(m_max_ == 0);
       set_spectral_coeffs(m);

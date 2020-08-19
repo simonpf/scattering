@@ -17,6 +17,9 @@ namespace eigen {
 
 using Index = Eigen::Index;
 
+template <int rank>
+using IndexArray = std::array<Eigen::DenseIndex, rank>;
+
 //
 // Vectors
 //
@@ -81,6 +84,10 @@ using ConstMatrixMapDynamic =
     Eigen::Map<const Matrix<Scalar>,
                Eigen::RowMajor,
                Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>;
+template <typename Scalar>
+using MatrixRef = Eigen::Ref<Matrix<Scalar>>;
+template <typename Scalar>
+using ConstMatrixRef = Eigen::Ref<const Matrix<Scalar>>;
 
 //
 // Tensors
@@ -172,7 +179,7 @@ struct TensorIndexer {
   using Scalar = typename Tensor::Scalar;
   static constexpr int rank_out = rank_in - n_indices;
 
-  static inline ReturnType get(T &t,
+    __attribute__((always_inline)) static inline ReturnType get(T &t,
                                std::array<TensorIndex, n_indices> index_array) {
     auto dimensions_in = t.dimensions();
     std::array<TensorIndex, rank_in> index{};
@@ -194,7 +201,7 @@ struct TensorIndexer<T, rank_in, rank_in> {
   using TensorIndex = typename Tensor::Index;
   using Scalar = typename Tensor::Scalar;
 
-  static inline Scalar get(T &t, std::array<TensorIndex, rank_in> index_array) {
+  __attribute__((always_inline)) static inline Scalar get(T &t, std::array<TensorIndex, rank_in> index_array) {
     return t(index_array);
   };
 };
@@ -211,7 +218,7 @@ struct TensorIndexer<T, rank_in, rank_in> {
 // pxx :: instance(["1", "scatlib::eigen::TensorMap<double, 2>"])
 // pxx :: instance(["1", "scatlib::eigen::TensorMap<double, 1>"])
 template <size_t N, typename T>
-    auto tensor_index(T &t, std::array<typename T::Index, N> indices) ->
+    __attribute__((always_inline)) inline auto tensor_index(T &t, std::array<typename T::Index, N> indices) ->
     typename IndexResult<T, N>::type {
     return TensorIndexer<T, T::NumIndices, N>::get(t, indices);
 }
@@ -326,13 +333,15 @@ template <int m,
                                            TensorType::NumIndices - 2>>
 auto inline get_submatrix(TensorType &t, IndexArray matrix_index) ->
     typename std::conditional<
-        std::is_const<decltype(((TensorType *)nullptr)->data())>::value,
+    !std::is_const<decltype(*(std::declval<TensorType>().data()))>::value
+    && !std::is_const<TensorType>::value,
         MatrixMapDynamic<typename TensorType::Scalar>,
         ConstMatrixMapDynamic<typename TensorType::Scalar>>::type
 {
-  using CoeffType = decltype(((TensorType *)nullptr)->data());
+  using CoeffType = decltype(*(std::declval<TensorType>().data()));
   using ResultType = typename std::conditional<
-      std::is_const<CoeffType>::value,
+      !std::is_const<CoeffType>::value
+      && !std::is_const<TensorType>::value,
       MatrixMapDynamic<typename TensorType::Scalar>,
       ConstMatrixMapDynamic<typename TensorType::Scalar>>::type;
 
@@ -369,13 +378,15 @@ template <int m,
                                            TensorType::NumIndices - 1>>
 auto inline get_subvector(TensorType &t, IndexArray vector_index) ->
     typename std::conditional<
-        std::is_const<decltype(((TensorType *)nullptr)->data())>::value,
+    !std::is_const<decltype(*(std::declval<TensorType>().data()))>::value
+    && ! std::is_const<TensorType>::value,
         VectorMapDynamic<typename TensorType::Scalar>,
         ConstVectorMapDynamic<typename TensorType::Scalar>>::type
 {
-  using CoeffType = decltype(((TensorType *)nullptr)->data());
+  using CoeffType = decltype(*(std::declval<TensorType>().data()));
   using ResultType = typename std::conditional<
-      std::is_const<CoeffType>::value,
+      !std::is_const<CoeffType>::value
+  && !std::is_const<TensorType>::value,
       VectorMapDynamic<typename TensorType::Scalar>,
       ConstVectorMapDynamic<typename TensorType::Scalar>>::type;
 
@@ -403,6 +414,48 @@ auto inline get_subvector(TensorType &t, IndexArray vector_index) ->
                         vector_strides);
   return map;
 }
+
+template <int rank>
+struct DimensionCounter {
+  DimensionCounter(std::array<Eigen::DenseIndex, rank> dims) {
+    dimensions = dims;
+  }
+
+  DimensionCounter& operator++() {
+    for (int i = rank - 1; i >= 0; i--) {
+      coordinates[i]++;
+      if (coordinates[i] == dimensions[i]) {
+        coordinates[i] = 0;
+      } else {
+        break;
+      }
+    }
+    return *this;
+  }
+
+  operator bool() {
+    for (int i = rank - 1; i >= 0; i--) {
+      if (coordinates[i] < dimensions[i] - 1) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  std::array<Eigen::DenseIndex, rank> coordinates{0};
+  std::array<Eigen::DenseIndex, rank> dimensions{0};
+};
+
+template<int rank>
+std::ostream& operator<<(std::ostream &out,const DimensionCounter<rank> &c) {
+    out << "Dimension counter: ";
+    for (int i = 0; i < rank - 1; ++i) {
+        out << c.coordinates[i] << ", ";
+    }
+    out << c.coordinates[rank - 1] << std::endl;
+    return out;
+}
+
 
 }  // namespace eigen
 }  // namespace scatlib
