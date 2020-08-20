@@ -3,7 +3,8 @@ Test utils providing acces to test data.
 """
 import os
 import numpy as np
-import scipy
+import scipy as sp
+import scipy.interpolate
 from scipy.special import roots_legendre, sph_harm
 
 SCATLIB_TEST_PATH = "@SCATLIB_TEST_PATH@"
@@ -42,3 +43,50 @@ def harmonic_random_field(n_lat, n_lon, n_components=10):
         xx, yy = np.meshgrid(lat_grid, lon_grid, indexing="xy")
         data += np.random.rand() * sph_harm(m, l, yy, xx).real
     return data
+
+class ScatteringDataBase:
+    """
+    Base class for scattering data object. Implements reference functions to test
+    the ScatteringDataField classes.
+    """
+    def interpolate_frequency(self, frequencies):
+        """
+        Reference implementation for frequency interpolation.
+        """
+        interpolator = sp.interpolate.RegularGridInterpolator([self.f_grid],
+                                                              self.data)
+        return interpolator(frequencies)
+
+    def interpolate_temperature(self, temperatures):
+        """
+        Reference implementation for temperature interpolation.
+        """
+        axes = [1, 0, 2, 3, 4, 5, 6]
+        data_t = np.transpose(self.data, axes)
+        interpolator = sp.interpolate.RegularGridInterpolator([self.t_grid],
+                                                              data_t)
+        return interpolator(temperatures).transpose(axes)
+
+    def interpolate_angles(self, lon_inc_new, lat_inc_new, lon_scat_new, lat_scat_new):
+        """
+        Reference implementation for angle interpolation.
+        """
+        axes = [2, 3, 4, 5, 0, 1, 6]
+        data_t = np.transpose(self.data, axes)
+        dims_in = data_t.shape
+        dims_out = list(dims_in)
+        dims_out[0] = lon_inc_new.size
+        dims_out[1] = lat_inc_new.size
+        dims_out[2] = lon_scat_new.size
+        dims_out[3] = lat_scat_new.size
+
+        interpolator = sp.interpolate.RegularGridInterpolator([self.lon_inc,
+                                                               self.lat_inc,
+                                                               self.lon_scat,
+                                                               self.lat_scat],
+                                                              data_t)
+        angles = np.meshgrid(lon_inc_new, lat_inc_new, lon_scat_new, lat_scat_new, indexing="ij")
+        angles = np.stack([a.ravel() for a in angles], axis=-1)
+        axes = [4, 5, 0, 1, 2, 3, 6]
+        data_interp = interpolator(angles).reshape(dims_out).transpose(axes)
+        return data_interp

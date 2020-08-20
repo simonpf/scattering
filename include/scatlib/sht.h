@@ -14,6 +14,8 @@
 
 using GridCoeffs = scatlib::eigen::Matrix<double>;
 using GridCoeffsRef = scatlib::eigen::ConstMatrixRef<double>;
+using CmplxGridCoeffs = scatlib::eigen::Matrix<std::complex<double>>;
+using CmplxGridCoeffsRef = scatlib::eigen::ConstMatrixRef<std::complex<double>>;
 using SpectralCoeffs = scatlib::eigen::Vector<std::complex<double>>;
 using SpectralCoeffsRef = scatlib::eigen::ConstVectorRef<std::complex<double>>;
 
@@ -82,19 +84,36 @@ class SHT {
         n_lat_(n_lat),
         n_lon_(n_lon),
         m_res_(m_res) {
-    shtns_verbose(1);
-    shtns_use_threads(0);
-    shtns_reset();
-    shtns_ = shtns_init(sht_quick_init, l_max_, m_max_, m_res_, n_lat_, n_lon_);
-    n_spectral_coeffs_ = shtns_->nlm;
-    spectral_coeffs_ = sht::FFTWArray<std::complex<double>>(n_spectral_coeffs_);
-    spatial_coeffs_ = sht::FFTWArray<double>(NSPAT_ALLOC(shtns_));
+    if (l_max == 0) {
+      is_trivial_ = true;
+      n_spectral_coeffs_ = 1;
+      n_spectral_coeffs_cmplx_ = 1;
+    } else {
+      is_trivial_ = false;
+      shtns_verbose(0);
+      shtns_use_threads(0);
+      shtns_reset();
+      shtns_ =
+          shtns_init(sht_quick_init, l_max_, m_max_, m_res_, n_lat_, n_lon_);
+      n_spectral_coeffs_ = shtns_->nlm;
+      n_spectral_coeffs_cmplx_ = shtns_->nlm_cplx;
+      spectral_coeffs_ =
+          sht::FFTWArray<std::complex<double>>(n_spectral_coeffs_);
+      spectral_coeffs_cmplx_ =
+          sht::FFTWArray<std::complex<double>>(n_spectral_coeffs_cmplx_);
+      spatial_coeffs_ = sht::FFTWArray<double>(NSPAT_ALLOC(shtns_));
+      cmplx_spatial_coeffs_ =
+          sht::FFTWArray<std::complex<double>>(NSPAT_ALLOC(shtns_));
+    }
   }
 
   /** Return latitude grid used by SHTns.
    * @return Eigen vector containing the latitude grid in radians.
    */
   Vector get_latitude_grid() {
+      if (is_trivial_) {
+          return Vector::Constant(1, M_PI / 2.0);
+      }
       return ConstVectorMap(shtns_->ct, n_lat_).array().acos();
   }
 
@@ -102,6 +121,9 @@ class SHT {
    * @return Eigen vector containing the co-latitude grid.
    */
   Vector get_colatitude_grid() {
+      if (is_trivial_) {
+          return Vector::Constant(1, M_PI / 2.0);
+      }
       return ConstVectorMap(shtns_->ct, n_lat_);
   }
 
@@ -120,6 +142,9 @@ class SHT {
    * element in a spectral coefficient vector.
    */
   IndexVector get_l_indices() {
+      if (is_trivial_) {
+          return IndexVector::Constant(1, 0);
+      }
     IndexVector result(n_spectral_coeffs_);
     for (size_t i = 0; i < n_spectral_coeffs_; ++i) {
       result[i] = shtns_->li[i];
@@ -133,6 +158,9 @@ class SHT {
    * element in a spectral coefficient vector.
    */
   IndexVector get_m_indices() {
+      if (is_trivial_) {
+          return IndexVector::Constant(1, 0);
+      }
     IndexVector result(n_spectral_coeffs_);
     for (size_t i = 0; i < n_spectral_coeffs_; ++i) {
       result[i] = shtns_->mi[i];
@@ -144,14 +172,33 @@ class SHT {
    * Copy spatial field into the array that holds spatial data for
    * spherical harmonics computations.
    *
-   * @param m GridCoeffs containing the data. Row indices should correspond to
-   * longitudes (azimuth angle) and columns to latitudes (zenith angle).
+   * @param m Eigen::Matrix or comparable providing read-only access
+   * to the input data. Row indices should correspond to longitudes
+   * (azimuth angle) and columns to latitudes (zenith angle).
    */
-  void set_spatial_coeffs(const GridCoeffs &m) const {
+  void set_spatial_coeffs(const GridCoeffsRef &m) const {
     size_t index = 0;
     for (int i = 0; i < m.rows(); ++i) {
       for (int j = 0; j < m.cols(); ++j) {
         spatial_coeffs_[index] = m(i, j);
+        ++index;
+      }
+    }
+  }
+
+  /**
+   * Copy complex spatial field into the array that holds spatial data for
+   * spherical harmonics computations.
+   *
+   * @param m Eigen::Matrix or comparable providing read-only access
+   * to the input data. Row indices should correspond to longitudes
+   * (azimuth angle) and columns to latitudes (zenith angle).
+   */
+  void set_spatial_coeffs(const CmplxGridCoeffsRef &m) const {
+    size_t index = 0;
+    for (int i = 0; i < m.rows(); ++i) {
+      for (int j = 0; j < m.cols(); ++j) {
+        cmplx_spatial_coeffs_[index] = m(i, j);
         ++index;
       }
     }
@@ -164,7 +211,7 @@ class SHT {
    * @param m SpectralCoeffs The spherical harmonics coefficients
    * representing the data.
    */
-  void set_spectral_coeffs(const SpectralCoeffs &m) const {
+  void set_spectral_coeffs(const SpectralCoeffsRef &m) const {
     size_t index = 0;
     for (auto &x : m) {
       spectral_coeffs_[index] = x;
@@ -173,14 +220,30 @@ class SHT {
   }
 
   /**
+   * Copy spherical harmonics coefficients into the array that holds spectral
+   * data for spherical harmonics computations involving complex spatial fields.
+   *
+   * @param m Eigen vector containing the spherical harmonics coefficients
+   * representing the data.
+   */
+  void set_spectral_coeffs_cmplx(const SpectralCoeffsRef &m) const {
+      size_t index = 0;
+      for (auto &x : m) {
+          spectral_coeffs_cmplx_[index] = x;
+          ++index;
+      }
+  }
+
+  /**
    * Return content of the array that holds spatial data for
    * spherical harmonics computations.
    *
-   * @return m GridCoeffs containing the data. Row indices should correspond to
-   * longitudes (azimuth angle) and columns to latitudes (zenith angle).
+   * @return Eigen matrix containing the spatial field. Row indices should
+   * correspond to longitudes (azimuth angle) and columns to latitudes (zenith
+   * angle).
    */
   GridCoeffs get_spatial_coeffs() const {
-      GridCoeffs result(n_lon_, n_lat_);
+    GridCoeffs result(n_lon_, n_lat_);
     size_t index = 0;
     for (int i = 0; i < result.rows(); ++i) {
       for (int j = 0; j < result.cols(); ++j) {
@@ -189,6 +252,26 @@ class SHT {
       }
     }
     return result;
+  }
+
+  /**
+   * Return content of the array that holds complex spatial data for
+   * spherical harmonics computations.
+   *
+   * @return Eigen matrix containing the complex spatial field. Row indices
+   * should correspond to longitudes (azimuth angle) and columns to latitudes
+   * (zenith angle).
+   */
+  CmplxGridCoeffs get_cmplx_spatial_coeffs() const {
+      CmplxGridCoeffs result(n_lon_, n_lat_);
+      size_t index = 0;
+      for (int i = 0; i < result.rows(); ++i) {
+          for (int j = 0; j < result.cols(); ++j) {
+              result(i, j) = cmplx_spatial_coeffs_[index];
+              ++index;
+          }
+      }
+      return result;
   }
 
   /**
@@ -207,14 +290,20 @@ class SHT {
    * @return The number of spherical harmonics coefficients.
    */
   size_t get_n_spectral_coeffs() const {
-    return shtns_->nlm;
+    return n_spectral_coeffs_;
+  }
+  /**
+   * @return The number of spherical harmonics coefficients.
+   */
+  size_t get_n_spectral_coeffs_cmplx() const {
+      return n_spectral_coeffs_cmplx_;
   }
 
   /**
    * Return content of the array that holds spectral data for
    * spherical harmonics computations.
    *
-   * @return m SpectralCoeffs The spherical harmonics coefficients
+   * @return m Eigen vector containing the spherical harmonics coefficients
    * representing the data.
    */
   SpectralCoeffs get_spectral_coeffs() const {
@@ -227,6 +316,23 @@ class SHT {
     return result;
   }
 
+  /**
+   * Return content of the array that holds spectral data for
+   * spherical harmonics computations of complex fields.
+   *
+   * @return m Eigen vector containing the spherical harmonics coefficients
+   * representing the data.
+   */
+  SpectralCoeffs get_spectral_coeffs_cmplx() const {
+      SpectralCoeffs result(shtns_->nlm);
+      size_t index = 0;
+      for (auto &x : result) {
+          x = spectral_coeffs_[index];
+          ++index;
+      }
+      return result;
+  }
+
   /** Apply forward SHT Transform
    *
    * Transforms discrete spherical data into spherical harmonics representation.
@@ -235,9 +341,28 @@ class SHT {
    * @return Coefficient vector containing the spherical harmonics coefficients.
    */
   SpectralCoeffs transform(const GridCoeffsRef &m) {
+    if (is_trivial_) {
+      return SpectralCoeffs::Constant(1, m(0, 0));
+    }
     set_spatial_coeffs(m);
     spat_to_SH(shtns_, spatial_coeffs_, spectral_coeffs_);
     return get_spectral_coeffs();
+  }
+
+  /** Apply forward SHT Transform
+   *
+   * Transforms discrete spherical data into spherical harmonics representation.
+   * @param m GridCoeffs containing the data. Row indices should correspond to
+   * longitudes (azimuth angle) and columns to latitudes (zenith angle).
+   * @return Coefficient vector containing the spherical harmonics coefficients.
+   */
+  SpectralCoeffs transform_cmplx(const CmplxGridCoeffsRef &m) {
+      if (is_trivial_) {
+          return SpectralCoeffs::Constant(1, m(0, 0));
+      }
+      set_spatial_coeffs(m);
+      spat_cplx_to_SH(shtns_, cmplx_spatial_coeffs_, spectral_coeffs_cmplx_);
+      return get_spectral_coeffs_cmplx();
   }
 
   /** Apply inverse SHT Transform
@@ -249,10 +374,31 @@ class SHT {
    * representing the data.
    * @return GridCoeffs containing the spatial data.
    */
-  GridCoeffs transform(const SpectralCoeffsRef &m) {
+  GridCoeffs synthesize(const SpectralCoeffsRef &m) {
+      if (is_trivial_) {
+          return GridCoeffs::Constant(1, 1, m(0, 0).real());
+      }
     set_spectral_coeffs(m);
     SH_to_spat(shtns_, spectral_coeffs_, spatial_coeffs_);
     return get_spatial_coeffs();
+  }
+
+  /** Apply inverse SHT Transform for complex data.
+   *
+   * Transforms discrete spherical data given in spherical harmonics
+   * representation back to spatial domain.
+   *
+   * @param m SpectralCoeffs The spherical harmonics coefficients
+   * representing the data.
+   * @return GridCoeffs containing the spatial data.
+   */
+  CmplxGridCoeffs synthesize_cmplx(const SpectralCoeffsRef &m) {
+      if (is_trivial_) {
+          return CmplxGridCoeffs::Constant(1, 1, m(0, 0).real());
+      }
+      set_spectral_coeffs(m);
+      SH_to_spat_cplx(shtns_, spectral_coeffs_cmplx_, cmplx_spatial_coeffs_);
+      return get_cmplx_spatial_coeffs();
   }
 
   /** Evaluate spectral representation at given point.
@@ -265,6 +411,9 @@ class SHT {
    */
   eigen::Vector<double> evaluate(const SpectralCoeffsRef &m,
                                  const eigen::MatrixFixedRows<double, 2> &points) {
+      if (is_trivial_) {
+          return eigen::Vector<double>::Constant(1, 1, m(0, 0).real());
+      }
     set_spectral_coeffs(m);
     int n_points = points.rows();
     eigen::Vector<double> result(n_points);
@@ -290,6 +439,9 @@ class SHT {
    */
   eigen::Vector<double> evaluate(const SpectralCoeffsRef &m,
                                  const eigen::Vector<double> &thetas) {
+      if (is_trivial_) {
+          return eigen::Vector<double>::Constant(1, 1, m(0, 0).real());
+      }
       assert(m_max_ == 0);
       set_spectral_coeffs(m);
       int n_points = thetas.size();
@@ -304,10 +456,14 @@ class SHT {
   }
 
  private:
-  size_t l_max_, m_max_, n_lat_, n_lon_, m_res_, n_spectral_coeffs_;
+
+  bool is_trivial_;
+  size_t l_max_, m_max_, n_lat_, n_lon_, m_res_,
+      n_spectral_coeffs_, n_spectral_coeffs_cmplx_;
   shtns_cfg shtns_;
 
-  sht::FFTWArray<std::complex<double>> spectral_coeffs_;
+  sht::FFTWArray<std::complex<double>> spectral_coeffs_,
+      spectral_coeffs_cmplx_, cmplx_spatial_coeffs_;
   sht::FFTWArray<double> spatial_coeffs_;
 };
 

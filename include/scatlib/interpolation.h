@@ -614,7 +614,7 @@ class RegularRegridder {
   template <typename Tensor>
   Tensor regrid(const Tensor &input) {
     constexpr int rank = Tensor::NumIndices;
-    eigen::Tensor<Scalar, rank> output{get_output_dimensions(input)};
+    eigen::Tensor<typename Tensor::Scalar, rank> output{get_output_dimensions(input)};
 
     using IndexArray = std::array<Eigen::DenseIndex, rank>;
     auto generator = [this, &input](const IndexArray &coordinates) {

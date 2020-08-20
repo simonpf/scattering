@@ -48,7 +48,7 @@ class TestSHT:
         m = np.random.randint(-l, l)
 
         xx, yy = np.meshgrid(self.lat_grid, self.lon_grid, indexing="xy")
-        zz = sph_harm(m, l, yy, xx) 
+        zz = sph_harm(m, l, yy, xx)
         coeffs = self.sht.transform(zz.real)
 
         assert np.sum(np.abs(coeffs) > 1e-6) == 1
@@ -63,8 +63,22 @@ class TestSHT:
 
         xx, yy = np.meshgrid(self.lon_grid, self.lat_grid, indexing="ij")
         zz = sph_harm(m, l, xx, yy)
-        coeffs = self.sht.transform(self.sht.transform(zz.real))
+        coeffs = self.sht.synthesize(self.sht.transform(zz.real).ravel())
+        print(coeffs.shape)
         assert np.all(np.isclose(zz.real, coeffs))
+
+    def test_inverse_transform_cmplx(self):
+        """
+        Test transforming from spatial field to spectral field and back to ensure
+        that the input field is recovered.
+        """
+        l = np.random.randint(1, self.l_max)
+        m = np.random.randint(-l, l)
+
+        xx, yy = np.meshgrid(self.lon_grid, self.lat_grid, indexing="ij")
+        zz = sph_harm(m, l, xx, yy)
+        coeffs = self.sht.synthesize_cmplx(self.sht.transform_cmplx(zz))
+        assert np.all(np.isclose(zz, coeffs))
 
     def test_evaluate(self):
         """
@@ -83,7 +97,6 @@ class TestSHT:
         print(m, l, self.n_lat, self.n_lon, self.l_max)
 
         assert np.all(np.isclose(zz, zz_ref.real.ravel()))
-
 
 class TestLegendreExpansion:
     """
@@ -126,6 +139,36 @@ class TestLegendreExpansion:
         points = xx.ravel()
         zz = self.sht.evaluate(coeffs, points)
 
-        print(m, l, self.n_lat, self.n_lon, self.l_max)
-
         assert np.all(np.isclose(zz, zz_ref.real.ravel()))
+
+class TestTrivalTransform:
+    """
+    Testing of spherical harmonics transform for 1D fields.
+    """
+    def setup_method(self):
+        self.l_max = 0
+        self.m_max = 0
+        self.n_lat = 1
+        self.n_lon = 1
+        self.sht = SHT(self.l_max, self.m_max, self.n_lat, self.n_lon, 1)
+
+    def test_transform(self):
+        """
+        Tests the Legendre expansion by transforming a given Legendre polynomial
+        and ensuring that only one component in the output is set.
+        """
+        z = np.ones((1, 1))
+        zz = self.sht.synthesize(self.sht.transform(z))
+
+        assert np.all(np.isclose(z, zz))
+
+    def test_evaluate(self):
+        """
+        Test that evaluating the spectral representation reproduces the spatial
+        input.
+        """
+        coeffs = np.ones(1)
+        points = np.random.rand(10, 2)
+        zz = self.sht.evaluate(coeffs, points)
+
+        assert np.all(np.isclose(zz, 1.0))

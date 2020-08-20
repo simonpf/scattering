@@ -421,11 +421,14 @@ struct DimensionCounter {
     dimensions = dims;
   }
 
-  DimensionCounter& operator++() {
+  DimensionCounter &operator++() {
     for (int i = rank - 1; i >= 0; i--) {
       coordinates[i]++;
       if (coordinates[i] == dimensions[i]) {
         coordinates[i] = 0;
+        if (i == 0) {
+          exhausted_ = true;
+        }
       } else {
         break;
       }
@@ -433,15 +436,9 @@ struct DimensionCounter {
     return *this;
   }
 
-  operator bool() {
-    for (int i = rank - 1; i >= 0; i--) {
-      if (coordinates[i] < dimensions[i] - 1) {
-        return true;
-      }
-    }
-    return false;
-  }
+  operator bool() { return !exhausted_; }
 
+  bool exhausted_ = false;
   std::array<Eigen::DenseIndex, rank> coordinates{0};
   std::array<Eigen::DenseIndex, rank> dimensions{0};
 };

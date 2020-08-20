@@ -251,7 +251,3 @@ class TestDataAzimuthallyRandom:
         return self.data, dg
         assert np.all(np.isclose(self.data,
                                  gridded_data.get_data()))
-
-t = TestDataAzimuthallyRandom()
-t.setup_method()
-d, dg = t.test_transform_spectral()
