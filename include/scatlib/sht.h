@@ -69,6 +69,20 @@ class SHT {
   using Vector = eigen::Vector<double>;
   using IndexVector = eigen::Vector<size_t>;
   using ConstVectorMap = eigen::ConstVectorMap<double>;
+
+  static SpectralCoeffs add_coeffs(const SHT& sht_l, SpectralCoeffs v,
+                                   const SHT& sht_r, SpectralCoeffs w) {
+      size_t n_spectral_coeffs = sht_l.get_nspectral_coeffs();
+      auto result = SpectralCoeffs(n_spectral_coeffs);
+      for (size_t i = 0; i < n_spectral_coeffs; ++i) {
+          result[i] = v[i];
+          int l = sht_l.shtns_->li[i];
+          int m = sht_l.shtns_->mi[i];
+          result[i] += w[sht_r.shtns->lmidx + l];
+      }
+      return result;
+  }
+
   /**
    * Create a spherical harmonics transformation object.
    *
@@ -90,9 +104,9 @@ class SHT {
       n_spectral_coeffs_cmplx_ = 1;
     } else {
       is_trivial_ = false;
-      shtns_verbose(0);
+      shtns_verbose(1);
       shtns_use_threads(0);
-      shtns_reset();
+      //shtns_reset();
       shtns_ =
           shtns_init(sht_quick_init, l_max_, m_max_, m_res_, n_lat_, n_lon_);
       n_spectral_coeffs_ = shtns_->nlm;
@@ -324,10 +338,10 @@ class SHT {
    * representing the data.
    */
   SpectralCoeffs get_spectral_coeffs_cmplx() const {
-      SpectralCoeffs result(shtns_->nlm);
+      SpectralCoeffs result(n_spectral_coeffs_cmplx_);
       size_t index = 0;
       for (auto &x : result) {
-          x = spectral_coeffs_[index];
+          x = spectral_coeffs_cmplx_[index];
           ++index;
       }
       return result;
@@ -396,7 +410,7 @@ class SHT {
       if (is_trivial_) {
           return CmplxGridCoeffs::Constant(1, 1, m(0, 0).real());
       }
-      set_spectral_coeffs(m);
+      set_spectral_coeffs_cmplx(m);
       SH_to_spat_cplx(shtns_, spectral_coeffs_cmplx_, cmplx_spatial_coeffs_);
       return get_cmplx_spatial_coeffs();
   }

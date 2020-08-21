@@ -4,7 +4,6 @@ import scipy.interpolate
 from utils import (harmonic_random_field, ScatteringDataBase)
 from scatlib.scattering_data_field import ScatteringDataFieldGridded
 
-
 class ScatteringDataRandom(ScatteringDataBase):
     def __init__(self):
         self.f_grid = np.logspace(9, 11, 11)
@@ -23,7 +22,7 @@ class ScatteringDataRandom(ScatteringDataBase):
         for i_f in range (self.f_grid.size):
             for i_t in range(self.t_grid.size):
                 for i_c in range(6):
-                    z = harmonic_random_field(self.lat_scat.size, 1)
+                    z = harmonic_random_field(1, self.lat_scat.size)
                     self.data[i_f, i_t, 0, 0, 0, :, i_c] = z
 
         self.scattering_data = ScatteringDataFieldGridded(self.f_grid,

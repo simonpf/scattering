@@ -77,8 +77,8 @@ class TestSHT:
 
         xx, yy = np.meshgrid(self.lon_grid, self.lat_grid, indexing="ij")
         zz = sph_harm(m, l, xx, yy)
-        coeffs = self.sht.synthesize_cmplx(self.sht.transform_cmplx(zz))
-        assert np.all(np.isclose(zz, coeffs))
+        coeffs = self.sht.synthesize_cmplx(2.0 * self.sht.transform_cmplx(zz))
+        assert np.all(np.isclose(2.0 * zz, coeffs))
 
     def test_evaluate(self):
         """
@@ -124,6 +124,22 @@ class TestLegendreExpansion:
         coeffs = self.sht.transform(zz.real)
 
         assert np.sum(np.abs(coeffs) > 1e-6) == 1
+
+    def test_legendre_transform_cmplx(self):
+        """
+        Test transforming from complex spatial field to spectral field and back to ensure
+        that the input field is recovered.
+        """
+        l = np.random.randint(1, self.l_max)
+        m = 0
+
+        xx, yy = np.meshgrid(self.lat_grid, self.lon_grid, indexing="xy")
+        zz = sph_harm(m, l, yy, xx)
+        aa = self.sht.transform_cmplx(zz)
+        zz_rec = self.sht.synthesize_cmplx(2.0 * self.sht.transform_cmplx(zz))
+
+        assert np.all(np.isclose(2.0 * zz, zz_rec))
+
 
     def test_evaluate(self):
         """

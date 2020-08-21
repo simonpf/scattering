@@ -13,7 +13,7 @@ def get_data_azimuthally_random():
     return os.path.join(SCATLIB_TEST_PATH, "data", "scattering_data_azimuthally_random.nc")
 
 
-def harmonic_random_field(n_lat, n_lon, n_components=10):
+def harmonic_random_field(n_lon, n_lat, n_components=10):
     """
     Generates a harmonic random field of by mixing a given number
     of random SH modes with Gaussian weights.
