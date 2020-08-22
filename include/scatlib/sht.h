@@ -18,6 +18,8 @@ using CmplxGridCoeffs = scatlib::eigen::Matrix<std::complex<double>>;
 using CmplxGridCoeffsRef = scatlib::eigen::ConstMatrixRef<std::complex<double>>;
 using SpectralCoeffs = scatlib::eigen::Vector<std::complex<double>>;
 using SpectralCoeffsRef = scatlib::eigen::ConstVectorRef<std::complex<double>>;
+using SpectralCoeffMatrix = scatlib::eigen::Matrix<std::complex<double>>;
+using SpectralCoeffMatrixRef = scatlib::eigen::ConstMatrixRef<std::complex<double>>;
 
 namespace scatlib {
 namespace sht {
@@ -70,18 +72,47 @@ class SHT {
   using IndexVector = eigen::Vector<size_t>;
   using ConstVectorMap = eigen::ConstVectorMap<double>;
 
-  static SpectralCoeffs add_coeffs(const SHT& sht_l, SpectralCoeffs v,
-                                   const SHT& sht_r, SpectralCoeffs w) {
-      size_t n_spectral_coeffs = sht_l.get_nspectral_coeffs();
+  static SpectralCoeffs add_coeffs(const SHT& sht_l, SpectralCoeffsRef v,
+                                   const SHT& sht_r, SpectralCoeffsRef w) {
+      size_t n_spectral_coeffs = sht_l.get_n_spectral_coeffs();
       auto result = SpectralCoeffs(n_spectral_coeffs);
       for (size_t i = 0; i < n_spectral_coeffs; ++i) {
           result[i] = v[i];
-          int l = sht_l.shtns_->li[i];
-          int m = sht_l.shtns_->mi[i];
-          result[i] += w[sht_r.shtns->lmidx + l];
+          size_t l = sht_l.shtns_->li[i];
+          size_t m = sht_l.shtns_->mi[i];
+          if ((l <= sht_r.l_max_) && (m <= sht_r.m_max_)) {
+              result[i] += w[sht_r.shtns_->lmidx[m] + l];
+          }
       }
       return result;
   }
+
+  static SpectralCoeffMatrix add_coeffs(const SHT &sht_inc_l,
+                                        const SHT &sht_scat_l,
+                                        SpectralCoeffMatrixRef v,
+                                        const SHT &sht_inc_r,
+                                        const SHT &sht_scat_r,
+                                        SpectralCoeffMatrixRef w) {
+    size_t nlm_inc = sht_inc_l.get_n_spectral_coeffs_cmplx();
+    size_t nlm_scat = sht_scat_l.get_n_spectral_coeffs();
+    auto result = SpectralCoeffMatrix(nlm_inc, nlm_scat);
+
+    size_t index_l = 0;
+    for (int l = 0; l <= (int) sht_inc_l.l_max_; ++l) {
+        int m_max = (l <= (int) sht_inc_l.m_max_) ? l : sht_inc_l.m_max_;
+      for (int m = -m_max; m <= m_max; ++m) {
+        int h = std::min<int>(sht_inc_r.m_max_, l);
+        int index_r = l * (2 * h + 1) - h * h + m;
+        auto r = add_coeffs(sht_scat_l, v.row(index_l), sht_scat_r, w.row(index_r));
+        result.row(index_l)  = r;
+        //add_coeffs(sht_scat_l, v.row(index_l), sht_scat_r, w.row(index_r)).resize(1, -1);
+        std::cout << index_l << " // " << index_r << std::endl;
+        ++index_l;
+      }
+    }
+    return result;
+  }
+
 
   /**
    * Create a spherical harmonics transformation object.

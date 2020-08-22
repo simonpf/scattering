@@ -188,3 +188,110 @@ class TestTrivalTransform:
         zz = self.sht.evaluate(coeffs, points)
 
         assert np.all(np.isclose(zz, 1.0))
+
+def synthesize_matrix(sht_inc, sht_scat, coefficient_matrix):
+    n = coefficient_matrix.shape[1]
+    coeffs = np.zeros((sht_inc.get_n_longitudes(),
+                      sht_inc.get_n_latitudes(),
+                      n))
+    for i in range(n):
+        coeffs[:, :, i] = sht_inc.synthesize_cmplx(coefficient_matrix[:, i])
+
+    result = np.zeros((sht_inc.get_n_longitudes(),
+                       sht_inc.get_n_latitudes(),
+                       sht_scat.get_n_longitudes(),
+                       sht_scat.get_n_latitudes()))
+    for i in range(coeffs.shape[0]):
+        for j in range(coeffs.shape[1]):
+            result[i, j] = sht_scat.synthesize(coeffs[i, j, :])
+    return result
+
+
+class TestAddition:
+    """
+    Test addition of SHT coefficient vectors and matrices.
+    """
+    def setup_method(self):
+        n_lon = 64
+        n_lat = 64
+        self.l_max_l = np.random.randint(10, 20)
+        self.m_max_l = np.random.randint(9, self.l_max_l)
+        self.sht_l = SHT(self.l_max_l, self.m_max_l, n_lat, n_lon, 1)
+
+        self.l_max_l_inc = np.random.randint(5, 10)
+        self.m_max_l_inc = np.random.randint(4, self.l_max_l_inc)
+        self.sht_l_inc = SHT(self.l_max_l_inc, self.m_max_l_inc, n_lat, n_lon, 1)
+
+        self.l_max_r = np.random.randint(20, 24)
+        self.m_max_r = np.random.randint(19, self.l_max_r)
+        self.sht_r = SHT(self.l_max_r, self.m_max_r, n_lat, n_lon, 1)
+
+        self.l_max_r_inc = np.random.randint(10, 20)
+        self.m_max_r_inc = np.random.randint(9, self.l_max_r_inc)
+        self.sht_r_inc = SHT(self.l_max_r_inc, self.m_max_r_inc, n_lat, n_lon, 1)
+
+        self.coeff_vector_l = np.random.rand(self.sht_l.get_n_spectral_coeffs())
+        self.coeff_vector_l = self.coeff_vector_l + 1j * np.random.rand(self.sht_l.get_n_spectral_coeffs())
+        self.coeff_matrix_l = np.random.rand(self.sht_l_inc.get_n_spectral_coeffs_cmplx(),
+                                             self.sht_l.get_n_spectral_coeffs())
+        self.coeff_matrix_l = self.coeff_matrix_l + 1j * np.random.rand(self.sht_l_inc.get_n_spectral_coeffs_cmplx(),
+                                                                        self.sht_l.get_n_spectral_coeffs())
+
+        self.coeff_vector_r = np.random.rand(self.sht_r.get_n_spectral_coeffs())
+        self.coeff_vector_r = self.coeff_vector_r + 1j * np.random.rand(self.sht_r.get_n_spectral_coeffs())
+        self.coeff_matrix_r = np.random.rand(self.sht_r_inc.get_n_spectral_coeffs_cmplx(),
+                                             self.sht_r.get_n_spectral_coeffs())
+        self.coeff_matrix_r = self.coeff_matrix_r + 1j * np.random.rand(self.sht_r_inc.get_n_spectral_coeffs_cmplx(),
+                                                                        self.sht_r.get_n_spectral_coeffs())
+
+    def test_addition(self):
+        """
+        Test addition of coefficient vectors.
+        """
+        sum_2l = SHT.add_coeffs(self.sht_l, self.coeff_vector_l, self.sht_l, self.coeff_vector_l)
+        sum_r = SHT.add_coeffs(self.sht_r, self.coeff_vector_r, self.sht_l, self.coeff_vector_l)
+        sum_2r = SHT.add_coeffs(self.sht_r, self.coeff_vector_r, self.sht_r, self.coeff_vector_r)
+
+
+        z_l = self.sht_l.synthesize(self.coeff_vector_l)
+        z_r = self.sht_r.synthesize(self.coeff_vector_r)
+        z_2l = self.sht_l.synthesize(sum_2l)
+        z_2r = self.sht_r.synthesize(sum_2r)
+
+        z_rs = self.sht_r.synthesize(sum_r)
+
+        coeff_vector_rl = self.sht_l.transform(z_r)
+        z_rl = self.sht_l.synthesize(coeff_vector_rl)
+        sum_l = SHT.add_coeffs(self.sht_l, self.coeff_vector_l, self.sht_l, coeff_vector_rl)
+        z_ls = self.sht_l.synthesize(sum_l)
+
+        assert np.all(np.isclose(2.0 * z_l, z_2l))
+        assert np.all(np.isclose(2.0 * z_r, z_2r))
+        assert np.all(np.isclose(z_rs, z_r + z_l))
+        assert np.all(np.isclose(z_ls, z_l + z_rl))
+
+
+    def test_addition_matrix(self):
+        """
+        Test addition of coefficient vectors.
+        """
+        sum_2l = SHT.add_coeffs(self.sht_l_inc,
+                                self.sht_l,
+                                self.coeff_matrix_l,
+                                self.sht_l_inc,
+                                self.sht_l,
+                                self.coeff_matrix_l)
+
+        z_l = synthesize_matrix(self.sht_l_inc, self.sht_l, self.coeff_matrix_l)
+        z_2l = synthesize_matrix(self.sht_l_inc, self.sht_l, sum_2l)
+        assert np.all(np.isclose(2.0 * z_l, z_2l))
+
+        z_r = synthesize_matrix(self.sht_r_inc, self.sht_r, self.coeff_matrix_r)
+        sum_rl = SHT.add_coeffs(self.sht_r_inc,
+                                self.sht_r,
+                                self.coeff_matrix_r,
+                                self.sht_l_inc,
+                                self.sht_l,
+                                self.coeff_matrix_l)
+        z_rs = synthesize_matrix(self.sht_r_inc, self.sht_r, sum_rl)
+        assert np.all(np.isclose(z_r + z_l, z_rs))
