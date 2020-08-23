@@ -1,3 +1,7 @@
+"""
+Tests the classes of ScatteringDataField.h for scattering data from
+spherical particles.
+"""
 import numpy as np
 import scipy as sp
 import scipy.interpolate
@@ -5,6 +9,9 @@ from utils import ScatteringDataBase
 from scatlib.scattering_data_field import ScatteringDataFieldGridded
 
 class ScatteringDataSpherical(ScatteringDataBase):
+    """
+    Random spherical scattering data.
+    """
     def __init__(self):
         self.f_grid = np.logspace(9, 11, 11)
         self.t_grid = np.linspace(250, 300, 6)
@@ -74,7 +81,7 @@ class TestScatteringDataFieldSpherical:
         gridded = self.data.scattering_data.interpolate_angles(lon_inc, lat_inc, lon_scat, lat_scat)
 
         spectral = self.data.scattering_data_spectral.to_gridded()
-        spectral =  spectral.interpolate_angles(lon_inc, lat_inc, lon_scat, lat_scat)
+        spectral = spectral.interpolate_angles(lon_inc, lat_inc, lon_scat, lat_scat)
 
         fully_spectral = self.data.scattering_data_fully_spectral.to_spectral().to_gridded()
         fully_spectral = fully_spectral.interpolate_angles(lon_inc, lat_inc, lon_scat, lat_scat)
@@ -82,3 +89,37 @@ class TestScatteringDataFieldSpherical:
         assert np.all(np.isclose(reference, gridded.get_data()))
         assert np.all(np.isclose(reference, spectral.get_data()))
         assert np.all(np.isclose(reference, fully_spectral.get_data()))
+
+    def test_addition(self):
+        sum_1 = (self.data.scattering_data
+                 + self.data.scattering_data
+                 + self.data.scattering_data)
+        sum_2 = (self.data.scattering_data_spectral
+                 + self.data.scattering_data_spectral
+                 + self.data.scattering_data_spectral)
+        sum_3 = (self.data.scattering_data_fully_spectral
+                 + self.data.scattering_data_fully_spectral
+                 + self.data.scattering_data_fully_spectral)
+
+        assert np.all(np.isclose(sum_1.get_data(),
+                                 sum_2.to_gridded().get_data()))
+
+        assert np.all(np.isclose(sum_2.get_data(),
+                                 sum_3.to_spectral().get_data()))
+
+        assert np.all(np.isclose(sum_1.get_data(),
+                                 sum_3.to_spectral().to_gridded().get_data()))
+
+    def test_scaling(self):
+        scaled_1 = self.data.scattering_data * np.pi
+        scaled_2 = self.data.scattering_data_spectral * np.pi
+        scaled_3 = self.data.scattering_data_fully_spectral * np.pi
+
+        assert np.all(np.isclose(scaled_1.get_data(),
+                                 scaled_2.to_gridded().get_data()))
+
+        assert np.all(np.isclose(scaled_2.get_data(),
+                                 scaled_3.to_spectral().get_data()))
+
+        assert np.all(np.isclose(scaled_1.get_data(),
+                                 scaled_3.to_spectral().to_gridded().get_data()))

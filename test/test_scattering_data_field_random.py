@@ -109,3 +109,37 @@ class TestScatteringDataFieldRandom:
         assert np.all(np.isclose(reference, gridded.get_data()))
         assert np.all(np.isclose(reference, spectral.get_data()))
         assert np.all(np.isclose(reference, fully_spectral.get_data()))
+
+    def test_addition(self):
+        sum_1 = (self.data.scattering_data
+                 + self.data.scattering_data
+                 + self.data.scattering_data)
+        sum_2 = (self.data.scattering_data_spectral
+                 + self.data.scattering_data_spectral
+                 + self.data.scattering_data_spectral)
+        sum_3 = (self.data.scattering_data_fully_spectral
+                 + self.data.scattering_data_fully_spectral
+                 + self.data.scattering_data_fully_spectral)
+
+        assert np.all(np.isclose(sum_1.get_data(),
+                                 sum_2.to_gridded().get_data()))
+
+        assert np.all(np.isclose(sum_2.get_data(),
+                                 sum_3.to_spectral().get_data()))
+
+        assert np.all(np.isclose(sum_1.get_data(),
+                                 sum_3.to_spectral().to_gridded().get_data()))
+
+    def test_scaling(self):
+        scaled_1 = self.data.scattering_data * np.pi
+        scaled_2 = self.data.scattering_data_spectral * np.pi
+        scaled_3 = self.data.scattering_data_fully_spectral * np.pi
+
+        assert np.all(np.isclose(scaled_1.get_data(),
+                                 scaled_2.to_gridded().get_data()))
+
+        assert np.all(np.isclose(scaled_2.get_data(),
+                                 scaled_3.to_spectral().get_data()))
+
+        assert np.all(np.isclose(scaled_1.get_data(),
+                                 scaled_3.to_spectral().to_gridded().get_data()))

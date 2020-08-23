@@ -132,7 +132,7 @@ class ScatteringDataFieldGridded
   template <eigen::Index rank>
   using ConstTensorMap = eigen::ConstTensorMap<Scalar, rank>;
   using DataTensor = eigen::Tensor<Scalar, 7>;
-  using SharedDataTensorPtr = const std::shared_ptr<const DataTensor>;
+  using SharedDataTensorPtr = std::shared_ptr<DataTensor>;
 
   // pxx :: hide
   /** Create gridded scattering data field.
@@ -210,12 +210,9 @@ class ScatteringDataFieldGridded
   /// Shallow copy of the ScatteringDataField.
   ScatteringDataFieldGridded(const ScatteringDataFieldGridded &) = default;
 
-  /// Shallow copy of the ScatteringDataField.
-  ScatteringDataFieldGridded& operator=(const ScatteringDataFieldGridded &) = default;
-
   /// Deep copy of the scattering data.
-  ScatteringDataFieldGridded copy() {
-      auto data_new = std::make_shared<DataTensor>(data_);
+  ScatteringDataFieldGridded copy() const {
+      auto data_new = std::make_shared<DataTensor>(*data_);
       return ScatteringDataFieldGridded(f_grid_,
                                         t_grid_,
                                         lon_inc_,
@@ -329,23 +326,24 @@ class ScatteringDataFieldGridded
    * @lat_scat The scattering azimuth angle
    * @return A new ScatteringDataFieldGridded with the given grids.
    */
-  ScatteringDataFieldGridded regrid(SharedVectorPtr f_grid_,
-                                    SharedVectorPtr t_grid_,
-                                    SharedVectorPtr lon_inc_,
-                                    SharedVectorPtr lat_inc_,
-                                    SharedVectorPtr lon_scat_,
-                                    SharedVectorPtr lat_scat_) {
+  // pxx :: hide
+  ScatteringDataFieldGridded regrid(SharedVectorPtr f_grid,
+                                    SharedVectorPtr t_grid,
+                                    SharedVectorPtr lon_inc,
+                                    SharedVectorPtr lat_inc,
+                                    SharedVectorPtr lon_scat,
+                                    SharedVectorPtr lat_scat) const {
       using Regridder = RegularRegridder<Scalar, 0, 1, 2, 3, 4, 5>;
       Regridder regridder({*f_grid_, *t_grid_, *lon_inc_, *lat_inc_, *lon_scat_, *lat_scat_},
                           {*f_grid, *t_grid, *lon_inc, *lat_inc, *lon_scat, *lat_scat});
       auto data_interp = regridder.regrid(*data_);
       auto data_new = std::make_shared<DataTensor>(std::move(data_interp));
-      return ScatteringDataFieldGridded(f_grid_,
-                                        t_grid_,
-                                        lon_inc_new,
-                                        lat_inc_new,
-                                        lon_scat_new,
-                                        lat_scat_new,
+      return ScatteringDataFieldGridded(f_grid,
+                                        t_grid,
+                                        lon_inc,
+                                        lat_inc,
+                                        lon_scat,
+                                        lat_scat,
                                         data_new);
   }
 
@@ -358,9 +356,15 @@ class ScatteringDataFieldGridded
    * @return Reference to this object.
    */
   ScatteringDataFieldGridded operator+=(const ScatteringDataFieldGridded &other) {
-      auto regridded = other.regrid(f_grid_, t_grid, lon_inc_, lat_inc, lon_scat_, lat_scat_);
+      auto regridded = other.regrid(f_grid_, t_grid_, lon_inc_, lat_inc_, lon_scat_, lat_scat_);
       *data_ += regridded.get_data();
       return *this;
+  }
+
+  ScatteringDataFieldGridded operator+(const ScatteringDataFieldGridded &other) const {
+      auto result = copy();
+      result += other;
+      return result;
   }
 
   /** In-place scaling scattering data.
@@ -369,7 +373,7 @@ class ScatteringDataFieldGridded
    * @return Reference to this object.
    */
   ScatteringDataFieldGridded operator*=(Scalar c) {
-      data_ = c * (*data_);
+      (*data_) = c * (*data_);
       return *this;
   }
 
@@ -379,9 +383,9 @@ class ScatteringDataFieldGridded
    * @return A new object containing the scaled scattering data.
    */
   ScatteringDataFieldGridded operator*(Scalar c) const {
-      auto copy = copy();
-      copy *= c
-      return copy;
+      auto result = copy();
+      result *= c;
+      return result;
   }
 
   // pxx :: hide
@@ -414,7 +418,7 @@ class ScatteringDataFieldGridded
    */
   ScatteringDataFieldSpectral<Scalar> to_spectral() {
     size_t l_max = ((n_lat_scat_ % 2) == 0) ? n_lat_scat_ - 2 : n_lat_scat_ - 1;
-    size_t m_max = (m_max > 2) ? (n_lon_inc_ / 2) - 1 : 0;
+    size_t m_max = (n_lon_scat_ > 2) ? (n_lon_scat_ / 2) - 1 : 0;
     return to_spectral(l_max, m_max);
   }
 
@@ -474,7 +478,7 @@ class ScatteringDataFieldSpectral
   template <eigen::Index rank>
   using ConstCmplxTensorMap = eigen::ConstTensorMap<std::complex<Scalar>, rank>;
   using DataTensor = eigen::Tensor<std::complex<Scalar>, 6>;
-  using SharedDataTensorPtr = const std::shared_ptr<const DataTensor>;
+  using SharedDataTensorPtr = std::shared_ptr<DataTensor>;
 
   // pxx :: hide
   ScatteringDataFieldSpectral(SharedVectorPtr f_grid,
@@ -526,19 +530,17 @@ class ScatteringDataFieldSpectral
   /// Shallow copy of the ScatteringDataField.
   ScatteringDataFieldSpectral(const ScatteringDataFieldSpectral &) = default;
 
-  /// Shallow copy of the ScatteringDataField.
-  ScatteringDataFieldSpectral& operator=(const ScatteringDataFieldSpectral &) = default;
-
   /// Deep copy of the scattering data.
-  ScatteringDataFieldSpectral copy() {
-      auto data_new = std::make_shared<DataTensor>(data_);
-      return ScatteringDataFieldGridded(f_grid_,
+  ScatteringDataFieldSpectral copy() const {
+      auto data_new = std::make_shared<DataTensor>(*data_);
+      return ScatteringDataFieldSpectral(f_grid_,
                                         t_grid_,
                                         lon_inc_,
                                         lat_inc_,
                                         sht_scat_,
                                         data_new);
   }
+
   // pxx :: hide
   ScatteringDataFieldSpectral interpolate_frequency(
       std::shared_ptr<Vector> frequencies) const {
@@ -618,21 +620,22 @@ class ScatteringDataFieldSpectral
    * @lat_inc The incoming zenith angle
    * @return A new ScatteringDataFieldSpectral with the given grids.
    */
-  ScatteringDataFieldSpectral regrid(SharedVectorPtr f_grid_,
-                                     SharedVectorPtr t_grid_,
-                                     SharedVectorPtr lon_inc_,
-                                     SharedVectorPtr lat_scat_) {
-      using Regridder = RegularRegridder<Scalar, 0, 1, 2, 3>;
-      Regridder regridder({*f_grid_, *t_grid_, *lon_inc_, *lat_inc_},
-                          {*f_grid, *t_grid, *lon_inc, *lat_inc});
-      auto data_interp = regridder.regrid(*data_);
-      auto data_new = std::make_shared<DataTensor>(std::move(data_interp));
-      return ScatteringDataFieldSpectral(f_grid_,
-                                        t_grid_,
-                                        lon_inc_new,
-                                        lat_inc_new,
-                                        sht_scat_,
-                                        data_new);
+  // pxx :: hide
+  ScatteringDataFieldSpectral regrid(SharedVectorPtr f_grid,
+                                     SharedVectorPtr t_grid,
+                                     SharedVectorPtr lon_inc,
+                                     SharedVectorPtr lat_inc) const {
+    using Regridder = RegularRegridder<Scalar, 0, 1, 2, 3>;
+    Regridder regridder({*f_grid_, *t_grid_, *lon_inc_, *lat_inc_},
+                        {*f_grid, *t_grid, *lon_inc, *lat_inc});
+    auto data_interp = regridder.regrid(*data_);
+    auto data_new = std::make_shared<DataTensor>(std::move(data_interp));
+    return ScatteringDataFieldSpectral(f_grid,
+                                       t_grid,
+                                       lon_inc,
+                                       lat_inc,
+                                       sht_scat_,
+                                       data_new);
   }
 
   /** Accumulate scattering data into this object.
@@ -644,24 +647,19 @@ class ScatteringDataFieldSpectral
    * @return Reference to this object.
    */
   ScatteringDataFieldSpectral& operator+=(const ScatteringDataFieldSpectral &other) {
-      auto regridded = other.regrid(f_grid_, t_grid, lon_inc_, lat_inc, lon_scat_, lat_scat_);
-      eigen::IndexArray<4> dimensions_loop = {n_freqs_,
+      auto regridded = other.regrid(f_grid_, t_grid_, lon_inc_, lat_inc_);
+      eigen::IndexArray<5> dimensions_loop = {n_freqs_,
                                               n_temps_,
                                               n_lon_inc_,
                                               n_lat_inc_,
                                               data_->dimension(5)};
-      eigen::IndexArray<5> dimensions_new = {n_freqs_,
-                                             n_temps_,
-                                             sht->get_n_spectral_coeffs_cmplx(),
-                                             data_->dimension(4),
-                                             data_->dimension(5)};
-      auto data_new = std::make_shared<DataTensor>(data_);
       for (eigen::DimensionCounter<5> i{dimensions_loop}; i; ++i) {
           auto result = eigen::get_subvector<2>(*data_, i.coordinates);
           auto in_l = eigen::get_subvector<2>(*data_, i.coordinates);
           auto in_r = eigen::get_subvector<2>(*regridded.data_, i.coordinates);
-          result = SHT::add_coeffs(sht_scat_, in_l, regridded.sht_scat_, in_r);
+          result = sht::SHT::add_coeffs(*sht_scat_, in_l, *regridded.sht_scat_, in_r);
       }
+      return *this;
   }
 
   /** Add scattering data fields.
@@ -683,8 +681,8 @@ class ScatteringDataFieldSpectral
    * @param c The scaling factor.
    * @return Reference to this object.
    */
-  ScatteringDataFieldSpectral operator*=(Scalar c) {
-      *data_ = c * (*data_) ;
+  ScatteringDataFieldSpectral & operator*=(Scalar c) {
+      (*data_) = c * (*data_) ;
       return *this;
   }
 
@@ -694,9 +692,9 @@ class ScatteringDataFieldSpectral
    * @return A new object containing the scaled scattering data.
    */
   ScatteringDataFieldSpectral operator*(Scalar c) const {
-      auto copy = copy();
-      copy *= c
-      return copy;
+      auto result = copy();
+      result *= c;
+      return result;
   }
 
   ScatteringDataFieldGridded<Scalar> to_gridded();
@@ -709,7 +707,7 @@ class ScatteringDataFieldSpectral
   }
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral() {
       size_t l_max = ((n_lat_inc_ % 2) == 0) ? n_lat_inc_ - 2 : n_lat_inc_ - 1;
-      size_t m_max = (m_max > 2) ? (n_lon_inc_ / 2) - 1 : 0;
+      size_t m_max = (n_lon_inc_ > 2) ? (n_lon_inc_ / 2) - 1 : 0;
       return to_fully_spectral(l_max, m_max);
   }
 
@@ -762,7 +760,7 @@ class ScatteringDataFieldFullySpectral
   template <eigen::Index rank>
   using ConstCmplxTensorMap = eigen::ConstTensorMap<std::complex<Scalar>, rank>;
   using DataTensor = eigen::Tensor<std::complex<Scalar>, 5>;
-  using SharedDataTensorPtr = const std::shared_ptr<const DataTensor>;
+  using SharedDataTensorPtr = std::shared_ptr<DataTensor>;
 
   // pxx :: hide
   ScatteringDataFieldFullySpectral(SharedVectorPtr f_grid,
@@ -802,6 +800,20 @@ class ScatteringDataFieldFullySpectral
         f_grid_map_(f_grid_->data(), n_freqs_),
         t_grid_map_(t_grid_->data(), n_temps_),
         data_(std::make_shared<DataTensor>(data)) {}
+
+
+  /// Shallow copy of the ScatteringDataField.
+  ScatteringDataFieldFullySpectral(const ScatteringDataFieldFullySpectral &) = default;
+
+  /// Deep copy of the scattering data.
+  ScatteringDataFieldFullySpectral copy() const {
+    auto data_new = std::make_shared<DataTensor>(*data_);
+    return ScatteringDataFieldFullySpectral(f_grid_,
+                                            t_grid_,
+                                            sht_inc_,
+                                            sht_scat_,
+                                            data_new);
+  }
 
   // pxx :: hide
   ScatteringDataFieldFullySpectral interpolate_frequency(
@@ -848,17 +860,18 @@ class ScatteringDataFieldFullySpectral
   /** Regrid data to new grids.
    * @param f_grid The frequency grid.
    * @param t_grid The temperature grid.
-   * @return A new ScatteringDataFieldSpectral with the given grids.
+   * @return A new ScatteringDataFieldFullySpectral with the given grids.
    */
-  ScatteringDataFieldFullySpectral regrid(SharedVectorPtr f_grid_,
-                                          SharedVectorPtr t_grid_) {
+  // pxx :: hide
+  ScatteringDataFieldFullySpectral regrid(SharedVectorPtr f_grid,
+                                          SharedVectorPtr t_grid) const {
       using Regridder = RegularRegridder<Scalar, 0, 1>;
       Regridder regridder({*f_grid_, *t_grid_},
                           {*f_grid, *t_grid});
       auto data_interp = regridder.regrid(*data_);
       auto data_new = std::make_shared<DataTensor>(std::move(data_interp));
-      return ScatteringDataFieldFullySpectral(f_grid_,
-                                              t_grid_,
+      return ScatteringDataFieldFullySpectral(f_grid,
+                                              t_grid,
                                               sht_inc_,
                                               sht_scat_,
                                               data_new);
@@ -873,18 +886,19 @@ class ScatteringDataFieldFullySpectral
    * @param other The ScatteringDataField to accumulate into this.
    * @return Reference to this object.
    */
-  ScatteringDataFieldSpectral& operator+=(const ScatteringDataFieldFullySpectral &other) {
-      auto regridded = other.regrid(f_grid_, t_grid, lon_inc_, lat_inc, lon_scat_, lat_scat_);
-      eigen::IndexArray<4> dimensions_loop = {n_freqs_,
+  ScatteringDataFieldFullySpectral& operator+=(const ScatteringDataFieldFullySpectral &other) {
+      auto regridded = other.regrid(f_grid_, t_grid_);
+      eigen::IndexArray<3> dimensions_loop = {n_freqs_,
                                               n_temps_,
-                                              data_->dimension(5)};
-      auto data_new = std::make_shared<DataTensor>(data_);
-      for (eigen::DimensionCounter<4> i{dimensions_loop}; i; ++i) {
+                                              data_->dimension(4)};
+      for (eigen::DimensionCounter<3> i{dimensions_loop}; i; ++i) {
           auto result = eigen::get_submatrix<2, 3>(*data_, i.coordinates);
-          auto in_l = eigen::get_submatrix<2, 2>(*data_, i.coordinates);
+          auto in_l = eigen::get_submatrix<2, 3>(*data_, i.coordinates);
           auto in_r = eigen::get_submatrix<2, 3>(*regridded.data_, i.coordinates);
-          result = SHT::add_coeffs(sht_scat_, in_l, regridded.sht_scat_, in_r);
+          result = sht::SHT::add_coeffs(*sht_inc_, *sht_scat_, in_l,
+                                        *regridded.sht_inc_, *regridded.sht_scat_, in_r);
       }
+      return *this;
   }
 
   /** Add scattering data fields.
@@ -892,10 +906,11 @@ class ScatteringDataFieldFullySpectral
    * Regrids the given scattering data field to the grids of this object and computes
    * the sum of the two scattering data fields.
    *
-   * @param other The ScatteringDataField to accumulate into this.
-   * @return Reference to this object.
+   * @param other The other scattering data field to add to this.
+   * @return A new ScatteringDataFieldFullySpectral object representing the sum of the
+   * two other fields.
    */
-  ScatteringDataFieldSpectral operator+(const ScatteringDataFieldSpectral &other) {
+  ScatteringDataFieldFullySpectral operator+(const ScatteringDataFieldFullySpectral &other) const {
       auto result = copy();
       result += other;
       return result;
@@ -906,7 +921,7 @@ class ScatteringDataFieldFullySpectral
    * @param c The scaling factor.
    * @return Reference to this object.
    */
-  ScatteringDataFieldSpectral operator*=(Scalar c) {
+  ScatteringDataFieldFullySpectral & operator*=(Scalar c) {
       *data_ = c * (*data_) ;
       return *this;
   }
@@ -916,10 +931,10 @@ class ScatteringDataFieldFullySpectral
    * @param c The scaling factor.
    * @return A new object containing the scaled scattering data.
    */
-  ScatteringDataFieldSpectral operator*(Scalar c) const {
-      auto copy = copy();
-      copy *= c
-      return copy;
+  ScatteringDataFieldFullySpectral operator*(Scalar c) const {
+      auto result = copy();
+      result *= c;
+      return result;
   }
 
   ScatteringDataFieldSpectral<Scalar> to_spectral();

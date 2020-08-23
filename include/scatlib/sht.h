@@ -72,19 +72,28 @@ class SHT {
   using IndexVector = eigen::Vector<size_t>;
   using ConstVectorMap = eigen::ConstVectorMap<double>;
 
-  static SpectralCoeffs add_coeffs(const SHT& sht_l, SpectralCoeffsRef v,
-                                   const SHT& sht_r, SpectralCoeffsRef w) {
-      size_t n_spectral_coeffs = sht_l.get_n_spectral_coeffs();
-      auto result = SpectralCoeffs(n_spectral_coeffs);
-      for (size_t i = 0; i < n_spectral_coeffs; ++i) {
-          result[i] = v[i];
-          size_t l = sht_l.shtns_->li[i];
-          size_t m = sht_l.shtns_->mi[i];
-          if ((l <= sht_r.l_max_) && (m <= sht_r.m_max_)) {
-              result[i] += w[sht_r.shtns_->lmidx[m] + l];
-          }
+  static SpectralCoeffs add_coeffs(const SHT &sht_l,
+                                   SpectralCoeffsRef v,
+                                   const SHT &sht_r,
+                                   SpectralCoeffsRef w) {
+    size_t n_spectral_coeffs = sht_l.get_n_spectral_coeffs();
+    auto result = SpectralCoeffs(n_spectral_coeffs);
+    for (size_t i = 0; i < n_spectral_coeffs; ++i) {
+      result[i] = v[i];
+
+      if (sht_r.is_trivial_) {
+        if (i == 0) {
+          result[i] += w[i];
+        }
+      } else {
+        size_t l = sht_l.shtns_->li[i];
+        size_t m = sht_l.shtns_->mi[i];
+        if ((l <= sht_r.l_max_) && (m <= sht_r.m_max_)) {
+          result[i] += w[sht_r.shtns_->lmidx[m] + l];
+        }
       }
-      return result;
+    }
+    return result;
   }
 
   static SpectralCoeffMatrix add_coeffs(const SHT &sht_inc_l,
