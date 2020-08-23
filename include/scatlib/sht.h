@@ -98,21 +98,26 @@ class SHT {
     auto result = SpectralCoeffMatrix(nlm_inc, nlm_scat);
 
     size_t index_l = 0;
-    for (int l = 0; l <= (int) sht_inc_l.l_max_; ++l) {
-        int m_max = (l <= (int) sht_inc_l.m_max_) ? l : sht_inc_l.m_max_;
+    for (int l = 0; l <= (int)sht_inc_l.l_max_; ++l) {
+      int m_max = (l <= (int)sht_inc_l.m_max_) ? l : sht_inc_l.m_max_;
       for (int m = -m_max; m <= m_max; ++m) {
-        int h = std::min<int>(sht_inc_r.m_max_, l);
-        int index_r = l * (2 * h + 1) - h * h + m;
-        auto r = add_coeffs(sht_scat_l, v.row(index_l), sht_scat_r, w.row(index_r));
-        result.row(index_l)  = r;
-        //add_coeffs(sht_scat_l, v.row(index_l), sht_scat_r, w.row(index_r)).resize(1, -1);
-        std::cout << index_l << " // " << index_r << std::endl;
+        if ((l > sht_inc_r.l_max_) || (std::abs(m) > sht_inc_r.m_max_)) {
+            result.row(index_l) = v.row(index_l);
+        } else {
+          int h = std::min<int>(sht_inc_r.m_max_, l);
+          int index_r = l * (2 * h + 1) - h * h + m;
+
+          auto r = add_coeffs(sht_scat_l,
+                              v.row(index_l),
+                              sht_scat_r,
+                              w.row(index_r));
+          result.row(index_l) = r;
+        }
         ++index_l;
       }
     }
     return result;
   }
-
 
   /**
    * Create a spherical harmonics transformation object.
@@ -139,7 +144,7 @@ class SHT {
       shtns_use_threads(0);
       //shtns_reset();
       shtns_ =
-          shtns_init(sht_quick_init, l_max_, m_max_, m_res_, n_lat_, n_lon_);
+          shtns_init(sht_auto, l_max_, m_max_, m_res_, n_lat_, n_lon_);
       n_spectral_coeffs_ = shtns_->nlm;
       n_spectral_coeffs_cmplx_ = shtns_->nlm_cplx;
       spectral_coeffs_ =
@@ -174,7 +179,7 @@ class SHT {
 
   Vector get_longitude_grid() {
       Vector v{n_lon_};
-      double dx = M_PI / (n_lon_ + 1);
+      double dx = 2 * M_PI / (n_lon_ + 1);
       for (size_t i = 0; i < n_lon_; ++i) {
           v[i] = dx * i;
       }

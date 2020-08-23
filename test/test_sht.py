@@ -13,8 +13,8 @@ class TestSHT:
     Testing of spherical harmonics transform for non-degenrate 2D fields.
     """
     def setup_method(self):
-        self.l_max = 2 ** np.random.randint(4, 8)
-        self.m_max = self.l_max
+        self.l_max = np.random.randint(20, 100)
+        self.m_max = np.random.randint(10, self.l_max)
         self.n_lat = 2 * self.l_max
         self.n_lon = 4 * self.l_max
         self.sht = SHT(self.l_max, self.m_max, self.n_lat, self.n_lon, 1)
@@ -35,7 +35,6 @@ class TestSHT:
         """
         lat_grid_ref = np.cos(self.lat_grid)
         lat_grid = self.sht.get_colatitude_grid()
-        print(lat_grid_ref, lat_grid)
         assert np.all(np.isclose(lat_grid_ref, lat_grid))
 
     def test_spatial_to_spectral(self):
@@ -45,7 +44,8 @@ class TestSHT:
         significant component.
         """
         l = np.random.randint(1, self.l_max)
-        m = np.random.randint(-l, l)
+        m_max = min(self.m_max, l)
+        m = np.random.randint(-m_max, m_max)
 
         xx, yy = np.meshgrid(self.lat_grid, self.lon_grid, indexing="xy")
         zz = sph_harm(m, l, yy, xx)
@@ -59,12 +59,12 @@ class TestSHT:
         that the input field is recovered.
         """
         l = np.random.randint(1, self.l_max)
-        m = np.random.randint(-l, l)
+        m_max = min(self.m_max, l)
+        m = np.random.randint(-m_max, m_max)
 
         xx, yy = np.meshgrid(self.lon_grid, self.lat_grid, indexing="ij")
         zz = sph_harm(m, l, xx, yy)
         coeffs = self.sht.synthesize(self.sht.transform(zz.real).ravel())
-        print(coeffs.shape)
         assert np.all(np.isclose(zz.real, coeffs))
 
     def test_inverse_transform_cmplx(self):
@@ -73,12 +73,14 @@ class TestSHT:
         that the input field is recovered.
         """
         l = np.random.randint(1, self.l_max)
-        m = np.random.randint(-l, l)
+        m_max = min(self.m_max, l)
+        m = np.random.randint(-m_max, m_max)
 
         xx, yy = np.meshgrid(self.lon_grid, self.lat_grid, indexing="ij")
         zz = sph_harm(m, l, xx, yy)
-        coeffs = self.sht.synthesize_cmplx(2.0 * self.sht.transform_cmplx(zz))
-        assert np.all(np.isclose(2.0 * zz, coeffs))
+        coeffs = self.sht.transform_cmplx(zz)
+        zz_rec = self.sht.synthesize_cmplx(2.0 * coeffs)
+        assert np.all(np.isclose(2.0 * zz, zz_rec))
 
     def test_evaluate(self):
         """
@@ -86,15 +88,14 @@ class TestSHT:
         input.
         """
         l = np.random.randint(1, self.l_max)
-        m = np.random.randint(-l, l)
+        m_max = min(self.m_max, l)
+        m = np.random.randint(-m_max, m_max)
 
         xx, yy = np.meshgrid(self.lat_grid, self.lon_grid, indexing="xy")
         zz_ref = sph_harm(m, l, yy, xx) 
         coeffs = self.sht.transform(zz_ref.real)
         points = np.stack([yy.ravel(), xx.ravel()], axis=-1)
         zz = self.sht.evaluate(coeffs, points)
-
-        print(m, l, self.n_lat, self.n_lon, self.l_max)
 
         assert np.all(np.isclose(zz, zz_ref.real.ravel()))
 
@@ -193,10 +194,9 @@ def synthesize_matrix(sht_inc, sht_scat, coefficient_matrix):
     n = coefficient_matrix.shape[1]
     coeffs = np.zeros((sht_inc.get_n_longitudes(),
                       sht_inc.get_n_latitudes(),
-                      n))
+                      n)) + 0j
     for i in range(n):
         coeffs[:, :, i] = sht_inc.synthesize_cmplx(coefficient_matrix[:, i])
-
     result = np.zeros((sht_inc.get_n_longitudes(),
                        sht_inc.get_n_latitudes(),
                        sht_scat.get_n_longitudes(),
@@ -204,6 +204,21 @@ def synthesize_matrix(sht_inc, sht_scat, coefficient_matrix):
     for i in range(coeffs.shape[0]):
         for j in range(coeffs.shape[1]):
             result[i, j] = sht_scat.synthesize(coeffs[i, j, :])
+    return result
+
+def transform_matrix(sht_inc, sht_scat, spatial_field):
+    coeffs = np.zeros((sht_inc.get_n_longitudes(),
+                       sht_inc.get_n_latitudes(),
+                       sht_scat.get_n_spectral_coeffs())) + 0j
+    for i in range(sht_inc.get_n_longitudes()):
+        for j in range(sht_inc.get_n_latitudes()):
+            coeffs[i, j, :] = sht_scat.transform(spatial_field[i, j, :, :])
+
+    result = np.zeros((sht_inc.get_n_spectral_coeffs_cmplx(),
+                       sht_scat.get_n_spectral_coeffs()))
+    for i in range(sht_scat.get_n_spectral_coeffs()):
+        result[:, i] = sht_inc.transform_cmplx(coeffs[:, :, i])
+
     return result
 
 
@@ -295,3 +310,15 @@ class TestAddition:
                                 self.coeff_matrix_l)
         z_rs = synthesize_matrix(self.sht_r_inc, self.sht_r, sum_rl)
         assert np.all(np.isclose(z_r + z_l, z_rs))
+
+        coeff_matrix_rl = transform_matrix(self.sht_l_inc, self.sht_l, z_r)
+        sum_lr = SHT.add_coeffs(self.sht_l_inc,
+                                self.sht_l,
+                                self.coeff_matrix_l,
+                                self.sht_l_inc,
+                                self.sht_l,
+                                coeff_matrix_rl)
+        z_ls = synthesize_matrix(self.sht_l_inc, self.sht_l, sum_lr)
+        z_rl = synthesize_matrix(self.sht_l_inc, self.sht_l, coeff_matrix_rl)
+
+        assert np.all(np.isclose(z_ls, z_rl + z_l))
