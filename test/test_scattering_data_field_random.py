@@ -8,8 +8,7 @@ class ScatteringDataRandom(ScatteringDataBase):
     def __init__(self):
         self.f_grid = np.logspace(9, 11, 11)
         self.t_grid = np.linspace(250, 300, 6)
-        self.lon_inc = np.ones(1)
-        self.lat_inc = np.ones(1)
+        self.lon_inc = np.ones(1) self.lat_inc = np.ones(1)
         self.lon_scat = np.ones(1)
         self.lat_scat = np.linspace(0, 2 * np.pi, 180)
         self.data = np.zeros((self.f_grid.size,

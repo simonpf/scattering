@@ -11,6 +11,7 @@
 #include <Eigen/Core>
 #include <iostream>
 #include <type_traits>
+#include <memory>
 
 namespace scatlib {
 namespace eigen {
@@ -37,6 +38,8 @@ using VectorFixedSize = Eigen::Matrix<Scalar, 1, N, Eigen::RowMajor>;
 /** Variable-length vector that doesn't own its data.
  * @tparam Scalar The type used to represent coefficients of the matrix.
  */
+template <typename Scalar>
+using VectorPtr = std::shared_ptr<Vector<Scalar>>;
 template <typename Scalar>
 using VectorMap = Eigen::Map<Vector<Scalar>>;
 template <typename Scalar>

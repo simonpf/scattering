@@ -53,10 +53,10 @@ target_link_libraries(scattering_data_field fftw3)
 #
 
 add_pxx_module(
-  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/scattering_data.h
-  MODULE scattering_data
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/single_scattering_data.h
+  MODULE single_scattering_data
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
-add_dependencies(scattering_data libshtns)
-target_link_libraries(scattering_data ${SHTNS_LIBRARY})
-target_link_libraries(scattering_data fftw3)
+add_dependencies(single_scattering_data libshtns)
+target_link_libraries(single_scattering_data ${SHTNS_LIBRARY})
+target_link_libraries(single_scattering_data fftw3)
