@@ -99,6 +99,8 @@ using ConstMatrixRef = Eigen::Ref<const Matrix<Scalar>>;
 template <typename Scalar, int rank>
 using Tensor = Eigen::Tensor<Scalar, rank, Eigen::RowMajor>;
 template <typename Scalar, int rank>
+using TensorPtr = std::shared_ptr<Eigen::Tensor<Scalar, rank, Eigen::RowMajor>>;
+template <typename Scalar, int rank>
 using TensorMap =
     Eigen::TensorMap<Eigen::Tensor<Scalar, rank, Eigen::RowMajor>>;
 template <typename Scalar, int rank>
@@ -418,12 +420,28 @@ auto inline get_subvector(TensorType &t, IndexArray vector_index) ->
   return map;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Dimension counter
+////////////////////////////////////////////////////////////////////////////////
+
+/** Tensor index counter to loop over elements.
+ *
+ * The dimensions counter is a helper class that allows looping over the
+ * indices in a tensor in a single loop. It loops over all elements in the
+ * tensor in row-major order, meaning that the last index increased with
+ * every increment of the counter. The current tensor index can be
+ * accessed through the coordinates member.
+ */
 template <int rank>
 struct DimensionCounter {
+  /** Create counter
+   * @param dims Array containing the dimension of the tensor to loop over.
+   */
   DimensionCounter(std::array<Eigen::DenseIndex, rank> dims) {
     dimensions = dims;
   }
 
+  /// Increment the counter.
   DimensionCounter &operator++() {
     for (int i = rank - 1; i >= 0; i--) {
       coordinates[i]++;
@@ -439,23 +457,24 @@ struct DimensionCounter {
     return *this;
   }
 
+  /// Have all elements been looped over?
   operator bool() { return !exhausted_; }
 
   bool exhausted_ = false;
+  /// The index of the current tensor element.
   std::array<Eigen::DenseIndex, rank> coordinates{0};
   std::array<Eigen::DenseIndex, rank> dimensions{0};
 };
 
-template<int rank>
-std::ostream& operator<<(std::ostream &out,const DimensionCounter<rank> &c) {
-    out << "Dimension counter: ";
-    for (int i = 0; i < rank - 1; ++i) {
-        out << c.coordinates[i] << ", ";
-    }
-    out << c.coordinates[rank - 1] << std::endl;
-    return out;
+template <int rank>
+std::ostream &operator<<(std::ostream &out, const DimensionCounter<rank> &c) {
+  out << "Dimension counter: ";
+  for (int i = 0; i < rank - 1; ++i) {
+    out << c.coordinates[i] << ", ";
+  }
+  out << c.coordinates[rank - 1] << std::endl;
+  return out;
 }
-
 
 }  // namespace eigen
 }  // namespace scatlib

@@ -2,13 +2,15 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate
 from utils import (harmonic_random_field, ScatteringDataBase)
-from scatlib.scattering_data_field import ScatteringDataFieldGridded
+from scatlib.scattering_data_field import (ScatteringDataFieldGridded,
+                                           ScatteringDataFieldFullySpectral)
 
 class ScatteringDataRandom(ScatteringDataBase):
     def __init__(self):
         self.f_grid = np.logspace(9, 11, 11)
         self.t_grid = np.linspace(250, 300, 6)
-        self.lon_inc = np.ones(1) self.lat_inc = np.ones(1)
+        self.lon_inc = np.ones(1)
+        self.lat_inc = np.ones(1)
         self.lon_scat = np.ones(1)
         self.lat_scat = np.linspace(0, 2 * np.pi, 180)
         self.data = np.zeros((self.f_grid.size,
@@ -32,7 +34,9 @@ class ScatteringDataRandom(ScatteringDataBase):
                                                           self.lat_scat,
                                                           self.data)
         self.scattering_data_spectral = self.scattering_data.to_spectral()
+        self.sht_scat = self.scattering_data_spectral.get_sht_scat()
         self.scattering_data_fully_spectral = self.scattering_data_spectral.to_fully_spectral()
+        self.sht_inc = self.scattering_data_fully_spectral.get_sht_inc()
 
     def interpolate_angles(self, lon_inc_new, lat_inc_new, lon_scat_new, lat_scat_new):
         """
@@ -142,3 +146,58 @@ class TestScatteringDataFieldRandom:
 
         assert np.all(np.isclose(scaled_1.get_data(),
                                  scaled_3.to_spectral().to_gridded().get_data()))
+
+    def test_set_data(self):
+        result_gridded = ScatteringDataFieldGridded(self.data.f_grid,
+                                                    self.data.t_grid,
+                                                    self.data.lon_inc,
+                                                    self.data.lat_inc,
+                                                    self.data.lon_scat,
+                                                    self.data.lat_scat,
+                                                    self.data.data.shape[-1])
+
+        result_spectral = ScatteringDataFieldSpectral(self.data.f_grid,
+                                                      self.data.t_grid,
+                                                      self.data.lon_inc,
+                                                      self.data.lat_inc,
+                                                      self.data.sht_scat,
+                                                      self.data.data.shape[-1])
+
+        result_spectral = ScatteringDataFieldSpectral(self.data.f_grid,
+                                                      self.data.t_grid,
+                                                      self.data.lon_inc,
+                                                      self.data.lat_inc,
+                                                      self.data.sht_scat,
+                                                      self.data.data.shape[-1])
+
+        result_fully_spectral = ScatteringDataFieldFullySpectral(self.data.f_grid,
+                                                            self.data.t_grid,
+                                                            self.data.sht_inc,
+                                                            self.data.sht_scat,
+                                                            self.data.data.shape[-1])
+
+        for i, f in enumerate(self.data.f_grid):
+            for j, t in enumerate(self.data.t_grid):
+                d = self.data.scattering_data.interpolate_frequency([f])
+                d = d.interpolate_temperature([t])
+                result_gridded.set_data(i, j, d)
+
+                d = self.data.scattering_data_spectral.interpolate_frequency([f])
+                d = d.interpolate_temperature([t])
+                result_spectral.set_data(i, j, d)
+
+                d = self.data.scattering_data_fully_spectral.interpolate_frequency([f])
+                d = d.interpolate_temperature([t])
+                result_fully_spectral.set_data(i, j, d)
+
+
+        assert np.all(np.isclose(self.data.scattering_data.get_data(),
+                                 result_gridded.get_data()))
+        assert np.all(np.isclose(self.data.scattering_data_spectral.get_data(),
+                                 result_spectral.get_data()))
+        assert np.all(np.isclose(self.data.scattering_data_fully_spectral.get_data(),
+                                 result_fully_spectral.get_data()))
+
+t = TestScatteringDataFieldRandom()
+t.setup_method()
+rs = t.test_set_data()

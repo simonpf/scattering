@@ -16,6 +16,8 @@
 
 namespace scatlib {
 
+using eigen::Index;
+
 enum class DataFormat { Gridded, Spectral, FullySpectral };
 enum class DataType { Spherical, TotallyRandom, AzimuthallyRandom, General };
 
@@ -38,10 +40,10 @@ class ScatteringDataFieldBase {
      * Determines the type of scattering data for a given phase matrix
      * tensor.
      */
-  static DataType determine_type(size_t n_lon_inc,
-                                 size_t n_lat_inc,
-                                 size_t n_lon_scat,
-                                 size_t n_lat_scat) {
+  static DataType determine_type(Index n_lon_inc,
+                                 Index n_lat_inc,
+                                 Index n_lon_scat,
+                                 Index n_lat_scat) {
     if ((n_lon_inc == 1) && (n_lat_inc == 1) &&
         (n_lon_scat == 1) && (n_lat_scat == 1)) {
       return DataType::Spherical;
@@ -57,12 +59,12 @@ class ScatteringDataFieldBase {
   }
 
 protected:
- ScatteringDataFieldBase(size_t n_freqs,
-                         size_t n_temps,
-                         size_t n_lon_inc,
-                         size_t n_lat_inc,
-                         size_t n_lon_scat,
-                         size_t n_lat_scat)
+ ScatteringDataFieldBase(Index n_freqs,
+                         Index n_temps,
+                         Index n_lon_inc,
+                         Index n_lat_inc,
+                         Index n_lon_scat,
+                         Index n_lat_scat)
      : n_freqs_(n_freqs),
        n_temps_(n_temps),
        n_lon_inc_(n_lon_inc),
@@ -74,12 +76,12 @@ protected:
  DataType get_type() const { return type_; }
 
 protected:
- size_t n_freqs_;
- size_t n_temps_;
- size_t n_lon_inc_;
- size_t n_lat_inc_;
- size_t n_lon_scat_;
- size_t n_lat_scat_;
+ Index n_freqs_;
+ Index n_temps_;
+ Index n_lon_inc_;
+ Index n_lat_inc_;
+ Index n_lon_scat_;
+ Index n_lat_scat_;
  DataType type_;
 };
 
@@ -198,14 +200,62 @@ class ScatteringDataFieldGridded
         lat_inc_(std::make_shared<Vector>(lat_inc)),
         lon_scat_(std::make_shared<Vector>(lon_scat)),
         lat_scat_(std::make_shared<Vector>(lat_scat)),
-        data_(std::make_shared<DataTensor>(data)),
         f_grid_map_(f_grid_->data(), n_freqs_),
         t_grid_map_(t_grid_->data(), n_temps_),
         lon_inc_map_(lon_inc_->data(), n_lon_inc_),
         lat_inc_map_(lat_inc_->data(), n_lat_inc_),
         lon_scat_map_(lon_scat_->data(), n_lon_scat_),
-        lat_scat_map_(lat_scat_->data(), n_lat_scat_) {}
+        lat_scat_map_(lat_scat_->data(), n_lat_scat_),
+        data_(std::make_shared<DataTensor>(data)) {}
 
+  /** Create empty gridded scattering data field.
+   *
+   * This constructor is useful to pre-allocate data for sequentially
+   * loading scattering data from multiple files or that is defined
+   * on different grids.
+   *
+   * @param f_grid The frequency grid.
+   * @param t_grid The temperature grid.
+   * @lon_inc The incoming azimuth angle
+   * @lat_inc The incoming zenith angle
+   * @lon_scat The scattering zenith angle
+   * @lat_scat The scattering azimuth angle
+   * @n_element The number of scattering-data elements, e.g.
+   * phase matrix components that need to be stored for this
+   * data field.
+   */
+  ScatteringDataFieldGridded(Vector f_grid,
+                             Vector t_grid,
+                             Vector &lon_inc,
+                             Vector &lat_inc,
+                             Vector &lon_scat,
+                             Vector &lat_scat,
+                             Index n_elements)
+      : ScatteringDataFieldBase(f_grid.size(),
+                                t_grid.size(),
+                                lon_inc.size(),
+                                lat_inc.size(),
+                                lon_scat.size(),
+                                lat_scat.size()),
+        f_grid_(std::make_shared<Vector>(f_grid)),
+        t_grid_(std::make_shared<Vector>(t_grid)),
+        lon_inc_(std::make_shared<Vector>(lon_inc)),
+        lat_inc_(std::make_shared<Vector>(lat_inc)),
+        lon_scat_(std::make_shared<Vector>(lon_scat)),
+        lat_scat_(std::make_shared<Vector>(lat_scat)),
+        f_grid_map_(f_grid_->data(), n_freqs_),
+        t_grid_map_(t_grid_->data(), n_temps_),
+        lon_inc_map_(lon_inc_->data(), n_lon_inc_),
+        lat_inc_map_(lat_inc_->data(), n_lat_inc_),
+        lon_scat_map_(lon_scat_->data(), n_lon_scat_),
+        lat_scat_map_(lat_scat_->data(), n_lat_scat_),
+        data_(std::make_shared<DataTensor>(std::array<Index, 7>{n_freqs_,
+                                                                n_temps_,
+                                                                n_lon_inc_,
+                                                                n_lat_inc_,
+                                                                n_lon_scat_,
+                                                                n_lat_scat_,
+                                                                n_elements})) {}
   /// Shallow copy of the ScatteringDataField.
   ScatteringDataFieldGridded(const ScatteringDataFieldGridded &) = default;
 
@@ -219,6 +269,42 @@ class ScatteringDataFieldGridded
                                         lon_scat_,
                                         lat_scat_,
                                         data_new);
+  }
+
+  /** Set scattering data for given frequency and temperature index.
+   *
+   * This function copies the data from the given scattering data field
+   * into the sub-tensor of this objects' data tensor identified by
+   * the given frequency and temperature indices. The data is automatically
+   * regridded to the scattering data grids of this object.
+   *
+   * This function is useful to combine scattering data at different
+   * temperatures and frequencies that have different scattering grids.
+   *
+   * @frequency_index The index along the frequency dimension
+   * @temperature_index The index along the temperature dimension.
+   */
+  void set_data(eigen::Index frequency_index,
+                eigen::Index temperature_index,
+                const ScatteringDataFieldGridded &other) {
+
+      using Regridder = RegularRegridder<Scalar, 2, 3, 4, 5>;
+
+      auto f_grid_other = other.f_grid_;
+      auto lon_inc_other = other.lon_inc_;
+      auto lat_inc_other = other.lat_inc_;
+      auto lon_scat_other = other.lon_scat_;
+      auto lat_scat_other = other.lat_scat_;
+      auto regridder = Regridder(
+          {*lon_inc_other, *lat_inc_other, *lon_scat_other, *lat_scat_other},
+          {*lon_inc_, *lat_inc_, *lon_scat_, *lat_scat_});
+      auto regridded = regridder.regrid(*other.data_);
+
+      std::array<eigen::Index, 2> data_index = {frequency_index,
+                                                temperature_index};
+      std::array<eigen::Index, 2> input_index = {0, 0};
+      eigen::tensor_index(*data_, data_index) = eigen::tensor_index(regridded,
+                                                                    input_index);
   }
 
   // pxx :: hide
@@ -247,6 +333,7 @@ class ScatteringDataFieldGridded
   ScatteringDataFieldGridded interpolate_frequency(const Vector &frequencies) const {
     return interpolate_frequency(std::make_shared<Vector>(frequencies));
   }
+
 
   // pxx :: hide
   /** Interpolate data along temperature dimension.
@@ -399,8 +486,8 @@ class ScatteringDataFieldGridded
    * @param m_max The maximum order m to use in the SH expansion.
    * @return The scattering data field transformed to spectral format.
    */
-  ScatteringDataFieldSpectral<Scalar> to_spectral(size_t l_max,
-                                                  size_t m_max) {
+  ScatteringDataFieldSpectral<Scalar> to_spectral(Index l_max,
+                                                  Index m_max) {
 
       std::shared_ptr<sht::SHT> sht = std::make_shared<sht::SHT>(l_max,
                                                                  m_max,
@@ -416,8 +503,8 @@ class ScatteringDataFieldGridded
    * @return The scattering data field transformed to spectral format.
    */
   ScatteringDataFieldSpectral<Scalar> to_spectral() {
-    size_t l_max = ((n_lat_scat_ % 2) == 0) ? n_lat_scat_ - 2 : n_lat_scat_ - 1;
-    size_t m_max = (n_lon_scat_ > 2) ? (n_lon_scat_ / 2) - 1 : 0;
+    Index l_max = ((n_lat_scat_ % 2) == 0) ? n_lat_scat_ - 2 : n_lat_scat_ - 1;
+    Index m_max = (n_lon_scat_ > 2) ? (n_lon_scat_ / 2) - 1 : 0;
     return to_spectral(l_max, m_max);
   }
 
@@ -549,6 +636,44 @@ class ScatteringDataFieldSpectral
         lat_inc_map_(lat_inc_->data(), n_temps_),
         data_(std::make_shared<DataTensor>(data)) {}
 
+  /** Create empty scattering data field.
+   * @param f_grid The frequency grid.
+   * @param t_grid The temperature grid.
+   * @param lon_inc The longitude grid for the incoming angles.
+   * @param lat_inc The latitude grid for the incoming angles.
+   * @param sht_scat The SH transform used to expand the scattering-angle
+   * dependency.
+   * @data The scattering data.
+   */
+  ScatteringDataFieldSpectral(const Vector &f_grid,
+                              const Vector &t_grid,
+                              const Vector &lon_inc,
+                              const Vector &lat_inc,
+                              const sht::SHT &sht_scat,
+                              Index n_elements)
+      : ScatteringDataFieldBase(f_grid.size(),
+                                t_grid.size(),
+                                lon_inc.size(),
+                                lat_inc.size(),
+                                sht_scat.get_n_longitudes(),
+                                sht_scat.get_n_latitudes()),
+        f_grid_(std::make_shared<Vector>(f_grid)),
+        t_grid_(std::make_shared<Vector>(t_grid)),
+        lon_inc_(std::make_shared<Vector>(lon_inc)),
+        lat_inc_(std::make_shared<Vector>(lat_inc)),
+        sht_scat_(std::make_shared<sht::SHT>(sht_scat)),
+        f_grid_map_(f_grid_->data(), n_freqs_),
+        t_grid_map_(t_grid_->data(), n_temps_),
+        lon_inc_map_(lon_inc_->data(), n_freqs_),
+        lat_inc_map_(lat_inc_->data(), n_temps_),
+        data_(std::make_shared<DataTensor>(
+            std::array<Index, 6>{n_freqs_,
+                                 n_temps_,
+                                 n_lon_inc_,
+                                 n_lat_inc_,
+                                 sht_scat.get_n_spectral_coeffs(),
+                                 n_elements})) {}
+
   /// Shallow copy of the ScatteringDataField.
   ScatteringDataFieldSpectral(const ScatteringDataFieldSpectral &) = default;
 
@@ -561,6 +686,49 @@ class ScatteringDataFieldSpectral
                                         lat_inc_,
                                         sht_scat_,
                                         data_new);
+  }
+
+  /** Set scattering data for given frequency and temperature index.
+   *
+   * This function copies the data from the given scattering data field
+   * into the sub-tensor of this objects' data tensor identified by
+   * the given frequency and temperature indices. The data is automatically
+   * regridded to the scattering data grids of this object.
+   *
+   * This function is useful to combine scattering data at different
+   * temperatures and frequencies that have different scattering grids.
+   *
+   * @frequency_index The index along the frequency dimension
+   * @temperature_index The index along the temperature dimension.
+   */
+  void set_data(eigen::Index frequency_index,
+                eigen::Index temperature_index,
+                const ScatteringDataFieldSpectral &other) {
+
+      using Regridder = RegularRegridder<Scalar, 2, 3>;
+
+      auto lon_inc_other = other.lon_inc_;
+      auto lat_inc_other = other.lat_inc_;
+      auto regridder = Regridder(
+          {*lon_inc_other, *lat_inc_other},
+          {*lon_inc_, *lat_inc_});
+      auto regridded = regridder.regrid(*other.data_);
+
+      std::array<eigen::Index, 2> data_index = {frequency_index,
+                                                temperature_index};
+      std::array<eigen::Index, 2> input_index = {0, 0};
+
+      eigen::IndexArray<3> dimensions_loop = {n_lon_inc_,
+                                              n_lat_inc_,
+                                              data_->dimension(5)};
+      auto data_map = eigen::tensor_index(*data_, data_index);
+      auto other_data_map = eigen::tensor_index(regridded, input_index);
+      for (eigen::DimensionCounter<3> i{dimensions_loop}; i; ++i) {
+          auto result = eigen::get_subvector<2>(data_map, i.coordinates);
+          auto in_l = eigen::get_subvector<2>(data_map, i.coordinates);
+          auto in_r = eigen::get_subvector<2>(other_data_map, i.coordinates);
+          result = sht::SHT::add_coeffs(*sht_scat_, in_l, *other.sht_scat_, in_r);
+      }
   }
 
   // pxx :: hide
@@ -691,9 +859,9 @@ class ScatteringDataFieldSpectral
                                               n_lat_inc_,
                                               data_->dimension(5)};
       for (eigen::DimensionCounter<5> i{dimensions_loop}; i; ++i) {
-          auto result = eigen::get_subvector<2>(*data_, i.coordinates);
-          auto in_l = eigen::get_subvector<2>(*data_, i.coordinates);
-          auto in_r = eigen::get_subvector<2>(*regridded.data_, i.coordinates);
+          auto result = eigen::get_subvector<4>(*data_, i.coordinates);
+          auto in_l = eigen::get_subvector<4>(*data_, i.coordinates);
+          auto in_r = eigen::get_subvector<4>(*regridded.data_, i.coordinates);
           result = sht::SHT::add_coeffs(*sht_scat_, in_l, *regridded.sht_scat_, in_r);
       }
       return *this;
@@ -736,19 +904,21 @@ class ScatteringDataFieldSpectral
 
   ScatteringDataFieldGridded<Scalar> to_gridded();
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(ShtPtr sht);
-  ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(size_t l_max,
-                                                             size_t m_max) {
+  ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(Index l_max,
+                                                             Index m_max) {
     std::shared_ptr<sht::SHT> sht =
         std::make_shared<sht::SHT>(l_max, m_max, n_lat_inc_, n_lon_inc_);
     return to_fully_spectral(sht);
   }
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral() {
-      size_t l_max = ((n_lat_inc_ % 2) == 0) ? n_lat_inc_ - 2 : n_lat_inc_ - 1;
-      size_t m_max = (n_lon_inc_ > 2) ? (n_lon_inc_ / 2) - 1 : 0;
+      Index l_max = ((n_lat_inc_ % 2) == 0) ? n_lat_inc_ - 2 : n_lat_inc_ - 1;
+      Index m_max = (n_lon_inc_ > 2) ? (n_lon_inc_ / 2) - 1 : 0;
       return to_fully_spectral(l_max, m_max);
   }
 
   const DataTensor &get_data() const {return *data_;}
+
+  sht::SHT &get_sht_scat() const {return *sht_scat_;}
 
  protected:
 
@@ -865,6 +1035,38 @@ class ScatteringDataFieldFullySpectral
         t_grid_map_(t_grid_->data(), n_temps_),
         data_(std::make_shared<DataTensor>(data)) {}
 
+  /** Create empty scattering data field.
+   * @param f_grid The frequency grid.
+   * @param t_grid The temperature grid.
+   * @param sht_inc The SH transform used to expand the incoming-angle
+   * dependency.
+   * @param sht_scat The SH transform used to expand the scattering-angle
+   * dependency.
+   * @data The scattering data.
+   */
+  ScatteringDataFieldFullySpectral(const Vector &f_grid,
+                                   const Vector &t_grid,
+                                   const sht::SHT &sht_inc,
+                                   const sht::SHT &sht_scat,
+                                   Index n_elements)
+      : ScatteringDataFieldBase(f_grid.size(),
+                                t_grid.size(),
+                                sht_inc.get_n_longitudes(),
+                                sht_inc.get_n_latitudes(),
+                                sht_scat.get_n_longitudes(),
+                                sht_scat.get_n_latitudes()),
+        f_grid_(std::make_shared<Vector>(f_grid)),
+        t_grid_(std::make_shared<Vector>(t_grid)),
+        sht_inc_(std::make_shared<sht::SHT>(sht_inc)),
+        sht_scat_(std::make_shared<sht::SHT>(sht_scat)),
+        f_grid_map_(f_grid_->data(), n_freqs_),
+        t_grid_map_(t_grid_->data(), n_temps_),
+        data_(std::make_shared<DataTensor>(
+            std::array<Index, 5>{f_grid.size(),
+                                 t_grid.size(),
+                                 sht_inc.get_n_spectral_coeffs_cmplx(),
+                                 sht_scat.get_n_spectral_coeffs(),
+                                 n_elements})) {}
 
   /// Shallow copy of the ScatteringDataField.
   ScatteringDataFieldFullySpectral(const ScatteringDataFieldFullySpectral &) = default;
@@ -877,6 +1079,42 @@ class ScatteringDataFieldFullySpectral
                                             sht_inc_,
                                             sht_scat_,
                                             data_new);
+  }
+
+
+  /** Set scattering data for given frequency and temperature index.
+   *
+   * This function copies the data from the given scattering data field
+   * into the sub-tensor of this objects' data tensor identified by
+   * the given frequency and temperature indices. The data is automatically
+   * regridded to the scattering data grids of this object.
+   *
+   * This function is useful to combine scattering data at different
+   * temperatures and frequencies that have different scattering grids.
+   *
+   * @frequency_index The index along the frequency dimension
+   * @temperature_index The index along the temperature dimension.
+   */
+  void set_data(eigen::Index frequency_index,
+                eigen::Index temperature_index,
+                const ScatteringDataFieldFullySpectral &other) {
+
+      using Regridder = RegularRegridder<Scalar, 2, 3>;
+
+      std::array<eigen::Index, 2> data_index = {frequency_index,
+                                                temperature_index};
+      std::array<eigen::Index, 2> input_index = {0, 0};
+      auto data_map = eigen::tensor_index(*data_, data_index);
+      auto other_data_map = eigen::tensor_index(*other.data_, input_index);
+
+      eigen::IndexArray<1> dimensions_loop = {data_->dimension(5)};
+      for (eigen::DimensionCounter<1> i{dimensions_loop}; i; ++i) {
+          auto result = eigen::get_submatrix<0, 1>(data_map, i.coordinates);
+          auto in_l = eigen::get_submatrix<0, 1>(data_map, i.coordinates);
+          auto in_r = eigen::get_submatrix<0, 1>(other_data_map, i.coordinates);
+          result = sht::SHT::add_coeffs(*sht_inc_, *sht_scat_, in_l,
+                                        *other.sht_inc_, *other.sht_scat_, in_r);
+      }
   }
 
   // pxx :: hide
@@ -1011,6 +1249,9 @@ class ScatteringDataFieldFullySpectral
       return result;
   }
 
+  sht::SHT &get_sht_scat() const {return *sht_scat_;}
+  sht::SHT &get_sht_inc() const {return *sht_inc_;}
+
   ScatteringDataFieldSpectral<Scalar> to_spectral();
 
   const DataTensor &get_data() const {return *data_;}
@@ -1038,10 +1279,10 @@ template <typename Scalar>
 ScatteringDataFieldSpectral<Scalar>
 ScatteringDataFieldGridded<Scalar>::to_spectral(std::shared_ptr<sht::SHT> sht) {
   eigen::IndexArray<5> dimensions_loop = {n_freqs_,
-                                         n_temps_,
-                                         n_lon_inc_,
-                                         n_lat_inc_,
-                                         data_->dimension(6)};
+                                          n_temps_,
+                                          n_lon_inc_,
+                                          n_lat_inc_,
+                                          data_->dimension(6)};
   eigen::IndexArray<6> dimensions_new = {n_freqs_,
                                          n_temps_,
                                          n_lon_inc_,
@@ -1145,6 +1386,7 @@ ScatteringDataFieldFullySpectral<Scalar>::to_spectral() {
 
   return ScatteringDataFieldSpectral<Scalar>(f_grid_,
                                              t_grid_,
+
                                              lon_inc_,
                                              lat_inc_,
                                              sht_scat_,

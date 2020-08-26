@@ -24,6 +24,8 @@ using SpectralCoeffMatrixRef = scatlib::eigen::ConstMatrixRef<std::complex<doubl
 namespace scatlib {
 namespace sht {
 
+using scatlib::eigen::Index;
+
 /** Deleter functional for smart pointers. */
 
 struct FFTWDeleter {
@@ -45,7 +47,7 @@ template <typename Numeric>
 class FFTWArray {
  public:
   FFTWArray() {}
-  FFTWArray(size_t n)
+  FFTWArray(Index n)
       : ptr_(reinterpret_cast<Numeric *>(fftw_malloc(n * sizeof(Numeric))),
              FFTWDeleter()) {}
 
@@ -54,6 +56,28 @@ class FFTWArray {
  private:
   std::shared_ptr<Numeric> ptr_ = nullptr;
 };
+
+class ShtnsHandle {
+ public:
+  static shtns_cfg get(Index l_max, Index m_max, Index n_lat, Index n_lon) {
+    std::array<Index, 4> config = {l_max, m_max, n_lat, n_lon};
+    if (config == current_config_) {
+      return shtns_;
+    } else {
+      shtns_reset();
+      shtns_ = shtns_init(sht_quick_init, l_max, m_max, 1, n_lat, n_lon);
+      current_config_ = config;
+    }
+    return shtns_;
+  }
+
+ private:
+  static std::array<Index, 4> current_config_;
+  static shtns_cfg shtns_;
+};
+
+shtns_cfg ShtnsHandle::shtns_ = nullptr;
+std::array<Index, 4> ShtnsHandle::current_config_ = {-1, -1, -1, -1};
 
 ////////////////////////////////////////////////////////////////////////////////
 // SHT
@@ -69,48 +93,49 @@ class FFTWArray {
 class SHT {
  public:
   using Vector = eigen::Vector<double>;
-  using IndexVector = eigen::Vector<size_t>;
+  using IndexVector = eigen::Vector<Index>;
   using ConstVectorMap = eigen::ConstVectorMap<double>;
 
   static SpectralCoeffs add_coeffs(const SHT &sht_l,
                                    SpectralCoeffsRef v,
                                    const SHT &sht_r,
                                    SpectralCoeffsRef w) {
-    size_t n_spectral_coeffs = sht_l.get_n_spectral_coeffs();
-    auto result = SpectralCoeffs(n_spectral_coeffs);
-    for (size_t i = 0; i < n_spectral_coeffs; ++i) {
-      result[i] = v[i];
+    auto result = SpectralCoeffs(v);
 
-      if (sht_r.is_trivial_) {
-        if (i == 0) {
-          result[i] += w[i];
+    if (sht_r.is_trivial_) {
+        result[0] += w[0];
+        return result;
+    }
+
+    Index m_max_min = std::min(sht_l.m_max_, sht_r.m_max_);
+    Index l_max_min = std::min(sht_l.l_max_, sht_r.l_max_);
+    for (Index m = 0; m <= m_max_min; ++m) {
+        Index index_r = m * (sht_r.l_max_ + 1) - (m * (m - 1)) / 2;
+        Index index_l = m * (sht_l.l_max_ + 1) - (m * (m - 1)) / 2;
+        for (Index l = m; l <= l_max_min; ++l) {
+            result[index_l] += w[index_r];
+            ++index_r;
+            ++index_l;
         }
-      } else {
-        size_t l = sht_l.shtns_->li[i];
-        size_t m = sht_l.shtns_->mi[i];
-        if ((l <= sht_r.l_max_) && (m <= sht_r.m_max_)) {
-          result[i] += w[sht_r.shtns_->lmidx[m] + l];
-        }
-      }
     }
     return result;
   }
 
-  static SpectralCoeffMatrix add_coeffs(const SHT &sht_inc_l,
-                                        const SHT &sht_scat_l,
-                                        SpectralCoeffMatrixRef v,
-                                        const SHT &sht_inc_r,
-                                        const SHT &sht_scat_r,
-                                        SpectralCoeffMatrixRef w) {
-    size_t nlm_inc = sht_inc_l.get_n_spectral_coeffs_cmplx();
-    size_t nlm_scat = sht_scat_l.get_n_spectral_coeffs();
-    auto result = SpectralCoeffMatrix(nlm_inc, nlm_scat);
+    static SpectralCoeffMatrix add_coeffs(const SHT &sht_inc_l,
+                                          const SHT &sht_scat_l,
+                                          SpectralCoeffMatrixRef v,
+                                          const SHT &sht_inc_r,
+                                          const SHT &sht_scat_r,
+                                          SpectralCoeffMatrixRef w) {
+      Index nlm_inc = sht_inc_l.get_n_spectral_coeffs_cmplx();
+      Index nlm_scat = sht_scat_l.get_n_spectral_coeffs();
+      auto result = SpectralCoeffMatrix(nlm_inc, nlm_scat);
 
-    size_t index_l = 0;
-    for (int l = 0; l <= (int)sht_inc_l.l_max_; ++l) {
-      int m_max = (l <= (int)sht_inc_l.m_max_) ? l : sht_inc_l.m_max_;
-      for (int m = -m_max; m <= m_max; ++m) {
-        if ((l > sht_inc_r.l_max_) || (std::abs(m) > sht_inc_r.m_max_)) {
+      Index index_l = 0;
+      for (int l = 0; l <= (int)sht_inc_l.l_max_; ++l) {
+        int m_max = (l <= (int)sht_inc_l.m_max_) ? l : sht_inc_l.m_max_;
+        for (int m = -m_max; m <= m_max; ++m) {
+          if ((l > sht_inc_r.l_max_) || (std::abs(m) > sht_inc_r.m_max_)) {
             result.row(index_l) = v.row(index_l);
         } else {
           int h = std::min<int>(sht_inc_r.m_max_, l);
@@ -135,14 +160,12 @@ class SHT {
    * @param m_max The maximum order of the SHT.
    * @param n_lat The number of co-latitude grid points.
    * @param n_lon The number of longitude grid points.
-   * @param m_res The order-resolution of the SHT.
    */
-  SHT(size_t l_max, size_t m_max, size_t n_lat, size_t n_lon, size_t m_res = 1)
+  SHT(Index l_max, Index m_max, Index n_lat, Index n_lon)
       : l_max_(l_max),
         m_max_(m_max),
         n_lat_(n_lat),
-        n_lon_(n_lon),
-        m_res_(m_res) {
+        n_lon_(n_lon) {
     if (l_max == 0) {
       is_trivial_ = true;
       n_spectral_coeffs_ = 1;
@@ -151,18 +174,15 @@ class SHT {
       is_trivial_ = false;
       shtns_verbose(1);
       shtns_use_threads(0);
-      //shtns_reset();
-      shtns_ =
-          shtns_init(sht_auto, l_max_, m_max_, m_res_, n_lat_, n_lon_);
-      n_spectral_coeffs_ = shtns_->nlm;
-      n_spectral_coeffs_cmplx_ = shtns_->nlm_cplx;
+      n_spectral_coeffs_ = (l_max + 1) * (m_max + 1) - (m_max * (m_max + 1)) / 2;
+      n_spectral_coeffs_cmplx_ = (2 * m_max + 1) * (l_max + 1) - m_max * (m_max + 1);
       spectral_coeffs_ =
           sht::FFTWArray<std::complex<double>>(n_spectral_coeffs_);
       spectral_coeffs_cmplx_ =
           sht::FFTWArray<std::complex<double>>(n_spectral_coeffs_cmplx_);
-      spatial_coeffs_ = sht::FFTWArray<double>(NSPAT_ALLOC(shtns_));
+      spatial_coeffs_ = sht::FFTWArray<double>(n_lon * n_lat);
       cmplx_spatial_coeffs_ =
-          sht::FFTWArray<std::complex<double>>(NSPAT_ALLOC(shtns_));
+          sht::FFTWArray<std::complex<double>>(n_lon * n_lat);
     }
   }
 
@@ -173,7 +193,8 @@ class SHT {
       if (is_trivial_) {
           return Vector::Constant(1, M_PI / 2.0);
       }
-      return ConstVectorMap(shtns_->ct, n_lat_).array().acos();
+      auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+      return ConstVectorMap(shtns->ct, n_lat_).array().acos();
   }
 
   /** Return co-latitude grid used by SHTns.
@@ -183,13 +204,14 @@ class SHT {
       if (is_trivial_) {
           return Vector::Constant(1, M_PI / 2.0);
       }
-      return ConstVectorMap(shtns_->ct, n_lat_);
+      auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+      return ConstVectorMap(shtns->ct, n_lat_);
   }
 
   Vector get_longitude_grid() {
       Vector v{n_lon_};
       double dx = 2 * M_PI / (n_lon_ + 1);
-      for (size_t i = 0; i < n_lon_; ++i) {
+      for (Index i = 0; i < n_lon_; ++i) {
           v[i] = dx * i;
       }
       return v;
@@ -204,9 +226,10 @@ class SHT {
       if (is_trivial_) {
           return IndexVector::Constant(1, 0);
       }
+    auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
     IndexVector result(n_spectral_coeffs_);
-    for (size_t i = 0; i < n_spectral_coeffs_; ++i) {
-      result[i] = shtns_->li[i];
+    for (Index i = 0; i < n_spectral_coeffs_; ++i) {
+      result[i] = shtns->li[i];
     }
     return result;
   }
@@ -220,9 +243,10 @@ class SHT {
       if (is_trivial_) {
           return IndexVector::Constant(1, 0);
       }
+    auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
     IndexVector result(n_spectral_coeffs_);
-    for (size_t i = 0; i < n_spectral_coeffs_; ++i) {
-      result[i] = shtns_->mi[i];
+    for (Index i = 0; i < n_spectral_coeffs_; ++i) {
+      result[i] = shtns->mi[i];
     }
     return result;
   }
@@ -236,7 +260,7 @@ class SHT {
    * (azimuth angle) and columns to latitudes (zenith angle).
    */
   void set_spatial_coeffs(const GridCoeffsRef &m) const {
-    size_t index = 0;
+    Index index = 0;
     for (int i = 0; i < m.rows(); ++i) {
       for (int j = 0; j < m.cols(); ++j) {
         spatial_coeffs_[index] = m(i, j);
@@ -254,7 +278,7 @@ class SHT {
    * (azimuth angle) and columns to latitudes (zenith angle).
    */
   void set_spatial_coeffs(const CmplxGridCoeffsRef &m) const {
-    size_t index = 0;
+    Index index = 0;
     for (int i = 0; i < m.rows(); ++i) {
       for (int j = 0; j < m.cols(); ++j) {
         cmplx_spatial_coeffs_[index] = m(i, j);
@@ -271,7 +295,7 @@ class SHT {
    * representing the data.
    */
   void set_spectral_coeffs(const SpectralCoeffsRef &m) const {
-    size_t index = 0;
+    Index index = 0;
     for (auto &x : m) {
       spectral_coeffs_[index] = x;
       ++index;
@@ -286,7 +310,7 @@ class SHT {
    * representing the data.
    */
   void set_spectral_coeffs_cmplx(const SpectralCoeffsRef &m) const {
-      size_t index = 0;
+      Index index = 0;
       for (auto &x : m) {
           spectral_coeffs_cmplx_[index] = x;
           ++index;
@@ -303,7 +327,7 @@ class SHT {
    */
   GridCoeffs get_spatial_coeffs() const {
     GridCoeffs result(n_lon_, n_lat_);
-    size_t index = 0;
+    Index index = 0;
     for (int i = 0; i < result.rows(); ++i) {
       for (int j = 0; j < result.cols(); ++j) {
         result(i, j) = spatial_coeffs_[index];
@@ -323,7 +347,7 @@ class SHT {
    */
   CmplxGridCoeffs get_cmplx_spatial_coeffs() const {
       CmplxGridCoeffs result(n_lon_, n_lat_);
-      size_t index = 0;
+      Index index = 0;
       for (int i = 0; i < result.rows(); ++i) {
           for (int j = 0; j < result.cols(); ++j) {
               result(i, j) = cmplx_spatial_coeffs_[index];
@@ -336,25 +360,25 @@ class SHT {
   /**
    * @return The size of the co-latitude grid.
    */
-  size_t get_n_latitudes() const {
+  Index get_n_latitudes() const {
       return n_lat_;
   }
   /**
    * @return The size of the longitude grid.
    */
-  size_t get_n_longitudes() const {
+  Index get_n_longitudes() const {
       return n_lon_;
   }
   /**
    * @return The number of spherical harmonics coefficients.
    */
-  size_t get_n_spectral_coeffs() const {
+  Index get_n_spectral_coeffs() const {
     return n_spectral_coeffs_;
   }
   /**
    * @return The number of spherical harmonics coefficients.
    */
-  size_t get_n_spectral_coeffs_cmplx() const {
+  Index get_n_spectral_coeffs_cmplx() const {
       return n_spectral_coeffs_cmplx_;
   }
 
@@ -366,8 +390,8 @@ class SHT {
    * representing the data.
    */
   SpectralCoeffs get_spectral_coeffs() const {
-    SpectralCoeffs result(shtns_->nlm);
-    size_t index = 0;
+    SpectralCoeffs result(n_spectral_coeffs_);
+    Index index = 0;
     for (auto &x : result) {
       x = spectral_coeffs_[index];
       ++index;
@@ -384,7 +408,7 @@ class SHT {
    */
   SpectralCoeffs get_spectral_coeffs_cmplx() const {
       SpectralCoeffs result(n_spectral_coeffs_cmplx_);
-      size_t index = 0;
+      Index index = 0;
       for (auto &x : result) {
           x = spectral_coeffs_cmplx_[index];
           ++index;
@@ -404,7 +428,8 @@ class SHT {
       return SpectralCoeffs::Constant(1, m(0, 0));
     }
     set_spatial_coeffs(m);
-    spat_to_SH(shtns_, spatial_coeffs_, spectral_coeffs_);
+    auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+    spat_to_SH(shtns, spatial_coeffs_, spectral_coeffs_);
     return get_spectral_coeffs();
   }
 
@@ -420,7 +445,8 @@ class SHT {
           return SpectralCoeffs::Constant(1, m(0, 0));
       }
       set_spatial_coeffs(m);
-      spat_cplx_to_SH(shtns_, cmplx_spatial_coeffs_, spectral_coeffs_cmplx_);
+      auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+      spat_cplx_to_SH(shtns, cmplx_spatial_coeffs_, spectral_coeffs_cmplx_);
       return get_spectral_coeffs_cmplx();
   }
 
@@ -438,7 +464,8 @@ class SHT {
           return GridCoeffs::Constant(1, 1, m(0, 0).real());
       }
     set_spectral_coeffs(m);
-    SH_to_spat(shtns_, spectral_coeffs_, spatial_coeffs_);
+    auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+    SH_to_spat(shtns, spectral_coeffs_, spatial_coeffs_);
     return get_spatial_coeffs();
   }
 
@@ -456,7 +483,8 @@ class SHT {
           return CmplxGridCoeffs::Constant(1, 1, m(0, 0).real());
       }
       set_spectral_coeffs_cmplx(m);
-      SH_to_spat_cplx(shtns_, spectral_coeffs_cmplx_, cmplx_spatial_coeffs_);
+      auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+      SH_to_spat_cplx(shtns, spectral_coeffs_cmplx_, cmplx_spatial_coeffs_);
       return get_cmplx_spatial_coeffs();
   }
 
@@ -476,8 +504,9 @@ class SHT {
     set_spectral_coeffs(m);
     int n_points = points.rows();
     eigen::Vector<double> result(n_points);
+    auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
     for (int i = 0; i < n_points; ++i) {
-      result[i] = SH_to_point(shtns_,
+      result[i] = SH_to_point(shtns,
                               spectral_coeffs_,
                               cos(points(i, 1)),
                               points(i, 0));
@@ -505,8 +534,9 @@ class SHT {
       set_spectral_coeffs(m);
       int n_points = thetas.size();
       eigen::Vector<double> result(n_points);
+      auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
       for (int i = 0; i < n_points; ++i) {
-          result[i] = SH_to_point(shtns_,
+          result[i] = SH_to_point(shtns,
                                   spectral_coeffs_,
                                   cos(thetas[i]),
                                   0.0);
@@ -517,14 +547,13 @@ class SHT {
  private:
 
   bool is_trivial_;
-  size_t l_max_, m_max_, n_lat_, n_lon_, m_res_,
+  Index l_max_, m_max_, n_lat_, n_lon_,
       n_spectral_coeffs_, n_spectral_coeffs_cmplx_;
-  shtns_cfg shtns_;
 
   sht::FFTWArray<std::complex<double>> spectral_coeffs_,
       spectral_coeffs_cmplx_, cmplx_spatial_coeffs_;
   sht::FFTWArray<double> spatial_coeffs_;
-};
+  };
 
 /** SHT instance provider.
  *
@@ -532,7 +561,7 @@ class SHT {
  */
 class SHTProvider {
 public:
-    using SHTParams = std::array<size_t, 4>;
+    using SHTParams = std::array<Index, 4>;
 
     SHTProvider();
 
