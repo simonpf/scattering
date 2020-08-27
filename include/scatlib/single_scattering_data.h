@@ -80,10 +80,34 @@ Index get_n_absorption_vector_elements(ParticleType type) {
     }
 }
 
+template <typename T>
+struct ConditionalDeleter {
+  void operator()(T *ptr) {
+    if (ptr && do_delete) {
+      delete ptr;
+    }
+  }
+
+  bool do_delete;
+};
+
+template <typename T>
+using ConversionPtr = std::unique_ptr<T, ConditionalDeleter<T>>;
+
+template <typename T>
+ConversionPtr<T> make_converion_ptr(T *t, bool do_delete) {
+  return ConversionPtr<T>(t, ConditionalDeleter<T>{do_delete});
+}
+
 }  // namespace detail
 
 class SingleScatteringDataImpl {
  public:
+
+
+  virtual void set_data(Index f_index, Index t_index, const SingleScatteringDataImpl &) = 0;
+
+
   // Interpolation functions
   virtual SingleScatteringDataImpl *interpolate_frequency(
       eigen::VectorPtr<double> frequencies) = 0;
@@ -105,7 +129,7 @@ class SingleScatteringDataImpl {
   virtual SingleScatteringDataImpl *operator+(
       const SingleScatteringDataImpl *other) = 0;
 
-  SingleScatteringDataGridded<double>* to_spectral() const;
+  detail::ConversionPtr<SingleScatteringDataGridded<double>> to_gridded() const;
 
   // Conversion operators
   // virtual operator SingleScatteringDataGridded<float>() = 0;
@@ -241,6 +265,12 @@ class SingleScatteringData {
             std::make_shared<eigen::Tensor<double, 7>>(absorption_vector_dimensions),
             std::make_shared<eigen::Tensor<double, 4>>(scattering_coeff_dimensions),
             std::make_shared<eigen::Tensor<double, 4>>(scattering_coeff_dimensions));
+  }
+
+  void set_data(Index f_index,
+                Index t_index,
+                const SingleScatteringData &other) {
+    data_->set_data(f_index, t_index, *other.data_);
   }
 
   // Interpolation functions
@@ -401,6 +431,15 @@ public:
                            lat_scat,
                            absorption_vector} {}
 
+        void set_data(Index f_index,
+                      Index t_index,
+                      const SingleScatteringDataImpl &other) {
+            auto converted = other.to_gridded();
+            phase_matrix_.set_data(f_index, t_index, converted.phase_matrix_);
+            extinction_matrix_.set_data(f_index, t_index, converted.extinction_matrix_);
+            absorption_vector_.set_data(f_index, t_index, converted.absorption_vector_);
+        }
+
   eigen::Tensor<Scalar, 5> get_phase_matrix() {
     return eigen::tensor_index<2>(phase_matrix_.get_data(), {0, 0});
         }
@@ -499,21 +538,11 @@ public:
     }
 
     void operator+=(const SingleScatteringDataImpl *other) {
-      auto downcasted =
-          dynamic_cast<const SingleScatteringDataGridded*>(other);
-      bool converted = false;
-      if (!downcasted) {
-        downcasted = other->to_spectral();
-        converted = true;
-      }
-      this->SingleScatteringDataBase<Scalar>::operator+=(*downcasted);
-      phase_matrix_ += downcasted->phase_matrix_;
-      extinction_matrix_ += downcasted->extinction_matrix_;
-      absorption_vector_ += downcasted->absorption_vector_;
-
-      if (converted) {
-          delete downcasted;
-      }
+      auto converted = other->to_gridded();
+      this->SingleScatteringDataBase<Scalar>::operator+=(*converted);
+      phase_matrix_ += converted->phase_matrix_;
+      extinction_matrix_ += converted->extinction_matrix_;
+      absorption_vector_ += converted->absorption_vector_;
     }
 
     SingleScatteringDataImpl *operator+(const SingleScatteringDataImpl *other) {
@@ -522,8 +551,8 @@ public:
       return result;
     }
 
-    SingleScatteringDataGridded* to_spectral() const {
-        return *this;
+    detail::ConversionPtr<SingleScatteringDataGridded> to_gridded() const {
+        return detail::make_conversion_ptr(this, false);
     }
 
   // explicit operator SingeScatteringDataSpectral();

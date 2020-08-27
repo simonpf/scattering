@@ -6,12 +6,17 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate
 from scipy.special import roots_legendre, sph_harm
+from ssdb.legacy.ssdb import Particle
 
 SCATLIB_TEST_PATH = "@SCATLIB_TEST_PATH@"
 
 def get_data_azimuthally_random():
     return os.path.join(SCATLIB_TEST_PATH, "data", "scattering_data_azimuthally_random.nc")
 
+particle_spherical_1 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_spherical_1.nc"))
+particle_spherical_2 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_spherical_1.nc"))
+particle_random_1 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_random_1.nc"))
+particle_random_2 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_random_1.nc"))
 
 def harmonic_random_field(n_lon, n_lat, n_components=10):
     """
