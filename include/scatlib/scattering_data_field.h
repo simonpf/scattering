@@ -1099,8 +1099,6 @@ class ScatteringDataFieldFullySpectral
                 eigen::Index temperature_index,
                 const ScatteringDataFieldFullySpectral &other) {
 
-      using Regridder = RegularRegridder<Scalar, 2, 3>;
-
       std::array<eigen::Index, 2> data_index = {frequency_index,
                                                 temperature_index};
       std::array<eigen::Index, 2> input_index = {0, 0};
