@@ -479,7 +479,7 @@ class ScatteringDataFieldGridded
    * @param sht SHT instance to use for the transformation.
    * @return The scattering data field transformed to spectral format.
    */
-  ScatteringDataFieldSpectral<Scalar> to_spectral(std::shared_ptr<sht::SHT> sht);
+  ScatteringDataFieldSpectral<Scalar> to_spectral(std::shared_ptr<sht::SHT> sht) const;
 
   /** Convert gridded data to spectral format.
    * @param l_max The maximum degree l to use in the SH expansion.
@@ -487,7 +487,7 @@ class ScatteringDataFieldGridded
    * @return The scattering data field transformed to spectral format.
    */
   ScatteringDataFieldSpectral<Scalar> to_spectral(Index l_max,
-                                                  Index m_max) {
+                                                  Index m_max) const {
 
       std::shared_ptr<sht::SHT> sht = std::make_shared<sht::SHT>(l_max,
                                                                  m_max,
@@ -502,7 +502,7 @@ class ScatteringDataFieldGridded
    * and degree that fulfill the anti-aliasing conditions.
    * @return The scattering data field transformed to spectral format.
    */
-  ScatteringDataFieldSpectral<Scalar> to_spectral() {
+  ScatteringDataFieldSpectral<Scalar> to_spectral() const {
     Index l_max = ((n_lat_scat_ % 2) == 0) ? n_lat_scat_ - 2 : n_lat_scat_ - 1;
     Index m_max = (n_lon_scat_ > 2) ? (n_lon_scat_ / 2) - 1 : 0;
     return to_spectral(l_max, m_max);
@@ -1250,7 +1250,7 @@ class ScatteringDataFieldFullySpectral
   sht::SHT &get_sht_scat() const {return *sht_scat_;}
   sht::SHT &get_sht_inc() const {return *sht_inc_;}
 
-  ScatteringDataFieldSpectral<Scalar> to_spectral();
+  ScatteringDataFieldSpectral<Scalar> to_spectral() const;
 
   const DataTensor &get_data() const {return *data_;}
 
@@ -1275,7 +1275,7 @@ class ScatteringDataFieldFullySpectral
 
 template <typename Scalar>
 ScatteringDataFieldSpectral<Scalar>
-ScatteringDataFieldGridded<Scalar>::to_spectral(std::shared_ptr<sht::SHT> sht) {
+ScatteringDataFieldGridded<Scalar>::to_spectral(std::shared_ptr<sht::SHT> sht) const {
   eigen::IndexArray<5> dimensions_loop = {n_freqs_,
                                           n_temps_,
                                           n_lon_inc_,
@@ -1361,7 +1361,7 @@ ScatteringDataFieldSpectral<Scalar>::to_fully_spectral(std::shared_ptr<sht::SHT>
 
 template <typename Scalar>
 ScatteringDataFieldSpectral<Scalar>
-ScatteringDataFieldFullySpectral<Scalar>::to_spectral() {
+ScatteringDataFieldFullySpectral<Scalar>::to_spectral() const {
   eigen::IndexArray<4> dimensions_loop = {n_freqs_,
                                           n_temps_,
                                           data_->dimension(3),

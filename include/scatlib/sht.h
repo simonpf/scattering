@@ -153,6 +153,36 @@ class SHT {
     return result;
   }
 
+  /** Calculates the number of spherical harmonics coefficients for a real transform.
+   * @param l_max The maximum degree of the SHT.
+   * @param m_max The maximum order of the SHT.
+   * @return The number of spherical harmonics coefficients.
+   */
+  static Index calc_n_spectral_coeffs(Index l_max, Index m_max) {
+    return (l_max + 1) * (m_max + 1) - (m_max * (m_max + 1)) / 2;
+  }
+
+  /** Calculates the number of spherical harmonics coefficients for a complex transform.
+   * @param l_max The maximum degree of the SHT.
+   * @param m_max The maximum order of the SHT.
+   * @return The number of spherical harmonics coefficients for a complex transform.
+   */
+  static Index calc_n_spectral_coeffs_cmplx(Index l_max, Index m_max) {
+    return (2 * m_max + 1) * (l_max + 1) - m_max * (m_max + 1);
+  }
+
+  /** Calc l_max for m_max == l_max.
+   *
+   * Calculates the value of l_max that yields the given number of spectral
+   * coefficients under the assumption that m_max is equal to l_max.
+   *
+   * @param n_spectral_coeffs The number of spectral coefficients.
+   * @return l_max value yielding the given number of spectral coeffs.
+   */
+  static Index calc_l_max(Index n_spectral_coeffs) {
+      return static_cast<Index>(sqrt(2 * (n_spectral_coeffs - 1) + 2.25) - 1.5);
+  }
+
   /**
    * Create a spherical harmonics transformation object.
    *
@@ -174,8 +204,8 @@ class SHT {
       is_trivial_ = false;
       shtns_verbose(1);
       shtns_use_threads(0);
-      n_spectral_coeffs_ = (l_max + 1) * (m_max + 1) - (m_max * (m_max + 1)) / 2;
-      n_spectral_coeffs_cmplx_ = (2 * m_max + 1) * (l_max + 1) - m_max * (m_max + 1);
+      n_spectral_coeffs_ = calc_n_spectral_coeffs(l_max, m_max);
+      n_spectral_coeffs_cmplx_ = calc_n_spectral_coeffs_cmplx(l_max, m_max);
       spectral_coeffs_ =
           sht::FFTWArray<std::complex<double>>(n_spectral_coeffs_);
       spectral_coeffs_cmplx_ =
