@@ -183,6 +183,16 @@ class SHT {
       return static_cast<Index>(sqrt(2 * (n_spectral_coeffs - 1) + 2.25) - 1.5);
   }
 
+  static std::array<Index, 4> get_params(Index n_lat, Index n_lon) {
+      n_lat -= n_lat % 1;
+      n_lon -= n_lon % 1;
+
+      Index l_max = ((n_lat % 2) == 0) ? n_lat - 2 : n_lat - 1;
+      Index m_max = (n_lon > 2) ? (n_lon / 2) - 1 : 0;
+      m_max = std::min(l_max, m_max);
+      return {l_max, m_max, n_lat, n_lon};
+  }
+
   /**
    * Create a spherical harmonics transformation object.
    *

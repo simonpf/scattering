@@ -259,6 +259,17 @@ class ScatteringDataFieldGridded
   /// Shallow copy of the ScatteringDataField.
   ScatteringDataFieldGridded(const ScatteringDataFieldGridded &) = default;
 
+  eigen::Vector<double> get_f_grid() const { return *f_grid_; }
+  eigen::Vector<double> get_t_grid() const { return *t_grid_; }
+  eigen::Vector<double> get_lon_inc() const { return *lon_inc_; }
+  eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
+  eigen::Vector<double> get_lon_scat() const { return *lon_scat_; }
+  eigen::Vector<double> get_lat_scat() const { return *lat_scat_; }
+
+  std::array<Index, 4> get_sht_scat_params() const {
+      return sht::SHT::get_params(n_lat_scat_, n_lon_scat_);
+  }
+
   /// Deep copy of the scattering data.
   ScatteringDataFieldGridded copy() const {
       auto data_new = std::make_shared<DataTensor>(*data_);
@@ -503,9 +514,9 @@ class ScatteringDataFieldGridded
    * @return The scattering data field transformed to spectral format.
    */
   ScatteringDataFieldSpectral<Scalar> to_spectral() const {
-    Index l_max = ((n_lat_scat_ % 2) == 0) ? n_lat_scat_ - 2 : n_lat_scat_ - 1;
-    Index m_max = (n_lon_scat_ > 2) ? (n_lon_scat_ / 2) - 1 : 0;
-    return to_spectral(l_max, m_max);
+    auto sht_params = get_sht_scat_params();
+    return to_spectral(std::get<0>(sht_params),
+                       std::get<1>(sht_params));
   }
 
   /// The data tensor containing the scattering data.
@@ -686,6 +697,17 @@ class ScatteringDataFieldSpectral
                                         lat_inc_,
                                         sht_scat_,
                                         data_new);
+  }
+
+  eigen::Vector<double> get_f_grid() { return *f_grid_; }
+  eigen::Vector<double> get_t_grid() { return *t_grid_; }
+  eigen::Vector<double> get_lon_inc() { return *lon_inc_; }
+  eigen::Vector<double> get_lat_inc() { return *lat_inc_; }
+  eigen::Vector<double> get_lon_scat() { return sht_scat_->get_longitude_grid(); }
+  eigen::Vector<double> get_lat_scat() { return sht_scat_->get_latitude_grid(); }
+
+  std::array<Index, 4> get_sht_inc_params() const {
+    return sht::SHT::get_params(n_lat_inc_, n_lon_inc_);
   }
 
   /** Set scattering data for given frequency and temperature index.
@@ -902,18 +924,18 @@ class ScatteringDataFieldSpectral
       return result;
   }
 
-  ScatteringDataFieldGridded<Scalar> to_gridded();
-  ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(ShtPtr sht);
+  ScatteringDataFieldGridded<Scalar> to_gridded() const;
+  ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(ShtPtr sht) const;
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(Index l_max,
-                                                             Index m_max) {
+                                                             Index m_max) const {
     std::shared_ptr<sht::SHT> sht =
         std::make_shared<sht::SHT>(l_max, m_max, n_lat_inc_, n_lon_inc_);
     return to_fully_spectral(sht);
   }
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral() {
-      Index l_max = ((n_lat_inc_ % 2) == 0) ? n_lat_inc_ - 2 : n_lat_inc_ - 1;
-      Index m_max = (n_lon_inc_ > 2) ? (n_lon_inc_ / 2) - 1 : 0;
-      return to_fully_spectral(l_max, m_max);
+      auto sht_params = get_sht_inc_params();
+      return to_fully_spectral(std::get<0>(sht_params),
+                               std::get<1>(sht_params));
   }
 
   const DataTensor &get_data() const {return *data_;}
@@ -1081,6 +1103,16 @@ class ScatteringDataFieldFullySpectral
                                             data_new);
   }
 
+  eigen::Vector<double> get_f_grid() { return *f_grid_; }
+  eigen::Vector<double> get_t_grid() { return *t_grid_; }
+  eigen::Vector<double> get_lon_inc() { return sht_inc_->get_longitude_grid(); }
+  eigen::Vector<double> get_lat_inc() { return sht_inc_->get_latitude_grid(); }
+  eigen::Vector<double> get_lon_scat() {
+    return sht_scat_->get_longitude_grid();
+  }
+  eigen::Vector<double> get_lat_scat() {
+    return sht_scat_->get_latitude_grid();
+  }
 
   /** Set scattering data for given frequency and temperature index.
    *
@@ -1276,6 +1308,7 @@ class ScatteringDataFieldFullySpectral
 template <typename Scalar>
 ScatteringDataFieldSpectral<Scalar>
 ScatteringDataFieldGridded<Scalar>::to_spectral(std::shared_ptr<sht::SHT> sht) const {
+
   eigen::IndexArray<5> dimensions_loop = {n_freqs_,
                                           n_temps_,
                                           n_lon_inc_,
@@ -1303,7 +1336,7 @@ ScatteringDataFieldGridded<Scalar>::to_spectral(std::shared_ptr<sht::SHT> sht) c
 
 template <typename Scalar>
 ScatteringDataFieldGridded<Scalar>
-ScatteringDataFieldSpectral<Scalar>::to_gridded() {
+ScatteringDataFieldSpectral<Scalar>::to_gridded() const {
   eigen::IndexArray<5> dimensions_loop = {n_freqs_,
                                           n_temps_,
                                           n_lon_inc_,
@@ -1336,7 +1369,7 @@ ScatteringDataFieldSpectral<Scalar>::to_gridded() {
 
 template <typename Scalar>
 ScatteringDataFieldFullySpectral<Scalar>
-ScatteringDataFieldSpectral<Scalar>::to_fully_spectral(std::shared_ptr<sht::SHT> sht) {
+ScatteringDataFieldSpectral<Scalar>::to_fully_spectral(std::shared_ptr<sht::SHT> sht) const {
   eigen::IndexArray<4> dimensions_loop = {n_freqs_,
                                           n_temps_,
                                           data_->dimension(4),

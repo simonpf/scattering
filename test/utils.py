@@ -17,6 +17,12 @@ particle_spherical_1 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_da
 particle_spherical_2 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_spherical_1.nc"))
 particle_random_1 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_random_1.nc"))
 particle_random_2 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_random_1.nc"))
+particle_azimuthally_random_1 = Particle(os.path.join(SCATLIB_TEST_PATH,
+                                                      "data",
+                                                      "test_data_azimuthally_random_1.nc"))
+particle_azimuthally_random_2 = Particle(os.path.join(SCATLIB_TEST_PATH,
+                                                      "data",
+                                                      "test_data_azimuthally_random_2.nc"))
 
 def harmonic_random_field(n_lon, n_lat, n_components=10):
     """

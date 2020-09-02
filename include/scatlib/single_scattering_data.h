@@ -98,6 +98,7 @@ ConversionPtr<T> make_conversion_ptr(T *t, bool do_delete) {
 class SingleScatteringDataImpl {
  public:
 
+  virtual ~SingleScatteringDataImpl() = default;
 
   virtual void set_data(Index f_index, Index t_index, const SingleScatteringDataImpl &) = 0;
 
@@ -115,6 +116,10 @@ class SingleScatteringDataImpl {
 
   virtual eigen::Vector<double> get_f_grid() = 0;
   virtual eigen::Vector<double> get_t_grid() = 0;
+  virtual eigen::Vector<double> get_lon_inc() = 0;
+  virtual eigen::Vector<double> get_lat_inc() = 0;
+  virtual eigen::Vector<double> get_lon_scat() = 0;
+  virtual eigen::Vector<double> get_lat_scat() = 0;
 
   // Data access.
   virtual eigen::Tensor<double, 5> get_phase_matrix() = 0;
@@ -258,9 +263,9 @@ class SingleScatteringData {
                          scatlib::eigen::VectorPtr<double> lon_inc,
                          scatlib::eigen::VectorPtr<double> lat_inc,
                          std::shared_ptr<sht::SHT> sht_scat,
-                         scatlib::eigen::TensorPtr<double, 6> phase_matrix,
-                         scatlib::eigen::TensorPtr<double, 6> extinction_matrix,
-                         scatlib::eigen::TensorPtr<double, 6> absorption_vector,
+                         scatlib::eigen::TensorPtr<std::complex<double>, 6> phase_matrix,
+                         scatlib::eigen::TensorPtr<std::complex<double>, 6> extinction_matrix,
+                         scatlib::eigen::TensorPtr<std::complex<double>, 6> absorption_vector,
                          scatlib::eigen::TensorPtr<double, 4> backward_scattering_coeff,
                          scatlib::eigen::TensorPtr<double, 4> forward_scattering_coeff);
 
@@ -273,6 +278,10 @@ class SingleScatteringData {
 
     eigen::Vector<double> get_f_grid() { return data_->get_f_grid(); }
     eigen::Vector<double> get_t_grid() { return data_->get_t_grid(); }
+    eigen::Vector<double> get_lon_inc() { return data_->get_lon_inc(); }
+    eigen::Vector<double> get_lat_inc() { return data_->get_lat_inc(); }
+    eigen::Vector<double> get_lon_scat() { return data_->get_lon_scat(); }
+    eigen::Vector<double> get_lat_scat() { return data_->get_lat_scat(); }
 
     void set_data(Index f_index,
                   Index t_index,
@@ -340,6 +349,10 @@ class SingleScatteringData {
   SingleScatteringData operator*(double c) {
       return SingleScatteringData(data_->operator*(c));
   }
+
+  // Conversion
+  SingleScatteringData to_gridded();
+  SingleScatteringData to_spectral();
 
 private:
   SingleScatteringDataImpl *data_;
@@ -482,6 +495,10 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
 
   eigen::Vector<double> get_f_grid() { return *f_grid_; }
   eigen::Vector<double> get_t_grid() { return *t_grid_; }
+  eigen::Vector<double> get_lon_inc() { return phase_matrix_.get_lon_inc(); }
+  eigen::Vector<double> get_lat_inc() { return phase_matrix_.get_lat_inc(); }
+  eigen::Vector<double> get_lon_scat() { return phase_matrix_.get_lon_inc(); }
+  eigen::Vector<double> get_lat_scat() { return phase_matrix_.get_lat_inc(); }
 
   void set_data(Index f_index,
                 Index t_index,
@@ -643,7 +660,6 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
 
  private:
   VectorPtr dummy_grid_ = std::make_shared<Vector>(1);
-  VectorPtr lon_inc_, lat_inc_, lon_scat_, lat_scat_;
   ScatteringDataFieldGridded<Scalar> phase_matrix_;
   ScatteringDataFieldGridded<Scalar> extinction_matrix_;
   ScatteringDataFieldGridded<Scalar> absorption_vector_;
@@ -667,7 +683,7 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
   using Vector = eigen::Vector<Scalar>;
   using VectorPtr = std::shared_ptr<Vector>;
   using ShtPtr = std::shared_ptr<sht::SHT>;
-  using DataTensor = eigen::Tensor<Scalar, 6>;
+  using DataTensor = eigen::Tensor<std::complex<Scalar>, 6>;
   using DataPtr = std::shared_ptr<DataTensor>;
   using ScatteringCoeff = eigen::Tensor<Scalar, 4>;
   using ScatteringCoeffPtr = std::shared_ptr<ScatteringCoeff>;
@@ -687,9 +703,9 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
                                          t_grid,
                                          backward_scattering_coeff,
                                          forward_scattering_coeff),
-        phase_matrix_(phase_matrix),
-        extinction_matrix_(extinction_matrix),
-        absorption_vector_(absorption_vector) {}
+      phase_matrix_(phase_matrix),
+      extinction_matrix_(extinction_matrix),
+      absorption_vector_(absorption_vector) {}
 
   SingleScatteringDataSpectral(VectorPtr f_grid,
                                VectorPtr t_grid,
@@ -705,28 +721,33 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
                                          t_grid,
                                          backward_scattering_coeff,
                                          forward_scattering_coeff),
+        sht_scat_(sht_scat),
         phase_matrix_{f_grid,
                       t_grid,
                       lon_inc,
                       lat_inc,
-          sht_scat,
+                      sht_scat,
 
                       phase_matrix},
         extinction_matrix_{f_grid,
                            t_grid,
                            lon_inc,
                            lat_inc,
-                sht_scat,
+                           sht_scat,
                            extinction_matrix},
         absorption_vector_{f_grid,
                            t_grid,
                            lon_inc,
                            lat_inc,
-                sht_scat,
+                           sht_scat,
                            absorption_vector} {}
 
   eigen::Vector<double> get_f_grid() { return *f_grid_; }
   eigen::Vector<double> get_t_grid() { return *t_grid_; }
+  eigen::Vector<double> get_lon_inc() { return phase_matrix_.get_lon_inc(); }
+  eigen::Vector<double> get_lat_inc() { return phase_matrix_.get_lat_inc(); }
+  eigen::Vector<double> get_lon_scat() { return phase_matrix_.get_lon_inc(); }
+  eigen::Vector<double> get_lat_scat() { return phase_matrix_.get_lat_inc(); }
 
   void set_data(Index f_index,
                 Index t_index,
@@ -745,16 +766,18 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
   }
 
   eigen::Tensor<Scalar, 5> get_phase_matrix() {
-    auto phase_matrix_gridded_ = phase_matrix_.to_spectral();
-    return eigen::tensor_index<2>(phase_matrix_gridded_.get_data(), {0, 0});
+    auto phase_matrix_gridded = phase_matrix_.to_gridded();
+    return eigen::tensor_index<2>(phase_matrix_gridded.get_data(), {0, 0});
   }
 
   eigen::Tensor<Scalar, 5> get_extinction_matrix() {
-    return eigen::tensor_index<2>(extinction_matrix_.get_data(), {0, 0});
+    auto extinction_matrix_gridded = extinction_matrix_.to_gridded();
+    return eigen::tensor_index<2>(extinction_matrix_gridded.get_data(), {0, 0});
   }
 
   eigen::Tensor<Scalar, 5> get_absorption_vector() {
-    return eigen::tensor_index<2>(absorption_vector_.get_data(), {0, 0});
+    auto absorption_vector_gridded = absorption_vector_.to_gridded();
+    return eigen::tensor_index<2>(absorption_vector_gridded.get_data(), {0, 0});
   }
 
   eigen::Tensor<Scalar, 2> get_backward_scattering_coeff() {
@@ -882,7 +905,7 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
   // explicit operator SingeScatteringDataFullySpectral();
 
  private:
-  VectorPtr lon_inc_, lat_inc_, lon_scat_, lat_scat_;
+  ShtPtr sht_scat_;
   ScatteringDataFieldSpectral<Scalar> phase_matrix_;
   ScatteringDataFieldSpectral<Scalar> extinction_matrix_;
   ScatteringDataFieldSpectral<Scalar> absorption_vector_;
@@ -899,29 +922,47 @@ class SingleScatteringDataFullySpectral {};
 template <typename Scalar>
     detail::ConversionPtr<const SingleScatteringDataSpectral<Scalar>>
     SingleScatteringDataGridded<Scalar>::to_spectral() const {
+    using ReturnType = const SingleScatteringDataSpectral<Scalar>;
+    auto sht_params = phase_matrix_.get_sht_scat_params();
+    auto sht_scat = std::make_shared<sht::SHT>(sht_params[0],
+                                               sht_params[1],
+                                               sht_params[2],
+                                               sht_params[3]);
     auto phase_matrix =
         ScatteringDataFieldSpectral<Scalar>(phase_matrix_.to_spectral());
-    return new SingleScatteringDataSpectral<Scalar>(f_grid_,
-                                                    t_grid_,
-                                                    phase_matrix,
-                                                    extinction_matrix_,
-                                                    absorption_vector_,
-                                                    backward_scattering_coeff_,
-                                                    forward_scattering_coeff_);
+    auto extinction_matrix =
+        ScatteringDataFieldSpectral<Scalar>(extinction_matrix_.to_spectral());
+    auto absorption_vector =
+        ScatteringDataFieldSpectral<Scalar>(absorption_vector_.to_spectral());
+    return detail::make_conversion_ptr<ReturnType>(
+        new SingleScatteringDataSpectral<Scalar>(f_grid_,
+                                                 t_grid_,
+                                                 phase_matrix,
+                                                 extinction_matrix,
+                                                 absorption_vector,
+                                                 backward_scattering_coeff_,
+                                                 forward_scattering_coeff_),
+        true);
 }
 
 template <typename Scalar>
 detail::ConversionPtr<const SingleScatteringDataGridded<Scalar>>
 SingleScatteringDataSpectral<Scalar>::to_gridded() const {
-  auto phase_matrix =
-      ScatteringDataFieldSpectral<Scalar>(phase_matrix_.to_gridded());
-  return new SingleScatteringDataGridded<Scalar>(f_grid_,
-                                                 t_grid_,
-                                                 phase_matrix,
-                                                 extinction_matrix_,
-                                                 absorption_vector_,
-                                                 backward_scattering_coeff_,
-                                                 forward_scattering_coeff_);
+  using ReturnType = const SingleScatteringDataGridded<Scalar>;
+  auto phase_matrix = ScatteringDataFieldGridded<Scalar>(phase_matrix_.to_gridded());
+  auto extinction_matrix = ScatteringDataFieldGridded<Scalar>(extinction_matrix_.to_gridded());
+  auto absorption_vector = ScatteringDataFieldGridded<Scalar>(absorption_vector_.to_gridded());
+  auto lon_scat = std::make_shared<eigen::Vector<Scalar>>(sht_scat_->get_longitude_grid());
+  auto lat_scat = std::make_shared<eigen::Vector<Scalar>>(sht_scat_->get_latitude_grid());
+  return detail::make_conversion_ptr<ReturnType>(
+      new SingleScatteringDataGridded<Scalar>(f_grid_,
+                                              t_grid_,
+                                              phase_matrix,
+                                              extinction_matrix,
+                                              absorption_vector,
+                                              backward_scattering_coeff_,
+                                              forward_scattering_coeff_),
+      true);
 }
 
 //
@@ -1011,9 +1052,9 @@ SingleScatteringData::SingleScatteringData(
     eigen::VectorPtr<double> lon_inc,
     eigen::VectorPtr<double> lat_inc,
     std::shared_ptr<sht::SHT> sht_scat,
-    eigen::TensorPtr<double, 6> phase_matrix,
-    eigen::TensorPtr<double, 6> extinction_matrix,
-    eigen::TensorPtr<double, 6> absorption_vector,
+    eigen::TensorPtr<std::complex<double>, 6> phase_matrix,
+    eigen::TensorPtr<std::complex<double>, 6> extinction_matrix,
+    eigen::TensorPtr<std::complex<double>, 6> absorption_vector,
     eigen::TensorPtr<double, 4> backward_scattering_coeff,
     eigen::TensorPtr<double, 4> forward_scattering_coeff)
     : data_(new SingleScatteringDataSpectral<double>(f_grid,
@@ -1027,7 +1068,7 @@ SingleScatteringData::SingleScatteringData(
                                                      backward_scattering_coeff,
                                                      forward_scattering_coeff)) {}
 
-SingleScattering::SingleScatteringData(scatlib::eigen::Vector<double> f_grid,
+SingleScatteringData::SingleScatteringData(scatlib::eigen::Vector<double> f_grid,
                                        scatlib::eigen::Vector<double> t_grid,
                                        scatlib::eigen::Vector<double> lon_inc,
                                        scatlib::eigen::Vector<double> lat_inc,
@@ -1038,22 +1079,22 @@ SingleScattering::SingleScatteringData(scatlib::eigen::Vector<double> f_grid,
           std::make_shared<eigen::Vector<double>>(t_grid),
           std::make_shared<eigen::Vector<double>>(lon_inc),
           std::make_shared<eigen::Vector<double>>(lat_inc),
-          std::make_shared<sht::SHT>(l_max, l_max),
-          std::make_shared<eigen::Tensor<double, 6>>(std::array<Index, 6>{
+          std::make_shared<sht::SHT>(l_max, l_max, l_max + 2 + l_max % 2, 2 * l_max + 1),
+          std::make_shared<eigen::Tensor<std::complex<double>, 6>>(std::array<Index, 6>{
               f_grid.size(),
               t_grid.size(),
               lon_inc.size(),
               lat_inc.size(),
-              sht::SHT::calc_n_spectral_coeffs(l_max, l_max);
+                  sht::SHT::calc_n_spectral_coeffs(l_max, l_max),
               detail::get_n_phase_matrix_elements(type)}),
-          std::make_shared<eigen::Tensor<double, 6>>(std::array<Index, 6>{
+          std::make_shared<eigen::Tensor<std::complex<double>, 6>>(std::array<Index, 6>{
               f_grid.size(),
               t_grid.size(),
               lon_inc.size(),
               lat_inc.size(),
               1,
               detail::get_n_extinction_matrix_elements(type)}),
-          std::make_shared<eigen::Tensor<double, 6>>(std::array<Index, 6>{
+          std::make_shared<eigen::Tensor<std::complex<double>, 6>>(std::array<Index, 6>{
               f_grid.size(),
               t_grid.size(),
               lon_inc.size(),
@@ -1070,6 +1111,16 @@ SingleScattering::SingleScatteringData(scatlib::eigen::Vector<double> f_grid,
                                     t_grid.size(),
                                     lon_inc.size(),
                                     lat_inc.size()})) {}
+
+SingleScatteringData SingleScatteringData::to_gridded() {
+  return SingleScatteringData(
+      new SingleScatteringDataGridded(*data_->to_gridded()));
+}
+
+SingleScatteringData SingleScatteringData::to_spectral() {
+  return SingleScatteringData(
+      new SingleScatteringDataSpectral(*data_->to_spectral()));
+}
 
 }  // namespace scatlib
 
