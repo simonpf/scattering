@@ -381,6 +381,7 @@ class ScatteringDataFieldGridded
       VectorPtr lon_scat_new,
       VectorPtr lat_scat_new)
        const {
+
       using Regridder = RegularRegridder<Scalar, 2, 3, 4, 5>;
       Regridder regridder({*lon_inc_, *lat_inc_, *lon_scat_, *lat_scat_},
                           {*lon_inc_new, *lat_inc_new, *lon_scat_new, *lat_scat_new});

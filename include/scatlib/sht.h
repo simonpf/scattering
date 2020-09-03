@@ -180,7 +180,7 @@ class SHT {
    * @return l_max value yielding the given number of spectral coeffs.
    */
   static Index calc_l_max(Index n_spectral_coeffs) {
-      return static_cast<Index>(sqrt(2 * (n_spectral_coeffs - 1) + 2.25) - 1.5);
+      return static_cast<Index>(sqrt(2 * n_spectral_coeffs + 0.25) - 1.5);
   }
 
   static std::array<Index, 4> get_params(Index n_lat, Index n_lon) {
@@ -508,6 +508,7 @@ class SHT {
       }
     set_spectral_coeffs(m);
     auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+    std::cout << n_spectral_coeffs_ << " / " << m.size() << " / " << shtns->nlm << std::endl;
     SH_to_spat(shtns, spectral_coeffs_, spatial_coeffs_);
     return get_spatial_coeffs();
   }

@@ -654,7 +654,7 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
   // explicit operator SingeScatteringDataFullySpectral();
 
  private:
-  VectorPtr dummy_grid_ = std::make_shared<Vector>(1);
+  VectorPtr dummy_grid_ = std::make_shared<Vector>(Vector::Constant(1, 1));
   ScatteringDataFieldGridded<Scalar> phase_matrix_;
   ScatteringDataFieldGridded<Scalar> extinction_matrix_;
   ScatteringDataFieldGridded<Scalar> absorption_vector_;
@@ -854,14 +854,18 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
         extinction_matrix_.interpolate_angles(lon_inc, lat_inc));
     auto absorption_vector = ScatteringDataFieldSpectral<Scalar>(
         absorption_vector_.interpolate_angles(lon_inc, lat_inc));
+    auto backward_scattering_coeff = ScatteringDataFieldSpectral<Scalar>(
+        backward_scattering_coeff_.interpolate_angles(lon_inc, lat_inc));
+    auto forward_scattering_coeff = ScatteringDataFieldSpectral<Scalar>(
+        forward_scattering_coeff_.interpolate_angles(lon_inc, lat_inc));
 
     return new SingleScatteringDataSpectral(f_grid_,
                                            t_grid_,
                                            phase_matrix,
                                            extinction_matrix,
                                            absorption_vector,
-                                           backward_scattering_coeff_,
-                                           forward_scattering_coeff_);
+                                           backward_scattering_coeff,
+                                           forward_scattering_coeff);
   }
 
   void operator+=(const SingleScatteringDataImpl *other) {
