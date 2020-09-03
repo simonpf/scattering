@@ -699,12 +699,12 @@ class ScatteringDataFieldSpectral
                                         data_new);
   }
 
-  eigen::Vector<double> get_f_grid() { return *f_grid_; }
-  eigen::Vector<double> get_t_grid() { return *t_grid_; }
-  eigen::Vector<double> get_lon_inc() { return *lon_inc_; }
-  eigen::Vector<double> get_lat_inc() { return *lat_inc_; }
-  eigen::Vector<double> get_lon_scat() { return sht_scat_->get_longitude_grid(); }
-  eigen::Vector<double> get_lat_scat() { return sht_scat_->get_latitude_grid(); }
+  eigen::Vector<double> get_f_grid() const { return *f_grid_; }
+  eigen::Vector<double> get_t_grid() const { return *t_grid_; }
+  eigen::Vector<double> get_lon_inc() const { return *lon_inc_; }
+  eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
+  eigen::Vector<double> get_lon_scat() const { return sht_scat_->get_longitude_grid(); }
+  eigen::Vector<double> get_lat_scat() const { return sht_scat_->get_latitude_grid(); }
 
   std::array<Index, 4> get_sht_inc_params() const {
     return sht::SHT::get_params(n_lat_inc_, n_lon_inc_);
@@ -728,6 +728,12 @@ class ScatteringDataFieldSpectral
                 const ScatteringDataFieldSpectral &other) {
 
       using Regridder = RegularRegridder<Scalar, 2, 3>;
+
+      auto dimensions = other.data_->dimensions();
+      for (int i = 0; i < dimensions.size(); ++i) {
+          std::cout << dimensions[i] << " // " << data_->dimension(i) << std::endl;
+      }
+      std::cout << std::endl;
 
       auto lon_inc_other = other.lon_inc_;
       auto lat_inc_other = other.lat_inc_;

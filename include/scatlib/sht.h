@@ -184,8 +184,8 @@ class SHT {
   }
 
   static std::array<Index, 4> get_params(Index n_lat, Index n_lon) {
-      n_lat -= n_lat % 1;
-      n_lon -= n_lon % 1;
+      n_lat -= n_lat % 2;
+      n_lon -= n_lon % 2;
 
       Index l_max = ((n_lat % 2) == 0) ? n_lat - 2 : n_lat - 1;
       Index m_max = (n_lon > 2) ? (n_lon / 2) - 1 : 0;
@@ -249,6 +249,9 @@ class SHT {
   }
 
   Vector get_longitude_grid() {
+      if (is_trivial_) {
+          return Vector::Constant(1, M_PI);
+      }
       Vector v{n_lon_};
       double dx = 2 * M_PI / (n_lon_ + 1);
       for (Index i = 0; i < n_lon_; ++i) {

@@ -8,7 +8,8 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate
 from scatlib.single_scattering_data import (SingleScatteringData,
-                                            ParticleType)
+                                            ParticleType,
+                                            SHT)
 
 #Import test utils.
 try:
@@ -37,7 +38,9 @@ def particle_to_single_scattering_data_random(particle_data,
     av = av.reshape((1, 1) + av.shape + (1, 1))
 
     bsc = pm[:, :, :, :, 0, -1, 0]
+    bsc = bsc.reshape(bsc.shape + (1, 1, 1))
     fsc = pm[:, :, :, :, 0, 0, 0]
+    fsc = fsc.reshape(fsc.shape + (1, 1, 1))
 
     sd = SingleScatteringData(f_grid,
                               t_grid,
@@ -160,6 +163,7 @@ def particle_to_single_scattering_data_azimuthally_random(particle_data,
     f_grid = np.array([frequency])
     t_grid = np.array([temperature])
 
+    print(particle_data.phase_matrix.data.shape)
     pm = np.transpose(particle_data.phase_matrix.data[..., :-1], [1, 2, 3, 0])
     pm = pm.reshape((1, 1) + pm.shape)
 
@@ -170,14 +174,22 @@ def particle_to_single_scattering_data_azimuthally_random(particle_data,
     av = av.reshape((1, 1) + av.shape + (1,))
 
     n_coeffs = pm.shape[-2]
+    l_max = SHT.calc_l_max(n_coeffs)
+    n_lat = max(l_max + 2 + l_max % 2, 32)
+    n_lon = 2 * l_max + 2
 
-    bsc = pm[:, :, :, 0, -1, 0]
-    fsc = pm[:, :, :, 0, 0, 0]
+    sht = SHT(l_max, l_max, n_lat, n_lon)
+
+    bsc = pm[:, :, :, -1, 0]
+    bsc = bsc.reshape(bsc.shape + (1, 1))
+    fsc = pm[:, :, :, 0, 0]
+    fsc = fsc.reshape(fsc.shape + (1, 1))
 
     sd = SingleScatteringData(f_grid,
                               t_grid,
-                              particle_data.lon_inc,
-                              particle_data.lat_inc,
+                              particle_data.lon_inc.data,
+                              particle_data.lat_inc.data,
+                              sht,
                               pm,
                               em,
                               av,
@@ -211,8 +223,13 @@ class TestSingleScatteringDataAzimuthallyRandom:
         t_grid = self.particle.temperatures
         lon_inc = self.particle[0].lon_inc
         lat_inc = self.particle[0].lat_inc
-        lon_scat = self.particle[0].lon_scat
-        lat_scat = self.particle[0].lat_scat[:-1]
+
+        n_coeffs = self.particle[0].phase_matrix.shape[-1]
+        l_max = SHT.calc_l_max(n_coeffs)
+        l_max = 32
+        n_lat = l_max + 2 + l_max % 2
+        n_lon = 2 * l_max + 2
+        sht = SHT(l_max, l_max, n_lat, n_lon)
 
         self.f_grid = self.particle.frequencies
         self.t_grid = self.particle.temperatures
@@ -220,9 +237,8 @@ class TestSingleScatteringDataAzimuthallyRandom:
                                          t_grid,
                                          lon_inc,
                                          lat_inc,
-                                         lon_scat,
-                                         lat_scat,
-                                         ParticleType.Random)
+                                         l_max,
+                                         ParticleType.AzimuthallyRandom)
         for i, f in enumerate(self.particle.frequencies):
             for j, t in enumerate(self.particle.temperatures):
                 data = self.particle.get_scattering_data(f, t)
@@ -239,8 +255,18 @@ class TestSingleScatteringDataAzimuthallyRandom:
         for f in self.f_grid:
             for t in self.t_grid:
                 data = self.particle.get_scattering_data(f, t)
-                sd_ref = particle_to_single_scattering_data_azimuthally_random(data, f, t)
+                sd_ref = particle_to_single_scattering_data_azimuthally_random(data,
+                                                                               f,
+                                                                               t)
                 sd = self.data.interpolate_frequency([f]).interpolate_temperature([t])
+                sd = sd.to_gridded()
+                sd_ref = sd_ref.to_gridded()
+                sd = sd.interpolate_angles(sd_ref.get_lon_inc(),
+                                           sd_ref.get_lat_inc(),
+                                           sd_ref.get_lon_scat(),
+                                           sd_ref.get_lat_scat())
+
+                return sd, sd_ref
 
                 assert np.all(np.isclose(sd_ref.get_phase_matrix(),
                                          sd.get_phase_matrix()))
@@ -283,8 +309,12 @@ class TestSingleScatteringDataAzimuthallyRandom:
         ssd_spectral = self.data.to_spectral()
         pm_gridded = self.data.get_phase_matrix()
         pm_spectral = ssd_spectral.get_phase_matrix()
-        return pm_gridded, pm_spectral
+
+        assert np.all(np.isclose(pm_gridded, pm_spectral))
 
 t = TestSingleScatteringDataAzimuthallyRandom()
 t.setup_method()
-t.test_conversion()
+sd, sd_ref = t.test_set_data()
+pm = sd.get_phase_matrix()
+pm_ref = sd_ref.get_phase_matrix()
+#t.test_conversion()
