@@ -1126,43 +1126,45 @@ SingleScatteringData::SingleScatteringData(
                                      l_max + 2 + l_max % 2,
                                      2 * l_max + 2),
           std::make_shared<eigen::Tensor<std::complex<double>, 6>>(
-              std::array<Index, 6>{
+              eigen::zeros<std::complex<double>>(
                   f_grid.size(),
                   t_grid.size(),
                   lon_inc.size(),
                   lat_inc.size(),
                   sht::SHT::calc_n_spectral_coeffs(l_max, l_max),
-                  detail::get_n_phase_matrix_elements(type)}),
+                  detail::get_n_phase_matrix_elements(type))),
           std::make_shared<eigen::Tensor<std::complex<double>, 6>>(
-              std::array<Index, 6>{
+              eigen::zeros<std::complex<double>>(
                   f_grid.size(),
                   t_grid.size(),
                   lon_inc.size(),
                   lat_inc.size(),
                   1,
-                  detail::get_n_extinction_matrix_elements(type)}),
+                  detail::get_n_extinction_matrix_elements(type))),
           std::make_shared<eigen::Tensor<std::complex<double>, 6>>(
-              std::array<Index, 6>{
+              eigen::zeros<std::complex<double>>(
                   f_grid.size(),
                   t_grid.size(),
                   lon_inc.size(),
                   lat_inc.size(),
                   1,
-                  detail::get_n_absorption_vector_elements(type)}),
+                  detail::get_n_absorption_vector_elements(type))),
           std::make_shared<eigen::Tensor<std::complex<double>, 6>>(
-              std::array<Index, 6>{f_grid.size(),
+              eigen::zeros<std::complex<double>>(
+              f_grid.size(),
                                    t_grid.size(),
                                    lon_inc.size(),
                                    lat_inc.size(),
                                    1,
-                                   1}),
+                      1)),
           std::make_shared<eigen::Tensor<std::complex<double>, 6>>(
-              std::array<Index, 6>{f_grid.size(),
+          eigen::zeros<std::complex<double>>(
+              f_grid.size(),
                                    t_grid.size(),
                                    lon_inc.size(),
                                    lat_inc.size(),
                                    1,
-                                   1})) {}
+              1))) {}
 
 SingleScatteringData SingleScatteringData::to_gridded() {
   return SingleScatteringData(

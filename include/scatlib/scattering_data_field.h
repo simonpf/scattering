@@ -730,12 +730,6 @@ class ScatteringDataFieldSpectral
 
       using Regridder = RegularRegridder<Scalar, 2, 3>;
 
-      auto dimensions = other.data_->dimensions();
-      for (int i = 0; i < dimensions.size(); ++i) {
-          std::cout << dimensions[i] << " // " << data_->dimension(i) << std::endl;
-      }
-      std::cout << std::endl;
-
       auto lon_inc_other = other.lon_inc_;
       auto lat_inc_other = other.lat_inc_;
       auto regridder = Regridder(

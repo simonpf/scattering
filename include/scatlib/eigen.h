@@ -476,6 +476,14 @@ std::ostream &operator<<(std::ostream &out, const DimensionCounter<rank> &c) {
   return out;
 }
 
+template <typename Scalar, typename ... Types>
+Tensor<Scalar, sizeof...(Types)> zeros(Types ... dimensions) {
+    constexpr int  rank = sizeof...(Types);
+    std::array<Index, rank> dimension_array({dimensions ...});
+    return Tensor<Scalar, sizeof...(Types)>(dimension_array).setZero();
+}
+
+
 }  // namespace eigen
 }  // namespace scatlib
 
