@@ -10,3 +10,4 @@ configure_file(test_scattering_data_field.py test_scattering_data_field.py COPYO
 configure_file(test_scattering_data_field_spherical.py test_scattering_data_field_spherical.py COPYONLY)
 configure_file(test_scattering_data_field_random.py test_scattering_data_field_random.py COPYONLY)
 configure_file(test_scattering_data_field_azimuthally_random.py test_scattering_data_field_azimuthally_random.py COPYONLY)
+configure_file(test_arts_ssdb.py test_arts_ssdb.py COPYONLY)

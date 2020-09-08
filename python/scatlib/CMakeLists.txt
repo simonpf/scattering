@@ -2,6 +2,8 @@ get_target_property(Eigen3_INCLUDE_DIRS Eigen3::Eigen INTERFACE_INCLUDE_DIRECTOR
 set(Eigen3_INCLUDE_DIRS ${Eigen3_INCLUDE_DIRS} ${Eigen3_INCLUDE_DIRS}/unsupported)
 message(WARNING "EIGEN: ${Eigen3_INCLUDE_DIRS}")
 
+include_directories(${CMAKE_SOURCE_DIR}/ext/netcdfhpp)
+
 #
 # SHT
 #
@@ -60,3 +62,13 @@ add_pxx_module(
 add_dependencies(single_scattering_data libshtns)
 target_link_libraries(single_scattering_data ${SHTNS_LIBRARY})
 target_link_libraries(single_scattering_data fftw3)
+
+#
+# arts_ssdb
+#
+
+add_pxx_module(
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/arts_ssdb.h
+  MODULE arts_ssdb
+  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/netcdfpp
+  )
