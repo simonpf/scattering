@@ -72,3 +72,4 @@ add_pxx_module(
   MODULE arts_ssdb
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/netcdfpp
   )
+target_link_libraries(arts_ssdb ${NETCDF_LIBRARY} ${HDF5_LIBRARIES})

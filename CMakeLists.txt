@@ -23,6 +23,9 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 # Find required packages
 #
 
+set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+find_package(NetCDF)
+find_package(HDF5)
 find_package(Eigen3)
 find_package(pxx)
 
