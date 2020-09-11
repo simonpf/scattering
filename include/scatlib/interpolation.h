@@ -529,7 +529,7 @@ template <typename Scalar, int ... Axes>
 class RegularRegridder {
  public:
 
-    static constexpr size_t n_dimensions = sizeof...(Axes);
+    static constexpr  eigen::Index n_dimensions = sizeof...(Axes);
 
   /** Dimensions of output tensor.
    * @param in The tensor to regrid

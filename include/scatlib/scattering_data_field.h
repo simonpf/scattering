@@ -385,7 +385,6 @@ class ScatteringDataFieldGridded
       using Regridder = RegularRegridder<Scalar, 2, 3, 4, 5>;
       Regridder regridder({*lon_inc_, *lat_inc_, *lon_scat_, *lat_scat_},
                           {*lon_inc_new, *lat_inc_new, *lon_scat_new, *lat_scat_new});
-      auto dimensions_new = data_->dimensions();
       auto data_interp = regridder.regrid(*data_);
       auto data_new = std::make_shared<DataTensor>(std::move(data_interp));
       return ScatteringDataFieldGridded(f_grid_,

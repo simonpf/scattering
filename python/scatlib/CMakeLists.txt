@@ -70,6 +70,6 @@ target_link_libraries(single_scattering_data fftw3)
 add_pxx_module(
   SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/arts_ssdb.h
   MODULE arts_ssdb
-  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/netcdfpp ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
+  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/ext/netcdfpp ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
-target_link_libraries(arts_ssdb ${NETCDF_LIBRARY} ${HDF5_LIBRARIES})
+target_link_libraries(arts_ssdb ${NETCDF_LIBRARY} ${HDF5_LIBRARIES} ${SHTNS_LIBRARY})

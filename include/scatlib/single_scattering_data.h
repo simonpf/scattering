@@ -9,7 +9,6 @@
 #define __SCATLIB_SINGLE_SCATTERING_DATA__
 
 #include <scatlib/eigen.h>
-#include <scatlib/sht.h>
 #include <scatlib/interpolation.h>
 #include <scatlib/scattering_data_field.h>
 #include <memory>
@@ -170,6 +169,8 @@ class SingleScatteringData {
     // pxx :: hide
   SingleScatteringData(SingleScatteringDataImpl *data)
       : data_(data) {}
+
+  SingleScatteringData(const SingleScatteringData &other) = default;
 
   /** Create from gridded scattering data.
    *
@@ -345,11 +346,11 @@ class SingleScatteringData {
 
   // Addition
   SingleScatteringData &operator+=(const SingleScatteringData &other) {
-    data_->operator+=(other.data_);
+    data_->operator+=(other.data_.get());
     return *this;
   }
   SingleScatteringData operator+(const SingleScatteringData &other) {
-    return SingleScatteringData(data_->operator+(other.data_));
+    return SingleScatteringData(data_->operator+(other.data_.get()));
   }
 
   // Scaling
@@ -366,7 +367,7 @@ class SingleScatteringData {
   SingleScatteringData to_spectral();
 
 private:
-  SingleScatteringDataImpl *data_;
+  std::shared_ptr<SingleScatteringDataImpl> data_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -390,7 +391,8 @@ class SingleScatteringDataBase {
   size_t n_freqs_, n_temps_;
   VectorPtr f_grid_;
   VectorPtr t_grid_;
-}; 
+};
+
 template <typename Scalar>
 class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
                                     public SingleScatteringDataImpl {
@@ -699,8 +701,8 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
       phase_matrix_(phase_matrix),
       extinction_matrix_(extinction_matrix),
       absorption_vector_(absorption_vector),
-      forward_scattering_coeff_(forward_scattering_coeff),
-      backward_scattering_coeff_(backward_scattering_coeff)
+      backward_scattering_coeff_(backward_scattering_coeff),
+      forward_scattering_coeff_(forward_scattering_coeff)
       {}
 
   SingleScatteringDataSpectral(VectorPtr f_grid,
