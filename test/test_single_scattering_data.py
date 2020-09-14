@@ -28,26 +28,24 @@ def particle_to_single_scattering_data_random(particle_data,
     f_grid = np.array([frequency])
     t_grid = np.array([temperature])
 
-    pm = np.transpose(particle_data.phase_matrix.data[..., :-1], [1, 2, 3, 4, 0])
-    pm = pm.reshape((1, 1) + pm.shape)
+    pm = particle_data.phase_matrix[:, :, :, :, :, :-1, :]
+    print(pm.shape)
+    em = particle_data.extinction_matrix
+    print(em.shape)
+    av = particle_data.absorption_vector
+    print(av.shape)
+    bsc = particle_data.backward_scattering_coeff
+    print(bsc.shape)
+    fsc = particle_data.forward_scattering_coeff
+    print(fsc.shape)
 
-    em = np.transpose(particle_data.extinction_matrix.data, [1, 2, 0])
-    em = em.reshape((1, 1) + em.shape + (1, 1))
-
-    av = np.transpose(particle_data.absorption_vector.data, [1, 2, 0])
-    av = av.reshape((1, 1) + av.shape + (1, 1))
-
-    bsc = pm[:, :, :, :, 0, -1, 0]
-    bsc = bsc.reshape(bsc.shape + (1, 1, 1))
-    fsc = pm[:, :, :, :, 0, 0, 0]
-    fsc = fsc.reshape(fsc.shape + (1, 1, 1))
-
+    print(particle_data.lat_scat.shape)
     sd = SingleScatteringData(f_grid,
                               t_grid,
                               particle_data.lon_inc,
                               particle_data.lat_inc,
                               particle_data.lon_scat,
-                              particle_data.lat_scat,
+                              particle_data.lat_scat[:-1],
                               pm,
                               em,
                               av,
@@ -152,7 +150,7 @@ class TestSingleScatteringDataRandom:
         ssd_spectral = self.data.to_spectral()
         pm_gridded = self.data.get_phase_matrix()
         pm_spectral = ssd_spectral.get_phase_matrix()
-        return pm_gridded, pm_spectral
+        assert np.all(np.isclose(pm_gridded, pm_spectral))
 
 def particle_to_single_scattering_data_azimuthally_random(particle_data,
                                                           frequency,
@@ -160,35 +158,26 @@ def particle_to_single_scattering_data_azimuthally_random(particle_data,
     """
     Convert ssdb.Particle to SingleScatteringData object.
     """
+
     f_grid = np.array([frequency])
     t_grid = np.array([temperature])
 
-    print(particle_data.phase_matrix.data.shape)
-    pm = np.transpose(particle_data.phase_matrix.data[..., :-1], [1, 2, 3, 0])
-    pm = pm.reshape((1, 1) + pm.shape)
-
-    em = np.transpose(particle_data.extinction_matrix.data, [1, 2, 0]) * (1 + 0j)
-    em = em.reshape((1, 1) + em.shape + (1,))
-
-    av = np.transpose(particle_data.absorption_vector.data, [1, 2, 0]) * (1 + 0j)
-    av = av.reshape((1, 1) + av.shape + (1,))
+    pm = particle_data.phase_matrix
+    em = particle_data.extinction_matrix
+    av = particle_data.absorption_vector
+    bsc = particle_data.backward_scattering_coeff
+    fsc = particle_data.forward_scattering_coeff
 
     n_coeffs = pm.shape[-2]
     l_max = SHT.calc_l_max(n_coeffs)
     n_lat = max(l_max + 2 + l_max % 2, 32)
     n_lon = 2 * l_max + 2
-
     sht = SHT(l_max, l_max, n_lat, n_lon)
-
-    bsc = pm[:, :, :, -1, 0]
-    bsc = bsc.reshape(bsc.shape + (1, 1))
-    fsc = pm[:, :, :, 0, 0]
-    fsc = fsc.reshape(fsc.shape + (1, 1))
 
     sd = SingleScatteringData(f_grid,
                               t_grid,
-                              particle_data.lon_inc.data,
-                              particle_data.lat_inc.data,
+                              particle_data.lon_inc,
+                              particle_data.lat_inc,
                               sht,
                               pm,
                               em,
@@ -311,10 +300,3 @@ class TestSingleScatteringDataAzimuthallyRandom:
         pm_spectral = ssd_spectral.get_phase_matrix()
 
         assert np.all(np.isclose(pm_gridded, pm_spectral))
-
-t = TestSingleScatteringDataAzimuthallyRandom()
-t.setup_method()
-sd, sd_ref = t.test_set_data()
-pm = sd.get_phase_matrix()
-pm_ref = sd_ref.get_phase_matrix()
-#t.test_conversion()

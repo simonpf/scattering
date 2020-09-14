@@ -6,23 +6,28 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate
 from scipy.special import roots_legendre, sph_harm
-from ssdb.legacy.ssdb import Particle
+from reference import ParticleFile
 
 SCATLIB_TEST_PATH = "@SCATLIB_TEST_PATH@"
 
 def get_data_azimuthally_random():
     return os.path.join(SCATLIB_TEST_PATH, "data", "scattering_data_azimuthally_random.nc")
 
-particle_spherical_1 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_spherical_1.nc"))
-particle_spherical_2 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_spherical_1.nc"))
-particle_random_1 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_random_1.nc"))
-particle_random_2 = Particle(os.path.join(SCATLIB_TEST_PATH, "data", "test_data_random_1.nc"))
-particle_azimuthally_random_1 = Particle(os.path.join(SCATLIB_TEST_PATH,
-                                                      "data",
-                                                      "test_data_azimuthally_random_1.nc"))
-particle_azimuthally_random_2 = Particle(os.path.join(SCATLIB_TEST_PATH,
-                                                      "data",
-                                                      "test_data_azimuthally_random_2.nc"))
+RANDOM_DATA_PATH = os.path.join(SCATLIB_TEST_PATH, "data", "random")
+file_1 = os.path.join(RANDOM_DATA_PATH,
+                      "Dmax00191um_Dveq00101um_Mass5.00440e-10kg.nc")
+particle_random_1 = ParticleFile(file_1)
+file_2 = os.path.join(RANDOM_DATA_PATH,
+                      "Dmax00191um_Dveq00101um_Mass5.00440e-10kg.nc")
+particle_random_2 = ParticleFile(file_2)
+
+AZIMUTHALLY_RANDOM_DATA_PATH = os.path.join(SCATLIB_TEST_PATH, "data", "azimuthally_random")
+file_1 = os.path.join(AZIMUTHALLY_RANDOM_DATA_PATH,
+                      "Dmax00191um_Dveq00101um_Mass5.00440e-10kg.nc")
+particle_azimuthally_random_1 = ParticleFile(file_1)
+file_2 = os.path.join(AZIMUTHALLY_RANDOM_DATA_PATH,
+                      "Dmax01014um_Dveq00770um_Mass2.19345e-07kg.nc")
+particle_azimuthally_random_2 = ParticleFile(file_2)
 
 def harmonic_random_field(n_lon, n_lat, n_components=10):
     """

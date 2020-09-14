@@ -10,6 +10,7 @@
 #include <scatlib/eigen.h>
 #include <scatlib/utils/array.h>
 #include <scatlib/single_scattering_data.h>
+#include <scatlib/particle_model.h>
 
 namespace scatlib {
 
@@ -590,20 +591,24 @@ class HabitFolder {
 
   // pxx :: hide
   void parse_files() {
+    std::vector<double> d_eq_vec, d_max_vec, mass_vec;
     auto it = std::filesystem::directory_iterator(base_path_);
     for (auto &p : it) {
-        auto match = detail::match_particle_properties(p.path().filename());
+      auto match = detail::match_particle_properties(p.path().filename());
       if (std::get<0>(match)) {
         double d_eq = std::get<1>(match);
         double d_max = std::get<2>(match);
         double mass = std::get<3>(match);
-        d_eq_.push_back(d_eq);
-        d_max_.push_back(d_max);
-        mass_.push_back(mass);
+        d_eq_vec.push_back(d_eq);
+        d_max_vec.push_back(d_max);
+        mass_vec.push_back(mass);
         files_[d_eq] = base_path_ / p.path();
       }
     }
-    detail::sort_by_d_eq(d_eq_, d_max_, mass_);
+    detail::sort_by_d_eq(d_eq_vec, d_max_vec, mass_vec);
+    d_eq_ = eigen::VectorMap<double>(d_eq_vec.data(), d_eq_vec.size());
+    d_max_ = eigen::VectorMap<double>(d_max_vec.data(), d_max_vec.size());
+    mass_ = eigen::VectorMap<double>(mass_vec.data(), mass_vec.size());
   }
 
 public:
@@ -614,26 +619,37 @@ HabitFolder(std::string path) : base_path_(path) {
       parse_files();
  }
 
-  std::vector<double> get_d_eq() {
+  eigen::Vector<double> get_d_eq() {
       return d_eq_;
   }
 
-  std::vector<double> get_d_max() {
+  eigen::Vector<double> get_d_max() {
       return d_max_;
   }
 
-  std::vector<double> get_mass() {
+  eigen::Vector<double> get_mass() {
       return mass_;
   }
 
   DataIterator begin();
   DataIterator end();
 
-private:
+  operator ParticleModel() {
+    std::vector<SingleScatteringData> data;
+    data.reserve(files_.size());
+    for (auto &d : d_eq_) {
+      data.push_back(ParticleFile(files_[d]));
+    }
+    return ParticleModel(get_d_eq(), get_d_max(), get_mass(), data);
+  }
+
+  ParticleModel to_particle_model() { return *this; }
+
+ private:
   std::filesystem::path base_path_;
-    std::vector<double> d_eq_;
-    std::vector<double> d_max_;
-    std::vector<double> mass_;
+  eigen::Vector<double> d_eq_;
+  eigen::Vector<double> d_max_;
+  eigen::Vector<double> mass_;
     std::map<double, std::filesystem::path> files_;
 };
 

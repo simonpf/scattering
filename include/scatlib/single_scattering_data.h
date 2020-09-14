@@ -931,6 +931,7 @@ template <typename Scalar>
     SingleScatteringDataGridded<Scalar>::to_spectral() const {
     using ReturnType = const SingleScatteringDataSpectral<Scalar>;
     auto sht_params = phase_matrix_.get_sht_scat_params();
+    std::cout << "SHT PARAMS: " << sht_params[0] << " / " << sht_params[1] << " / " << sht_params[2] << " / " << sht_params[3] << std::endl;
     auto sht_scat = std::make_shared<sht::SHT>(sht_params[0],
                                                sht_params[1],
                                                sht_params[2],

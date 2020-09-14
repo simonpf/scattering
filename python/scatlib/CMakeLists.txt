@@ -72,4 +72,5 @@ add_pxx_module(
   MODULE arts_ssdb
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/ext/netcdfpp ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
-target_link_libraries(arts_ssdb ${NETCDF_LIBRARY} ${HDF5_LIBRARIES} ${SHTNS_LIBRARY})
+add_dependencies(arts_ssdb libshtns)
+target_link_libraries(arts_ssdb ${NETCDF_LIBRARY} ${HDF5_LIBRARIES} ${SHTNS_LIBRARY} fftw3)
