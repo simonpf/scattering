@@ -306,6 +306,7 @@ class ScatteringDataFieldGridded
       auto lat_inc_other = other.lat_inc_;
       auto lon_scat_other = other.lon_scat_;
       auto lat_scat_other = other.lat_scat_;
+
       auto regridder = Regridder(
           {*lon_inc_other, *lat_inc_other, *lon_scat_other, *lat_scat_other},
           {*lon_inc_, *lat_inc_, *lon_scat_, *lat_scat_});

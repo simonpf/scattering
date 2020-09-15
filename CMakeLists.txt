@@ -38,3 +38,28 @@ add_subdirectory(test)
 add_subdirectory(doc)
 add_subdirectory(python)
 
+#
+# Install CMake package.
+#
+
+include (CMakePackageConfigHelpers)
+
+
+add_library (scatlib_export INTERFACE)
+target_include_directories(scatlib_export INTERFACE "${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/ext")
+target_link_libraries(scatlib_export INTERFACE $<TARGET_FILE:shtns> fftw3)
+
+get_target_property(scatlib_INCLUDE_DIR scatlib_export INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(scatlib_INCLUDE_DIRS scatlib_export INTERFACE_INCLUDE_DIRECTORIES)
+set(scatlib_LIBRARIES "${CMAKE_BINARY_DIR}/ext/shtns/libshtns.a fftw3")
+
+add_library (scatlib INTERFACE)
+add_library (scatlib::scatlib ALIAS eigen)
+install (TARGETS scatlib EXPORT scatlib)
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scatlibConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/scatlibConfig.cmake
+  PATH_VARS scatlib_INCLUDE_DIR scatlib_LIBRARIES
+  INSTALL_DESTINATION ${CMAKE_BINARY_DIR}
+  NO_CHECK_REQUIRED_COMPONENTS_MACRO # Eigen does not provide components
+)

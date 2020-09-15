@@ -49,8 +49,8 @@ std::tuple<bool, double, double, double> match_particle_properties(
   std::smatch match;
   bool matches = std::regex_match(file_name, match, file_regex);
   if (matches) {
-    double d_max = std::stod(match[1]);
-    double d_eq = std::stod(match[2]);
+    double d_max = std::stod(match[1]) * 1e-6;
+    double d_eq = std::stod(match[2]) * 1e-6;
     double m = std::stod(match[3]);
     return std::make_tuple(true, d_eq, d_max, m);
   }
@@ -147,18 +147,35 @@ class ScatteringData {
     return ParticleType::AzimuthallyRandom;
   }
 
-  sht::SHT get_sht() {
+  Format get_format() const { return format_; }
+
+  Index get_l_max() {
       auto phase_matrix_dimensions = group_.get_variable("phaMat_data_real").shape();
-      auto l_max = sht::SHT::calc_l_max(phase_matrix_dimensions[4]);
-      return sht::SHT(l_max, l_max, l_max + 2 + l_max % 2, 2 * l_max);
+      Index l_max = sht::SHT::calc_l_max(phase_matrix_dimensions[3]);
+      return l_max;
   }
 
-  eigen::Vector<double> get_f_grid() {return eigen::Vector<double>::Constant(frequency_, 1);}
-  eigen::Vector<double> get_t_grid() {return eigen::Vector<double>::Constant(temperature_, 1);}
-  eigen::Vector<double> get_lon_inc() { return get_vector<double>("aa_inc"); }
-  eigen::Vector<float> get_lon_inc_spectral() { return get_vector<float>("aa_inc"); }
-  eigen::Vector<double> get_lat_inc() { return get_vector<double>("za_inc"); }
-  eigen::Vector<float> get_lat_inc_spectral() { return get_vector<float>("za_inc"); }
+  sht::SHT get_sht() {
+      auto phase_matrix_dimensions = group_.get_variable("phaMat_data_real").shape();
+      auto l_max = sht::SHT::calc_l_max(phase_matrix_dimensions[3]);
+      return sht::SHT(l_max, l_max, l_max + 2 + l_max % 2, 2 * l_max + 2);
+  }
+
+  eigen::Vector<double> get_f_grid() {return eigen::Vector<double>::Constant(1, frequency_);}
+  eigen::Vector<double> get_t_grid() {return eigen::Vector<double>::Constant(1, temperature_);}
+  eigen::Vector<double> get_lon_inc() {
+    if (format_ == Format::Gridded) {
+      return get_vector<double>("aa_inc");
+    }
+    return get_vector<float>("aa_inc").cast<double>();
+  }
+  eigen::Vector<double> get_lat_inc() {
+    if (format_ == Format::Gridded) {
+      return get_vector<double>("za_inc");
+    }
+    return get_vector<float>("za_inc").cast<double>();
+  }
+
   eigen::Vector<double> get_lon_scat() { return get_vector<double>("aa_scat"); }
   eigen::Vector<double> get_lat_scat() { return get_vector<double>("za_scat"); }
 
@@ -171,9 +188,8 @@ class ScatteringData {
 
     // Reshape and shuffle data.
     auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 3, 4, 0);
-    auto result_shuffled = result.shuffle(shuffle_dimensions);
-    auto new_dimensions = concat(make_array<eigen::Index>(1, 1), dimensions);
-    auto result_reshaped = result_shuffled.reshape(new_dimensions);
+    eigen::Tensor<double, 5> result_shuffled = result.shuffle(shuffle_dimensions);
+    auto result_reshaped = eigen::unsqueeze<0, 1>(result_shuffled);
     return result_reshaped;
   }
 
@@ -193,9 +209,8 @@ class ScatteringData {
 
     // Reshape and shuffle data.
     auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 3, 0);
-    auto result_shuffled = result.shuffle(shuffle_dimensions);
-    auto new_dimensions = concat(make_array<eigen::Index>(1, 1), dimensions);
-    auto result_reshaped = result_shuffled.reshape(new_dimensions);
+    eigen::Tensor<std::complex<double>, 4> result_shuffled = result.shuffle(shuffle_dimensions);
+    auto result_reshaped = eigen::unsqueeze<0, 1>(result_shuffled);
     return result_reshaped;
   }
 
@@ -208,12 +223,8 @@ class ScatteringData {
 
     // Reshape and shuffle data.
     auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 0);
-    auto result_shuffled = result.shuffle(shuffle_dimensions);
-    auto new_dimensions = concat(
-        make_array<eigen::Index>(1, 1),
-        concat(take<0, 1>(dimensions),
-               concat(make_array<eigen::Index>(1, 1), take<2>(dimensions))));
-    auto result_reshaped = result_shuffled.reshape(new_dimensions);
+    eigen::Tensor<double, 3> result_shuffled = result.shuffle(shuffle_dimensions);
+    auto result_reshaped = eigen::unsqueeze<0, 1, 4, 5>(new_dimensions);
     return result_reshaped;
   }
 
@@ -226,12 +237,8 @@ class ScatteringData {
 
     // Reshape and shuffle data.
     auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 0);
-    auto result_shuffled = result.shuffle(shuffle_dimensions);
-    auto new_dimensions = concat(
-        make_array<eigen::Index>(1, 1),
-        concat(take<0, 1>(dimensions),
-               concat(make_array<eigen::Index>(1), take<2>(dimensions))));
-    eigen::Tensor<float, 6> result_reshaped = result_shuffled.reshape(new_dimensions);
+    eigen::Tensor<float, 3> result_shuffled = result.shuffle(shuffle_dimensions);
+    auto result_reshaped = eigen::unsqueeze<0, 1, 4>(result_shuffled);
     return result_reshaped.cast<std::complex<double>>();
   }
 
@@ -243,12 +250,8 @@ class ScatteringData {
 
     // Reshape and shuffle data.
     auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 0);
-    auto result_shuffled = result.shuffle(shuffle_dimensions);
-    auto new_dimensions = concat(
-        make_array<eigen::Index>(1, 1),
-        concat(take<0, 1>(dimensions),
-               concat(make_array<eigen::Index>(1, 1), take<2>(dimensions))));
-    auto result_reshaped = result_shuffled.reshape(new_dimensions);
+    eigen::Tensor<double, 3> result_shuffled = result.shuffle(shuffle_dimensions);
+    auto result_reshaped = eigen::unsqueeze<0, 1, 4, 5>(result_shuffled);
     return result_reshaped;
   }
 
@@ -260,27 +263,24 @@ class ScatteringData {
 
     // Reshape and shuffle data.
     auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 0);
-    auto result_shuffled = result.shuffle(shuffle_dimensions);
-    auto new_dimensions = concat(
-        make_array<eigen::Index>(1, 1),
-        concat(take<0, 1>(dimensions),
-               concat(make_array<eigen::Index>(1), take<2>(dimensions))));
-    eigen::Tensor<float, 6> result_reshaped = result_shuffled.reshape(new_dimensions);
+    eigen::Tensor<float, 3> result_shuffled = result.shuffle(shuffle_dimensions);
+    auto result_reshaped = eigen::unsqueeze<0, 1, 4>(result_shuffled);
     return result_reshaped.cast<std::complex<double>>();
   }
 
   eigen::Tensor<double, 7> get_backward_scattering_coeff_data_gridded() {
       auto phase_matrix = get_phase_matrix_data_gridded();
       auto dimensions = phase_matrix.dimensions();
-      auto backward_scattering_coeff = phase_matrix.chip<5>(dimensions[5] - 1);
+      auto backward_scattering_coeff = phase_matrix.chip<4>(0).chip<4>(dimensions[5] - 1).chip<4>(0);
+      dimensions[4] = 1;
       dimensions[5] = 1;
+      dimensions[6] = 1;
       return backward_scattering_coeff.reshape(dimensions);
   }
 
   eigen::Tensor<std::complex<double>, 6> get_backward_scattering_coeff_data_spectral() {
       auto phase_matrix = get_phase_matrix_data_spectral();
       auto sht = get_sht();
-
       auto data_spectral = ScatteringDataFieldSpectral(get_f_grid(),
                                                        get_t_grid(),
                                                        get_lon_inc(),
@@ -290,21 +290,23 @@ class ScatteringData {
       auto data_gridded = data_spectral.to_gridded();
       auto phase_matrix_gridded = data_gridded.get_data();
       auto dimensions = phase_matrix_gridded.dimensions();
-      auto forward_scattering_coeff = phase_matrix.chip<4>(0).chip<4>(dimensions[5] - 1);
+      auto backward_scattering_coeff = phase_matrix_gridded.chip<4>(0).chip<4>(dimensions[5] - 1).chip<4>(0);
       auto dimensions_output = phase_matrix.dimensions();
       dimensions_output[4] = 1;
-      return forward_scattering_coeff.cast<std::complex<double>>().reshape(dimensions_output);
+      dimensions_output[5] = 1;
+      return backward_scattering_coeff.cast<std::complex<double>>().reshape(dimensions_output);
   }
 
   eigen::Tensor<double, 7> get_forward_scattering_coeff_data_gridded() {
       auto phase_matrix = get_phase_matrix_data_gridded();
       auto dimensions = phase_matrix.dimensions();
-      auto backward_scattering_coeff = phase_matrix.chip<5>(0);
+      auto backward_scattering_coeff = phase_matrix.chip<4>(0).chip<4>(0).chip<4>(0);
+      dimensions[4] = 1;
       dimensions[5] = 1;
+      dimensions[6] = 1;
       return backward_scattering_coeff.reshape(dimensions);
   }
-
-  eigen::Tensor<std::complex<double>, 6> get_forward_scattering_coeff_data_spectral() {
+eigen::Tensor<std::complex<double>, 6> get_forward_scattering_coeff_data_spectral() {
       auto phase_matrix = get_phase_matrix_data_spectral();
       auto sht = get_sht();
 
@@ -316,16 +318,15 @@ class ScatteringData {
                                                        get_phase_matrix_data_spectral());
       auto data_gridded = data_spectral.to_gridded();
       auto phase_matrix_gridded = data_gridded.get_data();
-      auto forward_scattering_coeff = phase_matrix.chip<4>(0).chip<4>(0);
+      auto forward_scattering_coeff = phase_matrix_gridded.chip<4>(0).chip<4>(0).chip<4>(0);
       auto dimensions_output = phase_matrix.dimensions();
       dimensions_output[4] = 1;
+      dimensions_output[5] = 1;
       return forward_scattering_coeff.cast<std::complex<double>>().reshape(dimensions_output);
   }
 
   operator SingleScatteringDataGridded<double>() {
-    assert(format_ = Format::Gridded);
-
-    auto dummy_grid = std::make_shared<eigen::Vector<double>>(1);
+    assert(format_ == Format::Gridded);
 
     auto f_grid = std::make_shared<eigen::Vector<double>>(get_f_grid());
     auto t_grid = std::make_shared<eigen::Vector<double>>(get_t_grid());
@@ -357,9 +358,7 @@ class ScatteringData {
   }
 
   operator SingleScatteringDataSpectral<double>() {
-      assert(format_ = Format::Spectral);
-
-      auto dummy_grid = std::make_shared<eigen::Vector<double>>(1);
+      assert(format_ == Format::Spectral);
 
     auto f_grid = std::make_shared<eigen::Vector<double>>(get_f_grid());
     auto t_grid = std::make_shared<eigen::Vector<double>>(get_t_grid());
@@ -403,7 +402,7 @@ class ScatteringData {
   Format format_;
   double temperature_, frequency_;
   netcdf4::Group group_;
-};
+  };
 
 ////////////////////////////////////////////////////////////////////////////////
 // ParticleFile
@@ -428,7 +427,8 @@ class ParticleFile {
       auto freq_and_temp = detail::match_temp_and_freq(name);
       freqs.insert(std::get<0>(freq_and_temp));
       temps.insert(std::get<1>(freq_and_temp));
-      group_map_[freq_and_temp] = file_handle_.get_group(name);
+      auto group = file_handle_.get_group(name).get_group("SingleScatteringData");
+      group_map_[freq_and_temp] = group;
     }
     freqs_.resize(freqs.size());
     std::copy(freqs.begin(), freqs.end(), freqs_.begin());
@@ -484,27 +484,43 @@ class ParticleFile {
       double freq = freqs_[i];
       double temp = temps_[j];
       auto found = group_map_.find(std::make_pair(freq, temp));
-      auto group = found->second.get_group("SingleScatteringData");
-      return ScatteringData(group);
+      return ScatteringData(found->second);
   }
+
 
   operator SingleScatteringData() {
       auto f_grid = get_f_grid();
       auto t_grid = get_t_grid();
 
       auto first = ScatteringData(group_map_[std::make_pair(f_grid[0], t_grid[0])]);
-      auto lon_inc = first.get_lon_inc();
-      auto lat_inc = first.get_lat_inc();
-      auto lon_scat = first.get_lon_scat();
-      auto lat_scat = first.get_lat_scat();
 
-      auto result = SingleScatteringData(f_grid,
-                                         t_grid,
-                                         lon_inc,
-                                         lat_inc,
-                                         lon_scat,
-                                         lat_scat,
-                                         first.get_particle_type());
+      SingleScatteringData result(nullptr);
+
+      if (first.get_format() == Format::Gridded) {
+          auto lon_inc = first.get_lon_inc();
+          auto lat_inc = first.get_lat_inc();
+          auto lon_scat = first.get_lon_scat();
+          auto lat_scat = first.get_lat_scat();
+
+          result = SingleScatteringData(f_grid,
+                                        t_grid,
+                                        lon_inc,
+                                        lat_inc,
+                                        lon_scat,
+                                        lat_scat,
+                                        first.get_particle_type());
+      } else {
+          auto lon_inc = first.get_lon_inc();
+          auto lat_inc = first.get_lat_inc();
+          auto l_max = first.get_l_max();
+          result = SingleScatteringData(f_grid,
+                                        t_grid,
+                                        lon_inc,
+                                        lat_inc,
+                                        l_max,
+                                        first.get_particle_type());
+          
+      }
       for (size_t i = 0; i < freqs_.size(); ++i) {
           for (size_t j = 0; j < temps_.size(); ++j) {
               auto data = get_scattering_data(i, j);
@@ -513,6 +529,8 @@ class ParticleFile {
       }
       return result;
   }
+
+  SingleScatteringData to_single_scattering_data() { return *this; }
 
  private:
   double d_eq_, d_max_, mass_;

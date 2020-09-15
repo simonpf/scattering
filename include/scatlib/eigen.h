@@ -483,6 +483,27 @@ Tensor<Scalar, sizeof...(Types)> zeros(Types ... dimensions) {
     return Tensor<Scalar, sizeof...(Types)>(dimension_array).setZero();
 }
 
+template <int ... dims, typename Scalar, int rank>
+Eigen::Tensor<Scalar, rank + sizeof ... (dims)> unsqueeze(Tensor<Scalar, rank> tensor) {
+    constexpr int new_rank = rank + sizeof ... (dims);
+    auto dimensions = tensor.dimensions();
+    std::array<Index, new_rank> new_dimensions;
+    std::array<Index, sizeof ... (dims)> trivial_dimensions{dims ...};
+    std::sort(trivial_dimensions.begin(), trivial_dimensions.end());
+    auto dimension_iterator = dimensions.begin();
+    auto trivial_dimension_iterator = trivial_dimensions.begin();
+
+    for (int i = 0; i < new_rank; ) {
+        if (i == *trivial_dimension_iterator) {
+            new_dimensions[i] = 1;
+            trivial_dimension_iterator++;
+        } else {
+            new_dimensions[i] = *dimension_iterator;
+            dimension_iterator++;
+        }
+    }
+    return tensor.reshape(new_dimensions);
+}
 
 }  // namespace eigen
 }  // namespace scatlib
