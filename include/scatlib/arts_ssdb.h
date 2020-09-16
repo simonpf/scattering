@@ -187,9 +187,8 @@ class ScatteringData {
     variable.read(result.data());
 
     // Reshape and shuffle data.
-    auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 3, 4, 0);
-    eigen::Tensor<double, 5> result_shuffled = result.shuffle(shuffle_dimensions);
-    auto result_reshaped = eigen::unsqueeze<0, 1>(result_shuffled);
+    eigen::Tensor<double, 5> result_shuffled = eigen::cycle_dimensions(result);
+    eigen::Tensor<double, 7> result_reshaped = eigen::unsqueeze<0, 1>(result_shuffled);
     return result_reshaped;
   }
 
@@ -208,8 +207,7 @@ class ScatteringData {
     result += real;
 
     // Reshape and shuffle data.
-    auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 3, 0);
-    eigen::Tensor<std::complex<double>, 4> result_shuffled = result.shuffle(shuffle_dimensions);
+    auto result_shuffled = eigen::cycle_dimensions(result);
     auto result_reshaped = eigen::unsqueeze<0, 1>(result_shuffled);
     return result_reshaped;
   }
@@ -222,9 +220,8 @@ class ScatteringData {
     variable.read(result.data());
 
     // Reshape and shuffle data.
-    auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 0);
-    eigen::Tensor<double, 3> result_shuffled = result.shuffle(shuffle_dimensions);
-    auto result_reshaped = eigen::unsqueeze<0, 1, 4, 5>(new_dimensions);
+    eigen::Tensor<double, 3> result_shuffled = eigen::cycle_dimensions(result);
+    eigen::Tensor<double, 7> result_reshaped = eigen::unsqueeze<0, 1, 4, 5>(result_shuffled);
     return result_reshaped;
   }
 
@@ -236,9 +233,8 @@ class ScatteringData {
     variable.read(result.data());
 
     // Reshape and shuffle data.
-    auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 0);
-    eigen::Tensor<float, 3> result_shuffled = result.shuffle(shuffle_dimensions);
-    auto result_reshaped = eigen::unsqueeze<0, 1, 4>(result_shuffled);
+    eigen::Tensor<float, 3> result_shuffled = eigen::cycle_dimensions(result);
+    eigen::Tensor<float, 6> result_reshaped = eigen::unsqueeze<0, 1, 4>(result_shuffled);
     return result_reshaped.cast<std::complex<double>>();
   }
 
@@ -249,9 +245,8 @@ class ScatteringData {
     variable.read(result.data());
 
     // Reshape and shuffle data.
-    auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 0);
-    eigen::Tensor<double, 3> result_shuffled = result.shuffle(shuffle_dimensions);
-    auto result_reshaped = eigen::unsqueeze<0, 1, 4, 5>(result_shuffled);
+    eigen::Tensor<double, 3> result_shuffled = eigen::cycle_dimensions(result);
+    eigen::Tensor<double, 7> result_reshaped = eigen::unsqueeze<0, 1, 4, 5>(result_shuffled);
     return result_reshaped;
   }
 
@@ -262,9 +257,8 @@ class ScatteringData {
     variable.read(result.data());
 
     // Reshape and shuffle data.
-    auto shuffle_dimensions = make_array<eigen::Index>(1, 2, 0);
-    eigen::Tensor<float, 3> result_shuffled = result.shuffle(shuffle_dimensions);
-    auto result_reshaped = eigen::unsqueeze<0, 1, 4>(result_shuffled);
+    eigen::Tensor<float, 3> result_shuffled = eigen::cycle_dimensions(result);
+    eigen::Tensor<float, 6> result_reshaped = eigen::unsqueeze<0, 1, 4>(result_shuffled);
     return result_reshaped.cast<std::complex<double>>();
   }
 

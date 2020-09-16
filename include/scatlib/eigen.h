@@ -484,7 +484,7 @@ Tensor<Scalar, sizeof...(Types)> zeros(Types ... dimensions) {
 }
 
 template <int ... dims, typename Scalar, int rank>
-Eigen::Tensor<Scalar, rank + sizeof ... (dims)> unsqueeze(Tensor<Scalar, rank> tensor) {
+Tensor<Scalar, rank + sizeof ... (dims)> unsqueeze(const Tensor<Scalar, rank> &tensor) {
     constexpr int new_rank = rank + sizeof ... (dims);
     auto dimensions = tensor.dimensions();
     std::array<Index, new_rank> new_dimensions;
@@ -493,7 +493,7 @@ Eigen::Tensor<Scalar, rank + sizeof ... (dims)> unsqueeze(Tensor<Scalar, rank> t
     auto dimension_iterator = dimensions.begin();
     auto trivial_dimension_iterator = trivial_dimensions.begin();
 
-    for (int i = 0; i < new_rank; ) {
+    for (int i = 0; i < new_rank; ++i) {
         if (i == *trivial_dimension_iterator) {
             new_dimensions[i] = 1;
             trivial_dimension_iterator++;
@@ -503,6 +503,15 @@ Eigen::Tensor<Scalar, rank + sizeof ... (dims)> unsqueeze(Tensor<Scalar, rank> t
         }
     }
     return tensor.reshape(new_dimensions);
+}
+
+template <typename Scalar, int rank>
+    Tensor<Scalar, rank> cycle_dimensions(const Tensor<Scalar, rank> &t) {
+    std::array<Index, rank> dimensions = {};
+    for (int i = 0; i < rank; ++i) {
+        dimensions[i] = (i + 1) % rank;
+    }
+    return t.shuffle(dimensions);
 }
 
 }  // namespace eigen
