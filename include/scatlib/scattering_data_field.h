@@ -925,6 +925,31 @@ class ScatteringDataFieldSpectral
       return result;
   }
 
+  ScatteringDataFieldSpectral to_spectral(ShtPtr sht_other) {
+      auto new_dimensions = data_->dimensions();
+      new_dimensions[4] = sht_other->get_n_spectral_coeffs();
+      auto data_new_ = std::make_shared<DataTensor>(DataTensor(new_dimensions).setZero());
+      auto result = ScatteringDataFieldSpectral(f_grid_,
+                                                t_grid_,
+                                                lon_inc_,
+                                                lat_inc_,
+                                                sht_other,
+                                                data_new_);
+      result += *this;
+      return result;
+  }
+
+  ScatteringDataFieldSpectral to_spectral(Index l_max, Index m_max) {
+      auto n_lat = sht_scat_->get_n_latitudes();
+      auto n_lon = sht_scat_->get_n_longitudes();
+      return to_spectral(std::make_shared<sht::SHT>(l_max, m_max, n_lat, n_lon));
+  }
+
+  ScatteringDataFieldSpectral to_spectral(Index l_max) {
+      return to_spectral(l_max, l_max);
+
+  }
+
   ScatteringDataFieldGridded<Scalar> to_gridded() const;
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(ShtPtr sht) const;
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(Index l_max,
