@@ -140,6 +140,9 @@ class SingleScatteringDataImpl {
   virtual SingleScatteringDataImpl *operator*(double c) = 0;
 
   virtual detail::ConversionPtr<const SingleScatteringDataGridded<double>> to_gridded() const = 0;
+
+  virtual detail::ConversionPtr<const SingleScatteringDataSpectral<double>> to_spectral(Index l_max,
+                                                                                        Index m_max) const = 0;
   virtual detail::ConversionPtr<const SingleScatteringDataSpectral<double>> to_spectral() const = 0;
 
   // Conversion operators
@@ -366,8 +369,9 @@ class SingleScatteringData {
   }
 
   // Conversion
-  inline SingleScatteringData to_gridded();
-  inline SingleScatteringData to_spectral();
+  inline SingleScatteringData to_gridded() const;
+  inline SingleScatteringData to_spectral() const;
+  inline SingleScatteringData to_spectral(Index l_max, Index m_max) const;
 
 private:
   std::shared_ptr<SingleScatteringDataImpl> data_;
@@ -653,7 +657,10 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
     return detail::make_conversion_ptr(this, false);
   }
 
+  detail::ConversionPtr<const SingleScatteringDataSpectral<Scalar>> to_spectral(std::shared_ptr<sht::SHT>) const;
   detail::ConversionPtr<const SingleScatteringDataSpectral<Scalar>> to_spectral() const;
+  detail::ConversionPtr<const SingleScatteringDataSpectral<Scalar>> to_spectral(Index l_max,
+                                                                                Index m_max) const;
 
   // explicit operator SingeScatteringDataSpectral();
   // explicit operator SingeScatteringDataFullySpectral();
@@ -908,6 +915,8 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
     return detail::make_conversion_ptr(this, false);
   }
 
+  detail::ConversionPtr<const SingleScatteringDataSpectral> to_spectral(Index l_max, Index m_max) const;
+
   // explicit operator SingeScatteringDataSpectral();
   // explicit operator SingeScatteringDataFullySpectral();
 
@@ -931,15 +940,10 @@ class SingleScatteringDataFullySpectral {};
 
 template <typename Scalar>
     detail::ConversionPtr<const SingleScatteringDataSpectral<Scalar>>
-    SingleScatteringDataGridded<Scalar>::to_spectral() const {
+    SingleScatteringDataGridded<Scalar>::to_spectral(std::shared_ptr<sht::SHT> sht) const {
     using ReturnType = const SingleScatteringDataSpectral<Scalar>;
-    auto sht_params = phase_matrix_.get_sht_scat_params();
-    auto sht_scat = std::make_shared<sht::SHT>(sht_params[0],
-                                               sht_params[1],
-                                               sht_params[2],
-                                               sht_params[3]);
     auto phase_matrix =
-        ScatteringDataFieldSpectral<Scalar>(phase_matrix_.to_spectral());
+        ScatteringDataFieldSpectral<Scalar>(phase_matrix_.to_spectral(sht));
     auto extinction_matrix =
         ScatteringDataFieldSpectral<Scalar>(extinction_matrix_.to_spectral());
     auto absorption_vector =
@@ -957,6 +961,30 @@ template <typename Scalar>
                                                  backward_scattering_coeff,
                                                  forward_scattering_coeff),
         true);
+}
+
+template <typename Scalar>
+    detail::ConversionPtr<const SingleScatteringDataSpectral<Scalar>>
+    SingleScatteringDataGridded<Scalar>::to_spectral() const {
+    auto sht_params = phase_matrix_.get_sht_scat_params();
+    auto sht_scat = std::make_shared<sht::SHT>(sht_params[0],
+                                               sht_params[1],
+                                               phase_matrix_.get_n_lat_scat(),
+                                               phase_matrix_.get_n_lon_scat());
+    return to_spectral(sht_scat);
+}
+
+template <typename Scalar>
+    detail::ConversionPtr<const SingleScatteringDataSpectral<Scalar>>
+    SingleScatteringDataGridded<Scalar>::to_spectral(Index l_max,
+                                                     Index m_max) const {
+    using ReturnType = const SingleScatteringDataSpectral<Scalar>;
+    auto sht_params = phase_matrix_.get_sht_scat_params();
+    auto sht_scat = std::make_shared<sht::SHT>(l_max,
+                                               m_max,
+                                               phase_matrix_.get_n_lat_scat(),
+                                               phase_matrix_.get_n_lon_scat());
+    return to_spectral(sht_scat);
 }
 
 template <typename Scalar>
@@ -979,6 +1007,51 @@ SingleScatteringDataSpectral<Scalar>::to_gridded() const {
                                               backward_scattering_coeff,
                                               forward_scattering_coeff),
       true);
+}
+
+template <typename Scalar>
+    detail::ConversionPtr<const SingleScatteringDataSpectral<Scalar>>
+    SingleScatteringDataSpectral<Scalar>::to_spectral(Index l_max, Index m_max) const {
+    using ReturnType = const SingleScatteringDataSpectral<Scalar>;
+    auto phase_matrix =
+        ScatteringDataFieldSpectral<Scalar>(phase_matrix_.to_spectral(l_max, m_max));
+    auto extinction_matrix =
+        ScatteringDataFieldSpectral<Scalar>(extinction_matrix_);
+    auto absorption_vector =
+        ScatteringDataFieldSpectral<Scalar>(absorption_vector_);
+    auto backward_scattering_coeff =
+        ScatteringDataFieldSpectral<Scalar>(backward_scattering_coeff_);
+    auto forward_scattering_coeff =
+        ScatteringDataFieldSpectral<Scalar>(forward_scattering_coeff_);
+    return detail::make_conversion_ptr<ReturnType>(
+        new SingleScatteringDataSpectral<Scalar>(f_grid_,
+                                                 t_grid_,
+                                                 phase_matrix,
+                                                 extinction_matrix,
+                                                 absorption_vector,
+                                                 backward_scattering_coeff,
+                                                 forward_scattering_coeff),
+        true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// SingleScatteringData
+////////////////////////////////////////////////////////////////////////////////
+
+SingleScatteringData SingleScatteringData::to_gridded() const {
+  return SingleScatteringData(
+      new SingleScatteringDataGridded<double>(*data_->to_gridded()));
+}
+
+SingleScatteringData SingleScatteringData::to_spectral() const {
+  return SingleScatteringData(
+      new SingleScatteringDataSpectral<double>(*data_->to_spectral()));
+}
+
+SingleScatteringData SingleScatteringData::to_spectral(Index l_max,
+                                                       Index m_max) const {
+  return SingleScatteringData(
+      new SingleScatteringDataSpectral<double>(*data_->to_spectral(l_max, m_max)));
 }
 
 }  // namespace scatlib

@@ -265,6 +265,10 @@ class ScatteringDataFieldGridded
   eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
   eigen::Vector<double> get_lon_scat() const { return *lon_scat_; }
   eigen::Vector<double> get_lat_scat() const { return *lat_scat_; }
+  Index get_n_lon_inc() const { return lon_inc_->size(); }
+  Index get_n_lat_inc() const { return lat_inc_->size(); }
+  Index get_n_lon_scat() const { return lon_scat_->size(); }
+  Index get_n_lat_scat() const { return lat_scat_->size(); }
 
   std::array<Index, 4> get_sht_scat_params() const {
       return sht::SHT::get_params(n_lat_scat_, n_lon_scat_);
@@ -706,6 +710,10 @@ class ScatteringDataFieldSpectral
   eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
   eigen::Vector<double> get_lon_scat() const { return sht_scat_->get_longitude_grid(); }
   eigen::Vector<double> get_lat_scat() const { return sht_scat_->get_latitude_grid(); }
+  Index get_n_lon_inc() const { return lon_inc_->size(); }
+  Index get_n_lat_inc() const { return lat_inc_->size(); }
+  Index get_n_lon_scat() const { return sht_scat_->get_n_longitudes(); }
+  Index get_n_lat_scat() const { return sht_scat_->get_n_latitudes(); }
 
   std::array<Index, 4> get_sht_inc_params() const {
     return sht::SHT::get_params(n_lat_inc_, n_lon_inc_);
@@ -925,7 +933,7 @@ class ScatteringDataFieldSpectral
       return result;
   }
 
-  ScatteringDataFieldSpectral to_spectral(ShtPtr sht_other) {
+  ScatteringDataFieldSpectral to_spectral(ShtPtr sht_other) const {
       auto new_dimensions = data_->dimensions();
       new_dimensions[4] = sht_other->get_n_spectral_coeffs();
       auto data_new_ = std::make_shared<DataTensor>(DataTensor(new_dimensions).setZero());
@@ -939,13 +947,13 @@ class ScatteringDataFieldSpectral
       return result;
   }
 
-  ScatteringDataFieldSpectral to_spectral(Index l_max, Index m_max) {
+  ScatteringDataFieldSpectral to_spectral(Index l_max, Index m_max) const {
       auto n_lat = sht_scat_->get_n_latitudes();
       auto n_lon = sht_scat_->get_n_longitudes();
       return to_spectral(std::make_shared<sht::SHT>(l_max, m_max, n_lat, n_lon));
   }
 
-  ScatteringDataFieldSpectral to_spectral(Index l_max) {
+  ScatteringDataFieldSpectral to_spectral(Index l_max) const {
       return to_spectral(l_max, l_max);
 
   }
@@ -1139,6 +1147,10 @@ class ScatteringDataFieldFullySpectral
   eigen::Vector<double> get_lat_scat() {
     return sht_scat_->get_latitude_grid();
   }
+  Index get_n_lon_inc() const { return sht_inc_->get_n_longitudes(); }
+  Index get_n_lat_inc() const { return sht_inc_->get_n_latitudes(); }
+  Index get_n_lon_scat() const { return sht_scat_->get_n_longitudes(); }
+  Index get_n_lat_scat() const { return sht_scat_->get_n_latitudes(); }
 
   /** Set scattering data for given frequency and temperature index.
    *
