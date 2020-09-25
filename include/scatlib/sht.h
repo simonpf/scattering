@@ -145,8 +145,6 @@ class SHT {
    * @return A vector of indices containing the l-value corresponding to each
    * element in a spectral coefficient vector.
    */
-
-
   IndexVector get_l_indices();
 
   /** M-indices of the SHT modes.
@@ -230,6 +228,16 @@ class SHT {
    * @return The number of spherical harmonics coefficients.
    */
   Index get_n_spectral_coeffs_cmplx() const { return n_spectral_coeffs_cmplx_; }
+
+  /**
+   * @return The maximum degree l of the SHT transformation.
+   */
+  Index get_l_max() { return l_max_; }
+
+  /**
+   * @return The maximum order m of the SHT transformation.
+   */
+  Index get_m_max() { return m_max_; }
 
   /**
    * Return content of the array that holds spectral data for

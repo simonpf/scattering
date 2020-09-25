@@ -1310,6 +1310,28 @@ class ScatteringDataFieldFullySpectral
 
   ScatteringDataFieldSpectral<Scalar> to_spectral() const;
 
+  ScatteringDataFieldSpectral<Scalar> to_spectral(ShtPtr sht_other) const {
+    auto new_dimensions = data_->dimensions();
+    new_dimensions[3] = sht_other->get_n_spectral_coeffs();
+    auto data_new_ =
+        std::make_shared<DataTensor>(DataTensor(new_dimensions).setZero());
+    auto result = ScatteringDataFieldFullySpectral(f_grid_,
+                                                   t_grid_,
+                                                   sht_inc_,
+                                                   sht_other,
+                                                   data_new_);
+    result += *this;
+    return result.to_spectral();
+  }
+
+  ScatteringDataFieldSpectral<Scalar> to_spectral(Index l_max,
+                                                  Index m_max) const {
+    auto n_lat = sht_scat_->get_n_latitudes();
+    auto n_lon = sht_scat_->get_n_longitudes();
+    auto sht_other = std::make_shared<sht::SHT>(l_max, m_max, n_lat, n_lon);
+    return to_spectral(sht_other);
+  }
+
   const DataTensor &get_data() const {return *data_;}
 
  protected:
