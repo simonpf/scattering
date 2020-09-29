@@ -37,6 +37,8 @@ class ScatteringDataRandom(ScatteringDataBase):
                 for i_c in range(6):
                     z = harmonic_random_field(1, self.lat_scat.size)
                     self.data[i_f, i_t, 0, 0, 0, :, i_c] = z
+                    self.data[i_f, i_t, 0, 0, 0, :, i_c] += max(np.random.rand(),
+                                                                0.1)
 
         self.scattering_data = ScatteringDataFieldGridded(self.f_grid,
                                                           self.t_grid,
@@ -273,3 +275,23 @@ class TestScatteringDataFieldRandom:
         i2 = self.data.scattering_data_spectral.integrate_scattering_angles()
         assert np.all(np.isclose(i1, i_ref))
         assert np.all(np.isclose(i2, i_ref))
+
+    def test_normalization(self):
+        """
+        Check that scattering-angle integrals of normalized fields correspond
+        to normalization value.
+        """
+        data_gridded = self.data.scattering_data.copy()
+        data_spectral = self.data.scattering_data_spectral.copy()
+        data_gridded.normalize(4.0 * np.pi)
+        data_spectral.normalize(4.0 * np.pi)
+
+        i1 = data_gridded.integrate_scattering_angles()
+        i2 = data_spectral.integrate_scattering_angles()
+        i3 = data_gridded.to_spectral().integrate_scattering_angles()
+        i4 = data_spectral.to_gridded().integrate_scattering_angles()
+
+        assert np.all(np.isclose(i1, 4.0 * np.pi))
+        assert np.all(np.isclose(i2, 4.0 * np.pi))
+        assert np.all(np.isclose(i3, 4.0 * np.pi))
+        assert np.all(np.isclose(i4, 4.0 * np.pi))

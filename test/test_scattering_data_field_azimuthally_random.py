@@ -235,8 +235,29 @@ class TestScatteringDataFieldAzimuthallyRandom:
         i2 = self.data.scattering_data_spectral.integrate_scattering_angles()
         return i_ref, i2
         assert np.all(np.isclose(i1, i_ref))
-        #assert np.all(np.isclose(i2, i_ref))
+        assert np.all(np.isclose(i2, i_ref))
+
+    def test_normalization(self):
+        """
+        Check that scattering-angle integrals of normalized fields correspond
+        to normalization value.
+        """
+        data_gridded = self.data.scattering_data_gridded.copy()
+        data_spectral = self.data.scattering_data_spectral.copy()
+        data_gridded.normalize(4.0 * np.pi)
+        data_spectral.normalize(4.0 * np.pi)
+
+        i1 = data_gridded.integrate_scattering_angles()
+        i2 = data_spectral.integrate_scattering_angles()
+        i3 = data_gridded.to_spectral().integrate_scattering_angles()
+        i4 = data_spectral.to_gridded().integrate_scattering_angles()
+
+        assert np.all(np.isclose(i1, 4.0 * np.pi))
+        assert np.all(np.isclose(i2, 4.0 * np.pi))
+        assert np.all(np.isclose(i3, 4.0 * np.pi))
+        assert np.all(np.isclose(i4, 4.0 * np.pi))
 
 test = TestScatteringDataFieldAzimuthallyRandom()
 test.setup_method()
-i_ref, i2 = test.test_integration()
+test.test_integration()
+test.test_normalization()

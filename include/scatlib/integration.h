@@ -168,7 +168,7 @@ Scalar integrate_angles(eigen::ConstMatrixRef<Scalar> data,
     latitude_integral_left = latitude_integral_right;
   }
 
-  Scalar dl = 2 * M_PI + longitudes[0] - longitudes[n - 1];
+  Scalar dl = 2.0 * M_PI + longitudes[0] - longitudes[n - 1];
   result += 0.5 * (latitude_integral_first + latitude_integral_right) * dl;
 
   return result;
