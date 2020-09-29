@@ -4,6 +4,8 @@
  *
  * @author Simon Pfreundschuh, 2020
  */
+#include <map>
+
 #include "eigen.h"
 
 #ifndef __SCATLIB_INTEGRATION__
@@ -48,7 +50,7 @@ class GaussLegendreQuadrature {
    * Legendre polynomial of degree n. Legendre functions are evaluated
    * using a recursion relation.
    */
-    // pxx :: hide
+  // pxx :: hide
   void calculate_nodes_and_weights() {
     const long int n = degree_;
     const long int n_half_nodes = (n + 1) / 2;
@@ -99,9 +101,10 @@ class GaussLegendreQuadrature {
   }
 
  public:
+  GaussLegendreQuadrature() {}
   GaussLegendreQuadrature(int degree)
       : degree_(degree), nodes_(degree), weights_(degree) {
-      calculate_nodes_and_weights();
+    calculate_nodes_and_weights();
   }
 
   const eigen::Vector<Scalar>& get_nodes() const { return nodes_; }
@@ -112,5 +115,64 @@ class GaussLegendreQuadrature {
   eigen::Vector<Scalar> weights_;
 };
 
+template <typename Scalar>
+class QuadratureProvider {
+ public:
+  QuadratureProvider() {}
+
+  GaussLegendreQuadrature<Scalar> get_quadrature(int degree) {
+    auto found = quadratures_.find(degree);
+    if (found != quadratures_.end()) {
+      return found->second;
+    } else {
+      quadratures_.insert({degree, GaussLegendreQuadrature<Scalar>(degree)});
+      return quadratures_[degree];
+    }
+  }
+
+ private:
+  std::map<int, GaussLegendreQuadrature<Scalar>> quadratures_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// Integration functions
+////////////////////////////////////////////////////////////////////////////////
+
+static QuadratureProvider<double> quadratures = QuadratureProvider<double>();
+
+template <typename Scalar>
+Scalar integrate_latitudes(eigen::ConstVectorRef<Scalar> data,
+                           const GaussLegendreQuadrature<Scalar> & quadrature) {
+  auto weights = quadrature.get_weights();
+  return weights.dot(data);
 }
+
+template <typename Scalar>
+Scalar integrate_angles(eigen::ConstMatrixRef<Scalar> data,
+                        eigen::ConstVectorRef<Scalar> longitudes,
+                        eigen::ConstVectorRef<Scalar> colatitudes) {
+  Scalar result = 0.0;
+  eigen::Index n = longitudes.size();
+  auto quadrature = quadratures.get_quadrature(colatitudes.size());
+
+
+  Scalar latitude_integral_first = integrate_latitudes<Scalar>(data.row(0), quadrature);
+  Scalar latitude_integral_left = latitude_integral_first;
+  Scalar latitude_integral_right = latitude_integral_first;
+
+  for (eigen::Index i = 0; i < n - 1; ++i) {
+    latitude_integral_right =
+        integrate_latitudes<Scalar>(data.row(i + 1), quadrature);
+    Scalar dl = longitudes[i + 1] - longitudes[i];
+    result += 0.5 * (latitude_integral_left + latitude_integral_right) * dl;
+    latitude_integral_left = latitude_integral_right;
+  }
+
+  Scalar dl = 2 * M_PI + longitudes[0] - longitudes[n - 1];
+  result += 0.5 * (latitude_integral_first + latitude_integral_right) * dl;
+
+  return result;
+}
+
+}  // namespace scatlib
 #endif

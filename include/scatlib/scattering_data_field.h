@@ -9,6 +9,7 @@
 #define __SCATLIB_SCATTERING_DATA_FIELD__
 
 #include <scatlib/eigen.h>
+#include <scatlib/integration.h>
 #include <scatlib/sht.h>
 #include <scatlib/interpolation.h>
 #include <memory>
@@ -449,6 +450,27 @@ class ScatteringDataFieldGridded
                                         data_new);
   }
 
+
+  /** Calculate scattering-angle integral.
+   *
+   * @return Rank-5 tensor containing the scattering-angle integrals of
+   * the data tensor.
+   */
+  eigen::Tensor<Scalar, 5> integrate_scattering_angles() {
+      eigen::IndexArray<5> dimensions = {n_freqs_,
+                                         n_temps_,
+                                         n_lon_inc_,
+                                         n_lat_inc_,
+                                         data_->dimension(6)};
+      auto result = eigen::Tensor<Scalar, 5>(dimensions);
+      Vector colatitudes = -lat_scat_->array().cos();
+      for (auto i = eigen::DimensionCounter<5>{dimensions}; i; ++i) {
+          auto matrix = eigen::get_submatrix<4, 5>(*data_, i.coordinates);
+          result.coeffRef(i.coordinates) = integrate_angles<Scalar>(matrix, *lon_scat_, colatitudes);
+      }
+      return result;
+  }
+
   /** Accumulate scattering data into this object.
    *
    * Regrids the given scattering data field and accumulates its interpolated data tensor
@@ -872,6 +894,15 @@ class ScatteringDataFieldSpectral
                                        lat_inc,
                                        sht_scat_,
                                        data_new);
+  }
+
+  /** Calculate scattering-angle integral.
+   *
+   * @return Rank-5 tensor containing the scattering-angle integrals of
+   * the data tensor.
+   */
+  eigen::Tensor<Scalar, 5> integrate_scattering_angles() {
+    return (data_->template chip<4>(0)).real() * sqrt(4.0 * M_PI);
   }
 
   /** Accumulate scattering data into this object.

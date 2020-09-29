@@ -57,8 +57,14 @@ def harmonic_random_field(n_lon, n_lat, n_components=10):
             m = np.random.randint(-min(l, m_max), min(l, m_max))
 
         xx, yy = np.meshgrid(lat_grid, lon_grid, indexing="xy")
-        data += np.random.rand() * sph_harm(m, l, yy, xx).real
+        data += 6.66 * sph_harm(m, l, yy, xx).real
     return data
+
+def get_latitude_grid(n):
+    """
+    Return Gauss-Legendre latitude grid expected by SHTns.
+    """
+    return np.sort(np.arccos(roots_legendre(n)[0]))
 
 class ScatteringDataBase:
     """

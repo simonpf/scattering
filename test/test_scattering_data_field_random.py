@@ -4,7 +4,8 @@ Tests for the ScatteringDataField classes.
 
 import numpy as np
 import scipy as sp
-from utils import (harmonic_random_field, ScatteringDataBase)
+from scipy.special import roots_legendre
+from utils import (harmonic_random_field, ScatteringDataBase, get_latitude_grid)
 from scatlib.scattering_data_field import (ScatteringDataFieldGridded,
                                            ScatteringDataFieldSpectral,
                                            ScatteringDataFieldFullySpectral)
@@ -23,8 +24,8 @@ class ScatteringDataRandom(ScatteringDataBase):
         self.lon_inc = np.ones(1)
         self.lat_inc = np.ones(1)
         self.lon_scat = np.ones(1)
-        self.lat_scat = np.linspace(0, 2 * np.pi, 180)
-        self.data = np.zeros((self.f_grid.size,
+        self.lat_scat = get_latitude_grid(180)
+        self.data = np.ones((self.f_grid.size,
                               self.t_grid.size,
                               self.lon_inc.size,
                               self.lat_inc.size,
@@ -71,6 +72,12 @@ class ScatteringDataRandom(ScatteringDataBase):
         dims_out[5] = lat_scat_new.size
         return np.broadcast_to(data_interp, dims_out)
 
+    def integrate_scattering_angles(self):
+        """Numerical integration over scattering angles using Gauss-Legendre quadrature. """
+        _, weights = roots_legendre(self.lat_scat.size)
+        weights = np.broadcast_to(np.copy(weights.reshape(-1, 1)), (1,) * 5 + (weights.size,) + (1,))
+        print(weights.shape, " // ", self.data.shape)
+        return 2 * np.pi * np.sum(weights * self.data, axis=5)[:, :, :, :, 0, :]
 
 class TestScatteringDataFieldRandom:
     """
@@ -255,3 +262,14 @@ class TestScatteringDataFieldRandom:
                                  result_spectral.get_data()))
         assert np.all(np.isclose(self.data.scattering_data_fully_spectral.get_data(),
                                  result_fully_spectral.get_data()))
+
+    def test_integration(self):
+        """
+        Check consistency of integration functions for gridded and spectral format
+        and compare to reference implementation using numpy.
+        """
+        i_ref = self.data.integrate_scattering_angles()
+        i1 = self.data.scattering_data.integrate_scattering_angles()
+        i2 = self.data.scattering_data_spectral.integrate_scattering_angles()
+        assert np.all(np.isclose(i1, i_ref))
+        assert np.all(np.isclose(i2, i_ref))

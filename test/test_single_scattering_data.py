@@ -73,7 +73,7 @@ class TestSingleScatteringDataRandom:
         lon_inc = self.particle[0].lon_inc
         lat_inc = self.particle[0].lat_inc
         lon_scat = self.particle[0].lon_scat
-        lat_scat = self.particle[0].lat_scat[:-1]
+        lat_scat = self.particle[0].lat_scat[:-1] / 180.0 * np.pi
 
         self.f_grid = self.particle.frequencies
         self.t_grid = self.particle.temperatures
@@ -150,6 +150,12 @@ class TestSingleScatteringDataRandom:
         ssd_spectral_2 = ssd_spectral.to_spectral(32, 0)
         assert np.all(np.isclose(ssd_spectral_1.get_phase_matrix(),
                                  ssd_spectral_2.get_phase_matrix()))
+
+    def test_integration(self):
+        print(self.data.integrate_scattering_angles())
+        ssd_spectral = self.data.to_spectral()
+        print(ssd_spectral.itegrate_scattering_angles())
+
 
 def particle_to_single_scattering_data_azimuthally_random(particle_data,
                                                           frequency,

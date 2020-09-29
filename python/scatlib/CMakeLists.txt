@@ -72,3 +72,13 @@ add_pxx_module(
   )
 add_dependencies(arts_ssdb libshtns)
 target_link_libraries(arts_ssdb ${NETCDF_LIBRARY} ${HDF5_LIBRARIES} scattering)
+
+#
+# integration
+#
+
+add_pxx_module(
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/integration.h
+  MODULE integration
+  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
+  )

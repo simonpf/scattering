@@ -5,6 +5,7 @@ type.
 import numpy as np
 import scipy as sp
 import scipy.interpolate
+from scipy.special import roots_legendre
 from utils import (harmonic_random_field, ScatteringDataBase)
 from scatlib.scattering_data_field import (ScatteringDataFieldGridded,
                                            ScatteringDataFieldSpectral,
@@ -87,6 +88,19 @@ class ScatteringDataAzimuthallyRandom(ScatteringDataBase):
         dims_out[4] = lon_scat_new.size
         dims_out[5] = lat_scat_new.size
         return np.broadcast_to(data_interp, dims_out)
+
+    def integrate_scattering_angles(self):
+        """Numerical integration over scattering angles using Gauss-Legendre quadrature. """
+        _, weights = roots_legendre(self.lat_scat.size)
+        weights = np.broadcast_to(np.copy(weights.reshape(-1, 1)), (1,) * 5 + (weights.size,) + (1,))
+        latitude_integrals = np.sum(weights * self.data, axis=5)
+        remainder = 0.0
+        if self.lon_scat[-1] < 2 * np.pi:
+            dx = self.lon_scat[0] + 2 * np.pi - self.lon_scat[-1]
+            remainder = 0.5 * dx * (latitude_integrals[:, :, :, :, -1, :]
+                                    + latitude_integrals[:, :, :, :, 0, :])
+        print("remainder: ", remainder)
+        return np.trapz(latitude_integrals, x=self.lon_scat, axis=4) + remainder
 
 class TestScatteringDataFieldAzimuthallyRandom:
     """
@@ -210,3 +224,19 @@ class TestScatteringDataFieldAzimuthallyRandom:
 
         assert np.all(np.isclose(scaled_1.get_data(),
                                  scaled_3.to_spectral().to_gridded().get_data()))
+
+    def test_integration(self):
+        """
+        Check consistency of integration functions for gridded and spectral format
+        and compare to reference implementation using numpy.
+        """
+        i_ref = self.data.integrate_scattering_angles()
+        i1 = self.data.scattering_data_gridded.integrate_scattering_angles()
+        i2 = self.data.scattering_data_spectral.integrate_scattering_angles()
+        return i_ref, i2
+        assert np.all(np.isclose(i1, i_ref))
+        #assert np.all(np.isclose(i2, i_ref))
+
+test = TestScatteringDataFieldAzimuthallyRandom()
+test.setup_method()
+i_ref, i2 = test.test_integration()
