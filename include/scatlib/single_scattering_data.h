@@ -178,6 +178,8 @@ class SingleScatteringData {
   // pxx :: hide
   SingleScatteringData(SingleScatteringDataImpl *data) : data_(data) {}
 
+  SingleScatteringData() {}
+
   SingleScatteringData(const SingleScatteringData &other) = default;
 
   SingleScatteringData copy() { return SingleScatteringData(data_->copy()); }
@@ -1016,7 +1018,6 @@ template <typename Scalar>
 detail::ConversionPtr<const SingleScatteringDataSpectral<Scalar>>
 SingleScatteringDataGridded<Scalar>::to_spectral(Index l_max,
                                                  Index m_max) const {
-  using ReturnType = const SingleScatteringDataSpectral<Scalar>;
   auto sht_params = phase_matrix_.get_sht_scat_params();
   auto sht_scat = std::make_shared<sht::SHT>(l_max,
                                              m_max,

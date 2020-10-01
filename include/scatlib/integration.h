@@ -55,7 +55,6 @@ class GaussLegendreQuadrature {
     const long int n = degree_;
     const long int n_half_nodes = (n + 1) / 2;
     const long int n_max_iter = 10;
-    long int l, m, k;
     Scalar x, x_old, p_l, p_l_1, p_l_2, dp_dx;
     Scalar precision = detail::Precision<Scalar>::value;
 

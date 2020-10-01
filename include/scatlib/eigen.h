@@ -157,7 +157,7 @@ struct Map<const Eigen::Map<Derived>> {
 template <typename T, int n_indices>
 struct IndexResult {
   using CoeffType = decltype(((T *)nullptr)->operator()({}));
-  using Scalar = typename std::remove_cvref<CoeffType>::type;
+  using Scalar = typename std::remove_reference<typename std::remove_cv<CoeffType>::type>::type;
 
   static constexpr int rank = T::NumIndices;
   static constexpr bool is_const =
