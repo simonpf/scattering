@@ -34,6 +34,10 @@ def particle_to_single_scattering_data_random(particle_data,
     bsc = particle_data.backward_scattering_coeff
     fsc = particle_data.forward_scattering_coeff
 
+    print(pm.shape)
+    print(particle_data.lat_scat.shape)
+
+
     sd = SingleScatteringData(f_grid,
                               t_grid,
                               particle_data.lon_inc,
@@ -151,10 +155,9 @@ class TestSingleScatteringDataRandom:
         assert np.all(np.isclose(ssd_spectral_1.get_phase_matrix(),
                                  ssd_spectral_2.get_phase_matrix()))
 
-    def test_integration(self):
-        print(self.data.integrate_scattering_angles())
-        ssd_spectral = self.data.to_spectral()
-        print(ssd_spectral.itegrate_scattering_angles())
+    def test_normalization(self):
+        ssd = self.data.to_gridded()
+        ssd.normalize(4 * np.pi)
 
 
 def particle_to_single_scattering_data_azimuthally_random(particle_data,
@@ -259,8 +262,6 @@ class TestSingleScatteringDataAzimuthallyRandom:
                                            sd_ref.get_lat_inc(),
                                            sd_ref.get_lon_scat(),
                                            sd_ref.get_lat_scat())
-
-                return sd, sd_ref
 
                 assert np.all(np.isclose(sd_ref.get_phase_matrix(),
                                          sd.get_phase_matrix()))

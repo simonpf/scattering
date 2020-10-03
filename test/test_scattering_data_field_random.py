@@ -78,7 +78,6 @@ class ScatteringDataRandom(ScatteringDataBase):
         """Numerical integration over scattering angles using Gauss-Legendre quadrature. """
         _, weights = roots_legendre(self.lat_scat.size)
         weights = np.broadcast_to(np.copy(weights.reshape(-1, 1)), (1,) * 5 + (weights.size,) + (1,))
-        print(weights.shape, " // ", self.data.shape)
         return 2 * np.pi * np.sum(weights * self.data, axis=5)[:, :, :, :, 0, :]
 
 class TestScatteringDataFieldRandom:
@@ -101,8 +100,6 @@ class TestScatteringDataFieldRandom:
         spectral = self.data.scattering_data_spectral.interpolate_frequency(frequencies)
         spectral_2 = self.data.scattering_data_spectral_2.interpolate_frequency(frequencies)
         fully_spectral = self.data.scattering_data_fully_spectral.interpolate_frequency(frequencies)
-
-        print(reference - spectral_2.to_gridded().get_data())
 
         assert np.all(np.isclose(reference, gridded.get_data()))
         assert np.all(np.isclose(reference, spectral.to_gridded().get_data()))
