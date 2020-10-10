@@ -27,7 +27,7 @@ shtns_cfg ShtnsHandle::get(Index l_max,
     return shtns_;
   } else {
     shtns_reset();
-    shtns_ = shtns_init(sht_quick_init, l_max, m_max, 1, n_lat, n_lon);
+    shtns_ = shtns_init(sht_reg_fast, l_max, m_max, 1, n_lat, n_lon);
     current_config_ = config;
   }
   return shtns_;

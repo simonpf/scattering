@@ -17,10 +17,11 @@ class TestSHT:
         self.m_max = np.random.randint(10, self.l_max)
         self.m_max = self.l_max #np.random.randint(10, self.l_max)
 
-        self.n_lat = 2 * self.l_max
+        self.n_lat = 4 * self.l_max
         self.n_lon = 4 * self.l_max
         self.sht = SHT(self.l_max, self.m_max, self.n_lon, self.n_lat)
         self.lat_grid, _ = np.sort(np.arccos(roots_legendre(self.n_lat)))
+        self.lat_grid = np.linspace(0, np.pi, self.n_lat + 1)[:-1]
         self.lon_grid = np.linspace(0, 2.0 * np.pi, self.n_lon + 1)[:-1]
 
     def test_latitude_grid(self):
@@ -111,10 +112,11 @@ class TestLegendreExpansion:
     def setup_method(self):
         self.l_max = 2 ** np.random.randint(4, 8)
         self.m_max = 0
-        self.n_lat = 2 * self.l_max
+        self.n_lat = 4 * self.l_max
         self.n_lon = 1
         self.sht = SHT(self.l_max, self.m_max, self.n_lon, self.n_lat)
         self.lat_grid, _ = np.sort(np.arccos(roots_legendre(self.n_lat)))
+        self.lat_grid = np.linspace(0, np.pi, self.n_lat + 1)[:-1]
         self.lon_grid = np.linspace(0, 2.0 * np.pi, self.n_lon + 1)[:-1]
 
     def test_legendre_transform(self):
