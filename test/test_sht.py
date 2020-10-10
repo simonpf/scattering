@@ -19,7 +19,7 @@ class TestSHT:
 
         self.n_lat = 2 * self.l_max
         self.n_lon = 4 * self.l_max
-        self.sht = SHT(self.l_max, self.m_max, self.n_lat, self.n_lon)
+        self.sht = SHT(self.l_max, self.m_max, self.n_lon, self.n_lat)
         self.lat_grid, _ = np.sort(np.arccos(roots_legendre(self.n_lat)))
         self.lon_grid = np.linspace(0, 2.0 * np.pi, self.n_lon + 1)[:-1]
 
@@ -113,7 +113,7 @@ class TestLegendreExpansion:
         self.m_max = 0
         self.n_lat = 2 * self.l_max
         self.n_lon = 1
-        self.sht = SHT(self.l_max, self.m_max, self.n_lat, self.n_lon)
+        self.sht = SHT(self.l_max, self.m_max, self.n_lon, self.n_lat)
         self.lat_grid, _ = np.sort(np.arccos(roots_legendre(self.n_lat)))
         self.lon_grid = np.linspace(0, 2.0 * np.pi, self.n_lon + 1)[:-1]
 
@@ -172,7 +172,7 @@ class TestTrivalTransform:
         self.m_max = 0
         self.n_lat = 1
         self.n_lon = 1
-        self.sht = SHT(self.l_max, self.m_max, self.n_lat, self.n_lon)
+        self.sht = SHT(self.l_max, self.m_max, self.n_lon, self.n_lat)
 
     def test_transform(self):
         """
@@ -238,19 +238,19 @@ class TestAddition:
         n_lat = 64
         self.l_max_l = np.random.randint(10, 20)
         self.m_max_l = self.l_max_l#np.random.randint(9, self.l_max_l)
-        self.sht_l = SHT(self.l_max_l, self.m_max_l, n_lat, n_lon)
+        self.sht_l = SHT(self.l_max_l, self.m_max_l, n_lon, n_lat)
 
         self.l_max_l_inc = np.random.randint(5, 10)
         self.m_max_l_inc = self.l_max_l_inc #np.random.randint(4, self.l_max_l_inc)
-        self.sht_l_inc = SHT(self.l_max_l_inc, self.m_max_l_inc, n_lat, n_lon)
+        self.sht_l_inc = SHT(self.l_max_l_inc, self.m_max_l_inc, n_lon, n_lat)
 
         self.l_max_r = np.random.randint(20, 24)
         self.m_max_r = self.l_max_r #np.random.randint(19, self.l_max_r)
-        self.sht_r = SHT(self.l_max_r, self.m_max_r, n_lat, n_lon)
+        self.sht_r = SHT(self.l_max_r, self.m_max_r, n_lon, n_lat)
 
         self.l_max_r_inc = np.random.randint(10, 20)
         self.m_max_r_inc = self.l_max_r_inc #np.random.randint(9, self.l_max_r_inc)
-        self.sht_r_inc = SHT(self.l_max_r_inc, self.m_max_r_inc, n_lat, n_lon)
+        self.sht_r_inc = SHT(self.l_max_r_inc, self.m_max_r_inc, n_lon, n_lat)
 
         self.coeff_vector_l = np.random.rand(self.sht_l.get_n_spectral_coeffs())
         self.coeff_vector_l = self.coeff_vector_l + 1j * np.random.rand(self.sht_l.get_n_spectral_coeffs())

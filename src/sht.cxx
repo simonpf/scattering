@@ -20,9 +20,9 @@ struct FFTWDeleter {
 
 shtns_cfg ShtnsHandle::get(Index l_max,
                            Index m_max,
-                           Index n_lat,
-                           Index n_lon) {
-  std::array<Index, 4> config = {l_max, m_max, n_lat, n_lon};
+                           Index n_lon,
+                           Index n_lat) {
+  std::array<Index, 4> config = {l_max, m_max, n_lon, n_lat};
   if (config == current_config_) {
     return shtns_;
   } else {
@@ -95,9 +95,9 @@ SpectralCoeffMatrix SHT::add_coeffs(const SHT &sht_inc_l,
   return result;
 }
 
-std::array<Index, 4> SHT::get_params(Index n_lat, Index n_lon) {
-  n_lat -= n_lat % 2;
+std::array<Index, 4> SHT::get_params(Index n_lon, Index n_lat) {
   n_lon -= n_lon % 2;
+  n_lat -= n_lat % 2;
 
   Index l_max = ((n_lat % 2) == 0) ? n_lat - 2 : n_lat - 1;
   l_max = std::max<Index>(l_max, 0);
@@ -106,8 +106,8 @@ std::array<Index, 4> SHT::get_params(Index n_lat, Index n_lon) {
   return {l_max, m_max, n_lat, n_lon};
 }
 
-SHT::SHT(Index l_max, Index m_max, Index n_lat, Index n_lon)
-    : l_max_(l_max), m_max_(m_max), n_lat_(n_lat), n_lon_(n_lon) {
+SHT::SHT(Index l_max, Index m_max, Index n_lon, Index n_lat)
+    : l_max_(l_max), m_max_(m_max), n_lon_(n_lon), n_lat_(n_lat) {
   if (l_max == 0) {
     is_trivial_ = true;
     n_spectral_coeffs_ = 1;
@@ -130,7 +130,7 @@ SHT::Vector SHT::get_latitude_grid() {
   if (is_trivial_) {
     return Vector::Constant(1, M_PI / 2.0);
   }
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
   return ConstVectorMap(shtns->ct, n_lat_).array().acos();
 }
 
@@ -138,7 +138,7 @@ SHT::Vector SHT::get_colatitude_grid() {
   if (is_trivial_) {
     return Vector::Constant(1, M_PI / 2.0);
   }
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
   return ConstVectorMap(shtns->ct, n_lat_);
 }
 
@@ -158,7 +158,7 @@ SHT::IndexVector SHT::get_l_indices() {
   if (is_trivial_) {
     return IndexVector::Constant(1, 0);
   }
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
   IndexVector result(n_spectral_coeffs_);
   for (Index i = 0; i < n_spectral_coeffs_; ++i) {
     result[i] = shtns->li[i];
@@ -170,7 +170,7 @@ SHT::IndexVector SHT::get_m_indices() {
   if (is_trivial_) {
     return IndexVector::Constant(1, 0);
   }
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
   IndexVector result(n_spectral_coeffs_);
   for (Index i = 0; i < n_spectral_coeffs_; ++i) {
     result[i] = shtns->mi[i];
@@ -263,7 +263,7 @@ SpectralCoeffs SHT::transform(const GridCoeffsRef &m) {
     return SpectralCoeffs::Constant(1, m(0, 0));
   }
   set_spatial_coeffs(m);
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
   spat_to_SH(shtns, spatial_coeffs_, spectral_coeffs_);
   return get_spectral_coeffs();
 }
@@ -273,7 +273,7 @@ SpectralCoeffs SHT::transform_cmplx(const CmplxGridCoeffsRef &m) {
     return SpectralCoeffs::Constant(1, m(0, 0));
   }
   set_spatial_coeffs(m);
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
   spat_cplx_to_SH(shtns, cmplx_spatial_coeffs_, spectral_coeffs_cmplx_);
   return get_spectral_coeffs_cmplx();
 }
@@ -283,7 +283,7 @@ GridCoeffs SHT::synthesize(const SpectralCoeffsRef &m) {
     return GridCoeffs::Constant(1, 1, m(0, 0).real());
   }
   set_spectral_coeffs(m);
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
   SH_to_spat(shtns, spectral_coeffs_, spatial_coeffs_);
   return get_spatial_coeffs();
 }
@@ -293,7 +293,7 @@ CmplxGridCoeffs SHT::synthesize_cmplx(const SpectralCoeffsRef &m) {
     return CmplxGridCoeffs::Constant(1, 1, m(0, 0).real());
   }
   set_spectral_coeffs_cmplx(m);
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
   SH_to_spat_cplx(shtns, spectral_coeffs_cmplx_, cmplx_spatial_coeffs_);
   return get_cmplx_spatial_coeffs();
 }
@@ -307,7 +307,7 @@ eigen::Vector<double> SHT::evaluate(
   set_spectral_coeffs(m);
   int n_points = points.rows();
   eigen::Vector<double> result(n_points);
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
   for (int i = 0; i < n_points; ++i) {
     result[i] =
         SH_to_point(shtns, spectral_coeffs_, cos(points(i, 1)), points(i, 0));
@@ -324,7 +324,7 @@ eigen::Vector<double> SHT::evaluate(const SpectralCoeffsRef &m,
   set_spectral_coeffs(m);
   int n_points = thetas.size();
   eigen::Vector<double> result(n_points);
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lat_, n_lon_);
+  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
   for (int i = 0; i < n_points; ++i) {
     result[i] = SH_to_point(shtns, spectral_coeffs_, cos(thetas[i]), 0.0);
   }

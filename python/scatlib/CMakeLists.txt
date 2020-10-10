@@ -16,6 +16,7 @@ add_dependencies(sht libshtns)
 target_link_libraries(sht ${SHTNS_LIBRARY})
 target_link_libraries(sht Eigen3::Eigen)
 target_link_libraries(sht fftw3)
+target_link_libraries(sht scattering)
 
 #
 # eigen

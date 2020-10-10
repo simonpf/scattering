@@ -34,16 +34,24 @@ def particle_to_single_scattering_data_random(particle_data,
     bsc = particle_data.backward_scattering_coeff
     fsc = particle_data.forward_scattering_coeff
 
-    print(pm.shape)
-    print(particle_data.lat_scat.shape)
+    lon_inc = particle_data.lon_inc
+    lon_inc = 2.0 * np.pi * particle_data.lon_inc / 360.0
 
+    lat_inc = particle_data.lat_inc
+    lat_inc = np.pi * lat_inc / 180.0
+
+    lon_scat = particle_data.lon_scat
+    lon_scat = 2.0 * np.pi * particle_data.lon_scat / 360.0
+
+    lat_scat = particle_data.lat_scat
+    lat_scat = np.pi * lat_scat / 180.0
 
     sd = SingleScatteringData(f_grid,
                               t_grid,
-                              particle_data.lon_inc,
-                              particle_data.lat_inc,
-                              particle_data.lon_scat,
-                              particle_data.lat_scat[:-1],
+                              lon_inc,
+                              lat_inc,
+                              lon_scat,
+                              lat_scat[:-1],
                               pm,
                               em,
                               av,
@@ -111,6 +119,7 @@ class TestSingleScatteringDataRandom:
                                          sd.get_phase_matrix()))
                 assert np.all(np.isclose(sd_ref.get_extinction_matrix(),
                                          sd.get_extinction_matrix()))
+
                 assert np.all(np.isclose(sd_ref.get_absorption_vector(),
                                          sd.get_absorption_vector()))
                 assert np.all(np.isclose(sd_ref.get_forward_scattering_coeff(),
@@ -146,9 +155,11 @@ class TestSingleScatteringDataRandom:
         Tests adding of data.
         """
         ssd_spectral = self.data.to_spectral()
+        print("check")
         pm_gridded = self.data.get_phase_matrix()
         pm_spectral = ssd_spectral.get_phase_matrix()
         assert np.all(np.isclose(pm_gridded, pm_spectral))
+        print("check")
 
         ssd_spectral_1 = self.data.to_spectral(32, 0)
         ssd_spectral_2 = ssd_spectral.to_spectral(32, 0)
@@ -180,12 +191,19 @@ def particle_to_single_scattering_data_azimuthally_random(particle_data,
     l_max = SHT.calc_l_max(n_coeffs)
     n_lat = max(l_max + 2 + l_max % 2, 32)
     n_lon = 2 * l_max + 2
-    sht = SHT(l_max, l_max, n_lat, n_lon)
+    print("data: ", n_lon, n_lat)
+    sht = SHT(l_max, l_max, n_lon, n_lat)
+
+    lon_inc = particle_data.lon_inc
+    lon_inc = 2.0 * np.pi * particle_data.lon_inc / 360.0
+
+    lat_inc = particle_data.lat_inc
+    lat_inc = np.pi * lat_inc / 180.0
 
     sd = SingleScatteringData(f_grid,
                               t_grid,
-                              particle_data.lon_inc,
-                              particle_data.lat_inc,
+                              lon_inc,
+                              lat_inc,
                               sht,
                               pm,
                               em,
@@ -219,14 +237,15 @@ class TestSingleScatteringDataAzimuthallyRandom:
         f_grid = self.particle.frequencies
         t_grid = self.particle.temperatures
         lon_inc = self.particle[0].lon_inc
-        lat_inc = self.particle[0].lat_inc
+        lat_inc = np.pi * self.particle[0].lat_inc / 180.0
 
         n_coeffs = self.particle[0].phase_matrix.shape[-1]
-        l_max = SHT.calc_l_max(n_coeffs)
         l_max = 32
         n_lat = l_max + 2 + l_max % 2
         n_lon = 2 * l_max + 2
-        sht = SHT(l_max, l_max, n_lat, n_lon)
+        print(l_max, l_max, n_lon, n_lat)
+        sht = SHT(l_max, l_max, n_lon, n_lat)
+        print(sht.get_n_longitudes(), sht.get_n_latitudes())
 
         self.f_grid = self.particle.frequencies
         self.t_grid = self.particle.temperatures
@@ -255,14 +274,16 @@ class TestSingleScatteringDataAzimuthallyRandom:
                 sd_ref = particle_to_single_scattering_data_azimuthally_random(data,
                                                                                f,
                                                                                t)
-                sd = self.data.interpolate_frequency([f]).interpolate_temperature([t])
-                sd = sd.to_gridded()
+                sd_ref = sd_ref.to_spectral(32, 32, 66, 66)
                 sd_ref = sd_ref.to_gridded()
-                sd = sd.interpolate_angles(sd_ref.get_lon_inc(),
-                                           sd_ref.get_lat_inc(),
-                                           sd_ref.get_lon_scat(),
-                                           sd_ref.get_lat_scat())
+                sd = self.data.interpolate_frequency([f]).interpolate_temperature([t])
+                sd = sd.to_spectral(32, 32, 66, 66).to_gridded()
 
+                print(f, t)
+                close = np.all(np.isclose(sd_ref.get_phase_matrix(),
+                                         sd.get_phase_matrix()))
+                if not close:
+                    return sd, sd_ref
                 assert np.all(np.isclose(sd_ref.get_phase_matrix(),
                                          sd.get_phase_matrix()))
                 assert np.all(np.isclose(sd_ref.get_extinction_matrix(),
@@ -278,13 +299,20 @@ class TestSingleScatteringDataAzimuthallyRandom:
         """
         Tests adding of data.
         """
+        self.data.get_phase_matrix()
         data_summed = self.data + self.data + self.data
         data_scaled = self.data * 3.0
 
         for f in self.f_grid:
             for t in self.t_grid:
+                print("CHECK")
                 sd = data_summed.interpolate_frequency([f]).interpolate_temperature([t])
                 sd_ref = data_scaled.interpolate_frequency([f]).interpolate_temperature([t])
+                print("CHECK 0")
+                sd_ref.get_phase_matrix()
+                print("CHECK 1")
+                sd.get_phase_matrix()
+                print("CHECK 2")
 
                 assert np.all(np.isclose(sd_ref.get_phase_matrix(),
                                          sd.get_phase_matrix()))
@@ -311,3 +339,7 @@ class TestSingleScatteringDataAzimuthallyRandom:
         ssd_spectral_2 = ssd_spectral.to_spectral(32, 0)
         assert np.all(np.isclose(ssd_spectral_1.get_phase_matrix(),
                                  ssd_spectral_2.get_phase_matrix()))
+
+test = TestSingleScatteringDataAzimuthallyRandom()
+test.setup_method()
+test.test_add_data()

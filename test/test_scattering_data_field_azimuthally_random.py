@@ -27,8 +27,8 @@ class ScatteringDataAzimuthallyRandom(ScatteringDataBase):
         n_lon_scat = max(2 * m_max_scat + 2, 1) * 2
         self.f_grid = np.logspace(9, 11, 11)
         self.t_grid = np.linspace(250, 300, 6)
-        sht_inc = SHT(l_max_inc, m_max_inc, n_lat_inc, n_lon_inc)
-        sht_scat = SHT(l_max_scat, m_max_scat, n_lat_scat, n_lon_scat)
+        sht_inc = SHT(l_max_inc, m_max_inc, n_lon_inc, n_lat_inc)
+        sht_scat = SHT(l_max_scat, m_max_scat, n_lon_scat, n_lat_scat)
         self.lon_inc = sht_inc.get_longitude_grid()
         self.lat_inc = sht_inc.get_latitude_grid()
         self.lon_scat = sht_scat.get_longitude_grid()

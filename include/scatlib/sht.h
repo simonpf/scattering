@@ -47,7 +47,7 @@ class FFTWArray {
 
 class ShtnsHandle {
  public:
-  static shtns_cfg get(Index l_max, Index m_max, Index n_lat, Index n_lon);
+ static shtns_cfg get(Index l_max, Index m_max, Index n_lon, Index n_lat);
 
  private:
   static std::array<Index, 4> current_config_;
@@ -116,17 +116,17 @@ class SHT {
     return static_cast<Index>(sqrt(2.0 * n_spectral_coeffs + 0.25) - 1.5);
   }
 
-  static std::array<Index, 4> get_params(Index n_lat, Index n_lon);
+  static std::array<Index, 4> get_params(Index n_lon, Index n_lat);
 
   /**
    * Create a spherical harmonics transformation object.
    *
    * @param l_max The maximum degree of the SHT.
    * @param m_max The maximum order of the SHT.
-   * @param n_lat The number of co-latitude grid points.
    * @param n_lon The number of longitude grid points.
+   * @param n_lat The number of co-latitude grid points.
    */
-  SHT(Index l_max, Index m_max, Index n_lat, Index n_lon);
+  SHT(Index l_max, Index m_max, Index n_lon, Index n_lat);
 
   /** Return latitude grid used by SHTns.
    * @return Eigen vector containing the latitude grid in radians.
@@ -326,7 +326,7 @@ class SHT {
 
  private:
   bool is_trivial_;
-  Index l_max_, m_max_, n_lat_, n_lon_, n_spectral_coeffs_,
+  Index l_max_, m_max_, n_lon_, n_lat_, n_spectral_coeffs_,
       n_spectral_coeffs_cmplx_;
 
   sht::FFTWArray<std::complex<double>> spectral_coeffs_, spectral_coeffs_cmplx_,

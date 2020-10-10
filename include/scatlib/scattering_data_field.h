@@ -271,7 +271,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   Index get_n_lat_scat() const { return lat_scat_->size(); }
 
   std::array<Index, 4> get_sht_scat_params() const {
-    return sht::SHT::get_params(n_lat_scat_, n_lon_scat_);
+    return sht::SHT::get_params(n_lon_scat_, n_lat_scat_);
   }
 
   /// Deep copy of the scattering data.
@@ -555,8 +555,25 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   ScatteringDataFieldSpectral<Scalar> to_spectral(Index l_max,
                                                   Index m_max) const {
     std::shared_ptr<sht::SHT> sht =
-        std::make_shared<sht::SHT>(l_max, m_max, n_lat_scat_, n_lon_scat_);
+        std::make_shared<sht::SHT>(l_max, m_max, n_lon_scat_, n_lat_scat_);
     return to_spectral(sht);
+  }
+
+  /** Convert gridded data to spectral format.
+   * @param l_max The maximum degree l to use in the SH expansion.
+   * @param m_max The maximum order m to use in the SH expansion.
+   * @return The scattering data field transformed to spectral format.
+   */
+  ScatteringDataFieldSpectral<Scalar> to_spectral(Index l_max,
+                                                  Index m_max,
+                                                  Index n_lon,
+                                                  Index n_lat) const {
+      std::shared_ptr<sht::SHT> sht =
+          std::make_shared<sht::SHT>(l_max,
+                                     m_max,
+                                     n_lon,
+                                     n_lat);
+      return to_spectral(sht);
   }
 
   /** Convert gridded data to spectral format.
@@ -594,6 +611,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
 ////////////////////////////////////////////////////////////////////////////////
 // Spectral format
 ////////////////////////////////////////////////////////////////////////////////
+
 // pxx :: export
 // pxx :: instance(["double"])
 /** Scattering data in spectral format.
@@ -764,7 +782,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   Index get_n_lat_scat() const { return sht_scat_->get_n_latitudes(); }
 
   std::array<Index, 4> get_sht_inc_params() const {
-    return sht::SHT::get_params(n_lat_inc_, n_lon_inc_);
+    return sht::SHT::get_params(n_lon_inc_, n_lat_inc_);
   }
 
   /** Set scattering data for given frequency and temperature index.
@@ -849,7 +867,6 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
     auto data_interp = regridder.regrid(*data_);
     dimensions_new[1] = temperatures->size();
     auto data_new = std::make_shared<DataTensor>(std::move(data_interp));
-    ;
     return ScatteringDataFieldSpectral(f_grid_,
                                        temperatures,
                                        lon_inc_,
@@ -923,7 +940,8 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
    * the data tensor.
    */
   eigen::Tensor<Scalar, 5> integrate_scattering_angles() const {
-    return (data_->template chip<4>(0)).real() * sqrt(4.0 * M_PI);
+      eigen::Tensor<std::complex<Scalar>, 5> result = data_->template chip<4>(0);
+      return result.real() * sqrt(4.0 * M_PI);
   }
 
   /** Normalize w.r.t. scattering-angle integral.
@@ -1026,7 +1044,14 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   ScatteringDataFieldSpectral to_spectral(Index l_max, Index m_max) const {
     auto n_lat = sht_scat_->get_n_latitudes();
     auto n_lon = sht_scat_->get_n_longitudes();
-    return to_spectral(std::make_shared<sht::SHT>(l_max, m_max, n_lat, n_lon));
+    return to_spectral(std::make_shared<sht::SHT>(l_max, m_max, n_lon, n_lat));
+  }
+
+  ScatteringDataFieldSpectral to_spectral(Index l_max,
+                                          Index m_max,
+                                          Index n_lon,
+                                          Index n_lat) const {
+      return to_spectral(std::make_shared<sht::SHT>(l_max, m_max, n_lon, n_lat));
   }
 
   ScatteringDataFieldSpectral to_spectral(Index l_max) const {
@@ -1039,7 +1064,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
       Index l_max,
       Index m_max) const {
     std::shared_ptr<sht::SHT> sht =
-        std::make_shared<sht::SHT>(l_max, m_max, n_lat_inc_, n_lon_inc_);
+        std::make_shared<sht::SHT>(l_max, m_max, n_lon_inc_, n_lat_inc_);
     return to_fully_spectral(sht);
   }
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral() {
@@ -1422,8 +1447,16 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
                                                   Index m_max) const {
     auto n_lat = sht_scat_->get_n_latitudes();
     auto n_lon = sht_scat_->get_n_longitudes();
-    auto sht_other = std::make_shared<sht::SHT>(l_max, m_max, n_lat, n_lon);
+    auto sht_other = std::make_shared<sht::SHT>(l_max, m_max, n_lon, n_lat);
     return to_spectral(sht_other);
+  }
+
+  ScatteringDataFieldSpectral<Scalar> to_spectral(Index l_max,
+                                                  Index m_max,
+                                                  Index n_lon,
+                                                  Index n_lat) const {
+      auto sht_other = std::make_shared<sht::SHT>(l_max, m_max, n_lon, n_lat);
+      return to_spectral(sht_other);
   }
 
   const DataTensor &get_data() const { return *data_; }
