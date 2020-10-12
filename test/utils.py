@@ -42,12 +42,10 @@ def harmonic_random_field(n_lon, n_lat, n_components=10):
         2D array of size (n_lon, n_lat) containing the random
         harmonic field.
     """
-    l_max = n_lat - n_lat % 1
-    if l_max == n_lat:
-        l_max -= 1
-    l_max -= 2
+    l_max = max(n_lat // 2 - 3, 0)
     m_max = max(min(n_lon // 2 - 1, l_max), 0)
-    lat_grid, _ = np.sort(np.arccos(roots_legendre(n_lat)))
+    lat_grid = np.linspace(0, np.pi, n_lat + 1)
+    lat_grid = 0.5 * (lat_grid[1:] + lat_grid[:-1])
     lon_grid = np.linspace(0, 2.0 * np.pi, n_lon + 1)[:-1]
     data = np.zeros((lon_grid.size, lat_grid.size))
     for _ in range(n_components):

@@ -99,8 +99,8 @@ std::array<Index, 4> SHT::get_params(Index n_lon, Index n_lat) {
   n_lon -= n_lon % 2;
   n_lat -= n_lat % 2;
 
-  Index l_max = ((n_lat % 2) == 0) ? n_lat - 2 : n_lat - 1;
-  l_max = std::max<Index>(l_max, 0);
+  Index l_max = (n_lat > 2) ? (n_lat / 2) - 1 : 0;
+  std::cout << "l_max :: " << l_max << std::endl;
   Index m_max = (n_lon > 2) ? (n_lon / 2) - 1 : 0;
   m_max = std::min(l_max, m_max);
   return {l_max, m_max, n_lat, n_lon};

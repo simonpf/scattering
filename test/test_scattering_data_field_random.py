@@ -49,7 +49,7 @@ class ScatteringDataRandom(ScatteringDataBase):
                                                           self.data)
         self.scattering_data_spectral = self.scattering_data.to_spectral()
         self.sht_scat = self.scattering_data_spectral.get_sht_scat()
-        l = self.sht_scat.get_l_max() - 2
+        l = self.sht_scat.get_l_max()
         m = self.sht_scat.get_m_max()
         self.scattering_data_spectral_2 = self.scattering_data.to_spectral(l, m)
         self.scattering_data_fully_spectral = self.scattering_data_spectral.to_fully_spectral()

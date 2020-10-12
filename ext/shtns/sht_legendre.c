@@ -786,7 +786,7 @@ static void gauss_nodes(real *x, real *w, const int n)
 /// \internal Generates the abscissa and weights for a Féjer quadrature (#1).
 /// Compute weights via FFT
 /// \param x = abscissa, \param w = weights, \param n points.
-/// \note Reference: Waldvogel (2006) "Fast Construction of the Fejér and Clenshaw-Curtis Quadrature Rules"
+/// \note Reference: Waldvogel ()2006 "Fast Construction of the Fejér and Clenshaw-Curtis Quadrature Rules"
 /// requires n > 2*lmax
 static void fejer1_nodes(real *x, real *w, const int n)
 {

@@ -20,8 +20,8 @@ class TestSHT:
         self.n_lat = 4 * self.l_max
         self.n_lon = 4 * self.l_max
         self.sht = SHT(self.l_max, self.m_max, self.n_lon, self.n_lat)
-        self.lat_grid, _ = np.sort(np.arccos(roots_legendre(self.n_lat)))
-        self.lat_grid = np.linspace(0, np.pi, self.n_lat + 1)[:-1]
+        self.lat_grid = np.linspace(0, np.pi, self.n_lat + 1)
+        self.lat_grid = 0.5 * (self.lat_grid[1:] + self.lat_grid[:-1])
         self.lon_grid = np.linspace(0, 2.0 * np.pi, self.n_lon + 1)[:-1]
 
     def test_latitude_grid(self):

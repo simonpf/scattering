@@ -6,6 +6,7 @@
  */
 #include <map>
 
+#include "fftw3.h"
 #include "eigen.h"
 
 #ifndef __SCATLIB_INTEGRATION__
@@ -33,6 +34,10 @@ struct Precision<long double> {
   static constexpr long double value = 1e-19;
 };
 }  // namespace detail
+
+////////////////////////////////////////////////////////////////////////////////
+// Gauss-Legendre Quadrature
+////////////////////////////////////////////////////////////////////////////////
 
 // pxx :: export
 // pxx :: instance(["double"])
@@ -114,34 +119,154 @@ class GaussLegendreQuadrature {
   eigen::Vector<Scalar> weights_;
 };
 
+////////////////////////////////////////////////////////////////////////////////
+// Regular grid
+////////////////////////////////////////////////////////////////////////////////
+
+// pxx :: export
+// pxx :: instance(["double"])
+/// Trapezoidal integration on regular grid.
 template <typename Scalar>
+class ClenshawCurtisQuadrature {
+ private:
+
+  // pxx :: hide
+  void calculate_nodes_and_weights() {
+
+      long int n = degree_ - 1;
+      fftw_plan ifft;
+      double *weights = reinterpret_cast<double*>(fftw_malloc(2 * (n / 2 + 1) * sizeof(double)));
+      std::complex<double> *coeffs = reinterpret_cast<std::complex<double>*>(weights);
+
+      ifft = fftw_plan_dft_c2r_1d(n,
+                                  reinterpret_cast<double (*)[2]>(coeffs),
+                                  weights,
+                                  FFTW_ESTIMATE);
+      // Calculate DFT input.
+      for (int i = 0; i < n / 2 + 1; ++i) {
+          coeffs[i] = 2.0 / (1.0 - 4.0 * i * i);
+      }
+      fftw_execute_dft_c2r(ifft,
+                           reinterpret_cast<double (*)[2]>(coeffs),
+                           weights);
+
+      weights[0] *= 0.5;
+      for (int i = 0; i < n; ++i) {
+          weights_[i] = weights[i] / n;
+      }
+      weights_[n] = weights[0];
+      fftw_destroy_plan(ifft);
+      fftw_free(weights);
+
+      // Calculate nodes.
+      for (long int i = 0; i < n; i++) {
+          nodes_[i] = cos((M_PI * i) / (n - 1));
+      }
+  }
+
+ public:
+  ClenshawCurtisQuadrature() {}
+  ClenshawCurtisQuadrature(int degree)
+    : degree_(degree), nodes_(degree), weights_(degree) {
+    calculate_nodes_and_weights();
+  }
+
+  const eigen::Vector<Scalar>& get_nodes() const { return nodes_; }
+  const eigen::Vector<Scalar>& get_weights() const { return weights_; }
+
+  int degree_;
+  eigen::Vector<Scalar> nodes_;
+  eigen::Vector<Scalar> weights_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// Fejer quadrature
+////////////////////////////////////////////////////////////////////////////////
+
+// pxx :: export
+// pxx :: instance(["double"])
+/// Trapezoidal integration on regular grid.
+template <typename Scalar>
+class FejerQuadrature {
+ private:
+
+  // pxx :: hide
+  void calculate_nodes_and_weights() {
+
+      long int n = degree_;
+      fftw_plan ifft;
+      double *weights = reinterpret_cast<double*>(fftw_malloc(2 * (n + 1) * sizeof(double)));
+      std::complex<double> *coeffs = reinterpret_cast<std::complex<double>*>(weights);
+
+      ifft = fftw_plan_dft_c2r_1d(n,
+                                  reinterpret_cast<double (*)[2]>(coeffs),
+                                  weights,
+                                  FFTW_ESTIMATE);
+      // Calculate DFT input.
+      for (int i = 0; i < n / 2 + 1; ++i) {
+          Scalar x = (M_PI * i) / n;
+          coeffs[i] = std::complex<double>(cos(x), sin(x));
+          coeffs[i] *= 2.0 / (1.0 - 4.0 * i * i);
+      }
+      fftw_execute_dft_c2r(ifft,
+                           reinterpret_cast<double (*)[2]>(coeffs),
+                           weights);
+      for (long int i = 0; i < n; ++i) {
+          weights_[i] = weights[i] / n;
+      }
+
+      fftw_destroy_plan(ifft);
+      fftw_free(weights);
+
+      // Calculate nodes.
+      for (long int i = 0; i < n; i++) {
+          nodes_[i] = cos(M_PI * (i + 0.5) / n);
+      }
+  }
+
+ public:
+  FejerQuadrature() {}
+  FejerQuadrature(int degree)
+    : degree_(degree), nodes_(degree), weights_(degree) {
+    calculate_nodes_and_weights();
+  }
+
+  const eigen::Vector<Scalar>& get_nodes() const { return nodes_; }
+  const eigen::Vector<Scalar>& get_weights() const { return weights_; }
+
+  int degree_;
+  eigen::Vector<Scalar> nodes_;
+  eigen::Vector<Scalar> weights_;
+};
+
+template <typename Scalar, template<typename> typename Quadrature>
 class QuadratureProvider {
  public:
   QuadratureProvider() {}
 
-  GaussLegendreQuadrature<Scalar> get_quadrature(int degree) {
+  Quadrature<Scalar> get_quadrature(int degree) {
     auto found = quadratures_.find(degree);
     if (found != quadratures_.end()) {
       return found->second;
     } else {
-      quadratures_.insert({degree, GaussLegendreQuadrature<Scalar>(degree)});
+      quadratures_.insert({degree, Quadrature<Scalar>(degree)});
       return quadratures_[degree];
     }
   }
 
  private:
-  std::map<int, GaussLegendreQuadrature<Scalar>> quadratures_;
+  std::map<int, Quadrature<Scalar>> quadratures_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 // Integration functions
 ////////////////////////////////////////////////////////////////////////////////
 
-static QuadratureProvider<double> quadratures = QuadratureProvider<double>();
+static QuadratureProvider<double, FejerQuadrature> quadratures = QuadratureProvider<double, FejerQuadrature>();
 
-template <typename Scalar>
+template <typename Scalar, typename Quadrature>
 Scalar integrate_latitudes(eigen::ConstVectorRef<Scalar> data,
-                           const GaussLegendreQuadrature<Scalar> & quadrature) {
+                           const Quadrature & quadrature) {
   auto weights = quadrature.get_weights();
   return weights.dot(data);
 }
