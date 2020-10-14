@@ -95,12 +95,31 @@ SpectralCoeffMatrix SHT::add_coeffs(const SHT &sht_inc_l,
   return result;
 }
 
+SHT::Vector SHT::get_latitude_grid(Index n_lat) {
+  Vector result(n_lat);
+  for (size_t i = 0; i < n_lat; ++i) {
+    result[i] = M_PI / n_lat * (i + 0.5);
+  }
+  return result;
+}
+
+SHT::Vector SHT::get_longitude_grid(Index n_lon) {
+  if (n_lon == 1) {
+    return Vector::Constant(1, M_PI);
+  }
+  Vector result(n_lon);
+  double dx = 2.0 * M_PI / n_lon;
+  for (Index i = 0; i < n_lon; ++i) {
+    result[i] = dx * i;
+  }
+  return result;
+}
+
 std::array<Index, 4> SHT::get_params(Index n_lon, Index n_lat) {
   n_lon -= n_lon % 2;
   n_lat -= n_lat % 2;
 
   Index l_max = (n_lat > 2) ? (n_lat / 2) - 1 : 0;
-  std::cout << "l_max :: " << l_max << std::endl;
   Index m_max = (n_lon > 2) ? (n_lon / 2) - 1 : 0;
   m_max = std::min(l_max, m_max);
   return {l_max, m_max, n_lat, n_lon};

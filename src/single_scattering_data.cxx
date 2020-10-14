@@ -150,7 +150,7 @@ SingleScatteringData::SingleScatteringData(
           std::make_shared<sht::SHT>(l_max,
                                      l_max,
                                      2 * l_max + 2,
-                                     l_max + 2 + l_max % 2),
+                                     2 * l_max + 2),
           std::make_shared<eigen::Tensor<std::complex<double>, 6>>(
               eigen::zeros<std::complex<double>>(
                   f_grid.size(),

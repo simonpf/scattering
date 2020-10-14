@@ -11,6 +11,7 @@
 #include <scatlib/eigen.h>
 #include <scatlib/interpolation.h>
 #include <scatlib/scattering_data_field.h>
+#include <scatlib/sht.h>
 
 #include <cassert>
 #include <memory>
@@ -122,6 +123,11 @@ class SingleScatteringDataImpl {
   virtual eigen::Vector<double> get_lon_scat() = 0;
   virtual eigen::Vector<double> get_lat_scat() = 0;
 
+  virtual eigen::Index get_n_lon_inc() = 0;
+  virtual eigen::Index get_n_lat_inc() = 0;
+  virtual eigen::Index get_n_lon_scat() = 0;
+  virtual eigen::Index get_n_lat_scat() = 0;
+
   // Data access.
   virtual eigen::Tensor<double, 7> get_phase_matrix() = 0;
   virtual eigen::Tensor<std::complex<double>, 6>
@@ -140,6 +146,9 @@ class SingleScatteringDataImpl {
   virtual void operator*=(double c) = 0;
   virtual SingleScatteringDataImpl *operator*(double c) = 0;
   virtual void normalize(double norm) = 0;
+
+  // Regridding
+  virtual SingleScatteringDataImpl *regrid() = 0;
 
   virtual detail::ConversionPtr<const SingleScatteringDataGridded<double>>
   to_gridded() const = 0;
@@ -314,6 +323,11 @@ class SingleScatteringData {
   eigen::Vector<double> get_lon_scat() { return data_->get_lon_scat(); }
   eigen::Vector<double> get_lat_scat() { return data_->get_lat_scat(); }
 
+  eigen::Index get_n_lon_inc() { return data_->get_n_lon_inc(); }
+  eigen::Index get_n_lat_inc() { return data_->get_n_lon_inc(); }
+  eigen::Index get_n_lon_scat() { return data_->get_n_lon_inc(); }
+  eigen::Index get_n_lat_scat() { return data_->get_n_lon_inc(); }
+
   void set_data(Index f_index,
                 Index t_index,
                 const SingleScatteringData &other) {
@@ -413,6 +427,9 @@ class SingleScatteringData {
   }
 
   void normalize(double norm) { data_->normalize(norm); }
+
+  // Regrid
+  SingleScatteringData regrid() { return data_->regrid(); }
 
   // Conversion
   inline SingleScatteringData to_gridded() const;
@@ -538,6 +555,11 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
   eigen::Vector<double> get_lat_inc() { return phase_matrix_.get_lat_inc(); }
   eigen::Vector<double> get_lon_scat() { return phase_matrix_.get_lon_scat(); }
   eigen::Vector<double> get_lat_scat() { return phase_matrix_.get_lat_scat(); }
+
+  eigen::Index get_n_lon_inc() { return phase_matrix_.get_n_lon_inc(); }
+  eigen::Index get_n_lat_inc() { return phase_matrix_.get_n_lon_inc(); }
+  eigen::Index get_n_lon_scat() { return phase_matrix_.get_n_lon_inc(); }
+  eigen::Index get_n_lat_scat() { return phase_matrix_.get_n_lon_inc(); }
 
   void set_data(Index f_index,
                 Index t_index,
@@ -724,6 +746,35 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
   // explicit operator SingeScatteringDataSpectral();
   // explicit operator SingeScatteringDataFullySpectral();
 
+  SingleScatteringDataImpl * regrid() {
+      auto n_lon_inc = phase_matrix_.get_n_lon_inc();
+      auto n_lat_inc = phase_matrix_.get_n_lat_inc();
+      auto n_lon_scat = phase_matrix_.get_n_lat_scat();
+      auto n_lat_scat = phase_matrix_.get_n_lat_scat();
+      n_lon_inc = std::max<Index>(n_lon_inc - n_lon_inc % 2, 1);
+      n_lat_inc = std::max<Index>(n_lat_inc - n_lat_inc % 2, 1);
+      n_lon_scat = std::max<Index>(n_lon_scat - n_lon_scat % 2, 1);
+      n_lat_scat = std::max<Index>(n_lat_scat - n_lat_scat % 2, 1);
+
+      auto lon_inc = std::make_shared<Vector>(sht::SHT::get_longitude_grid(n_lon_inc));
+      auto lat_inc = std::make_shared<Vector>(sht::SHT::get_latitude_grid(n_lat_inc));
+      auto lon_scat = std::make_shared<Vector>(sht::SHT::get_longitude_grid(n_lon_scat));
+      auto lat_scat = std::make_shared<Vector>(sht::SHT::get_latitude_grid(n_lat_scat));
+
+      auto phase_matrix = phase_matrix_.interpolate_angles(lon_inc, lat_inc, lon_scat, lat_scat);
+      auto extinction_matrix = extinction_matrix_.interpolate_angles(lon_inc, lat_inc, dummy_grid_, dummy_grid_);
+      auto absorption_vector = absorption_vector_.interpolate_angles(lon_inc, lat_inc, dummy_grid_, dummy_grid_);
+      auto backward_scattering_coeff = backward_scattering_coeff_.interpolate_angles(lon_inc, lat_inc, dummy_grid_, dummy_grid_);
+      auto forward_scattering_coeff = forward_scattering_coeff_.interpolate_angles(lon_inc, lat_inc, dummy_grid_, dummy_grid_);
+      return new SingleScatteringDataGridded(f_grid_,
+                                             t_grid_,
+                                             phase_matrix,
+                                             extinction_matrix,
+                                             absorption_vector,
+                                             backward_scattering_coeff,
+                                             forward_scattering_coeff);
+  }
+
  private:
   VectorPtr dummy_grid_ = std::make_shared<Vector>(Vector::Constant(1, 1));
   ScatteringDataFieldGridded<Scalar> phase_matrix_;
@@ -816,6 +867,11 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
   eigen::Vector<double> get_lat_inc() { return phase_matrix_.get_lat_inc(); }
   eigen::Vector<double> get_lon_scat() { return phase_matrix_.get_lon_scat(); }
   eigen::Vector<double> get_lat_scat() { return phase_matrix_.get_lat_scat(); }
+
+  eigen::Index get_n_lon_inc() { return phase_matrix_.get_n_lon_inc(); }
+  eigen::Index get_n_lat_inc() { return phase_matrix_.get_n_lon_inc(); }
+  eigen::Index get_n_lon_scat() { return phase_matrix_.get_n_lon_inc(); }
+  eigen::Index get_n_lat_scat() { return phase_matrix_.get_n_lon_inc(); }
 
   void set_data(Index f_index,
                 Index t_index,
@@ -975,6 +1031,30 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
   }
 
   void normalize(Scalar norm) { phase_matrix_.normalize(norm); }
+
+  SingleScatteringDataImpl* regrid() {
+      auto n_lon_inc = phase_matrix_.get_n_lon_inc();
+      auto n_lat_inc = phase_matrix_.get_n_lat_inc();
+      n_lon_inc = std::max<Index>(n_lon_inc - n_lon_inc % 2, 1);
+      n_lat_inc = std::max<Index>(n_lat_inc - n_lat_inc % 2, 1);
+
+      auto lon_inc = std::make_shared<Vector>(sht::SHT::get_longitude_grid(n_lon_inc));
+      auto lat_inc = std::make_shared<Vector>(sht::SHT::get_latitude_grid(n_lat_inc));
+
+      auto phase_matrix = phase_matrix_.interpolate_angles(lon_inc, lat_inc);
+      auto extinction_matrix = extinction_matrix_.interpolate_angles(lon_inc, lat_inc);
+      auto absorption_vector = absorption_vector_.interpolate_angles(lon_inc, lat_inc);
+      auto backward_scattering_coeff = backward_scattering_coeff_.interpolate_angles(lon_inc, lat_inc);
+      auto forward_scattering_coeff = forward_scattering_coeff_.interpolate_angles(lon_inc, lat_inc);
+
+      return new SingleScatteringDataSpectral(f_grid_,
+                                              t_grid_,
+                                              phase_matrix,
+                                              extinction_matrix,
+                                              absorption_vector,
+                                              backward_scattering_coeff,
+                                              forward_scattering_coeff);
+  }
 
   detail::ConversionPtr<const SingleScatteringDataGridded<Scalar>> to_gridded()
       const;

@@ -63,7 +63,7 @@ def get_latitude_grid(n):
     """
     Return Gauss-Legendre latitude grid expected by SHTns.
     """
-    return np.sort(np.arccos(roots_legendre(n)[0]))
+    return np.pi / n * (np.arange(n) + 0.5)
 
 class ScatteringDataBase:
     """

@@ -83,6 +83,9 @@ class SHT {
                                         const SHT &sht_scat_r,
                                         SpectralCoeffMatrixRef w);
 
+  static Vector get_latitude_grid(Index n_lat);
+  static Vector get_longitude_grid(Index n_lat);
+
   /** Calculates the number of spherical harmonics coefficients for a real
    * transform.
    * @param l_max The maximum degree of the SHT.

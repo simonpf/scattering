@@ -75,10 +75,8 @@ class ScatteringDataRandom(ScatteringDataBase):
         return np.broadcast_to(data_interp, dims_out)
 
     def integrate_scattering_angles(self):
-        """Numerical integration over scattering angles using Gauss-Legendre quadrature. """
-        _, weights = roots_legendre(self.lat_scat.size)
-        weights = np.broadcast_to(np.copy(weights.reshape(-1, 1)), (1,) * 5 + (weights.size,) + (1,))
-        return 2 * np.pi * np.sum(weights * self.data, axis=5)[:, :, :, :, 0, :]
+        """Numerical integration over scattering angles using trapezoidal rule. """
+        return 2 * np.pi * np.trapz(self.data, x=-np.cos(self.lat_scat), axis=5)[..., 0, :]
 
 class TestScatteringDataFieldRandom:
     """
@@ -270,8 +268,8 @@ class TestScatteringDataFieldRandom:
         i_ref = self.data.integrate_scattering_angles()
         i1 = self.data.scattering_data.integrate_scattering_angles()
         i2 = self.data.scattering_data_spectral.integrate_scattering_angles()
-        assert np.all(np.isclose(i1, i_ref))
-        assert np.all(np.isclose(i2, i_ref))
+        assert np.all(np.isclose(i1, i_ref, 1e-1))
+        assert np.all(np.isclose(i2, i_ref, 1e-1))
 
     def test_normalization(self):
         """

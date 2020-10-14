@@ -117,7 +117,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
 
   using Vector = eigen::Vector<Scalar>;
   using VectorMap = eigen::VectorMap<Scalar>;
-  using VectorPtr = const std::shared_ptr<const eigen::Vector<Scalar>>;
+  using VectorPtr = std::shared_ptr<const eigen::Vector<Scalar>>;
   using ConstVectorMap = eigen::ConstVectorMap<Scalar>;
   using Matrix = eigen::Matrix<Scalar>;
   using MatrixMap = eigen::MatrixMap<Scalar>;
@@ -633,7 +633,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
 
   using Vector = eigen::Vector<Scalar>;
   using VectorMap = eigen::VectorMap<Scalar>;
-  using VectorPtr = const std::shared_ptr<const eigen::Vector<Scalar>>;
+  using VectorPtr = std::shared_ptr<const eigen::Vector<Scalar>>;
   using ConstVectorMap = eigen::ConstVectorMap<Scalar>;
   using Matrix = eigen::Matrix<Scalar>;
   using MatrixMap = eigen::MatrixMap<Scalar>;
@@ -905,8 +905,8 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
 
   ScatteringDataFieldSpectral interpolate_angles(Vector lon_inc_new,
                                                  Vector lat_inc_new) const {
-    return interpolate_angles(std::make_shared<const Vector>(lon_inc_new),
-                              std::make_shared<const Vector>(lat_inc_new));
+    return interpolate_angles(std::make_shared<Vector>(lon_inc_new),
+                              std::make_shared<Vector>(lat_inc_new));
   }
 
   /** Regrid data to new grids.
