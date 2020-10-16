@@ -1140,6 +1140,8 @@ SingleScatteringDataGridded<Scalar>::to_spectral(Index l_max,
                                              m_max,
                                              phase_matrix_.get_n_lon_scat(),
                                              phase_matrix_.get_n_lat_scat());
+  std::cout << "n_lon:" << phase_matrix_.get_n_lon_scat() << std::endl;
+  std::cout << "n_lat:" << phase_matrix_.get_n_lat_scat() << std::endl;
   return to_spectral(sht_scat);
 }
 

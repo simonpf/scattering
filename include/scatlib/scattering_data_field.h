@@ -12,6 +12,7 @@
 #include <scatlib/integration.h>
 #include <scatlib/interpolation.h>
 #include <scatlib/sht.h>
+#include <scatlib/utils/array.h>
 
 #include <cassert>
 #include <memory>
@@ -480,14 +481,16 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
    */
   void normalize(Scalar value) {
     auto integrals = integrate_scattering_angles();
-    eigen::IndexArray<5> dimensions = {n_freqs_,
+    eigen::IndexArray<4> dimensions = {n_freqs_,
                                        n_temps_,
                                        n_lon_inc_,
-                                       n_lat_inc_,
-                                       data_->dimension(6)};
-    for (auto i = eigen::DimensionCounter<5>{dimensions}; i; ++i) {
-      auto matrix = eigen::get_submatrix<4, 5>(*data_, i.coordinates);
-      matrix *= value / integrals(i.coordinates);
+                                       n_lat_inc_};
+    for (auto i = eigen::DimensionCounter<4>{dimensions}; i; ++i) {
+      for (Index j = 0; j < data_->dimension(6); ++j) {
+        auto matrix_coords = concat<Index, 4, 1>(i.coordinates, {j});
+        auto matrix = eigen::get_submatrix<4, 5>(*data_, matrix_coords);
+        matrix *= value / integrals(matrix_coords);
+      }
     }
   }
 
@@ -537,6 +540,25 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
     auto result = copy();
     result *= c;
     return result;
+  }
+
+  /** Set the number of scattering coefficients.
+   *
+   * De- or increases the number of scattering coefficients that are stored.
+   * If the number of scattering coefficients is increased, the new elements are
+   * set to 0.
+   *
+   * @param n The number of scattering coefficients to change the data to have.
+   */
+  void set_number_of_scattering_coeffs(Index n) {
+    Index current_stokes_dim = data_->dimension(6);
+    if (current_stokes_dim == n) {
+      return;
+    }
+    auto new_dimensions = data_->dimensions();
+    new_dimensions[6] = n;
+    DataTensorPtr data_new = std::make_shared<DataTensor>(new_dimensions);
+    eigen::copy(*data_new, *data_);
   }
 
   // pxx :: hide
@@ -953,14 +975,16 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
    */
   void normalize(Scalar value) {
     auto integrals = integrate_scattering_angles();
-    eigen::IndexArray<5> dimensions = {n_freqs_,
+    eigen::IndexArray<4> dimensions = {n_freqs_,
                                        n_temps_,
                                        n_lon_inc_,
-                                       n_lat_inc_,
-                                       data_->dimension(5)};
-    for (auto i = eigen::DimensionCounter<5>{dimensions}; i; ++i) {
-      auto matrix = eigen::get_subvector<4>(*data_, i.coordinates);
-      matrix *= value / integrals(i.coordinates);
+                                       n_lat_inc_};
+    for (auto i = eigen::DimensionCounter<4>{dimensions}; i; ++i) {
+      auto matrix = eigen::get_submatrix<4, 5>(*data_, i.coordinates);
+      auto integral = integrals(concat<Index, 4, 1>(i.coordinates, {0}));
+      if (integral != 0.0) {
+          matrix *= value / integral;
+      }
     }
   }
 
@@ -1024,6 +1048,25 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
     auto result = copy();
     result *= c;
     return result;
+  }
+
+  /** Set the number of scattering coefficients.
+   *
+   * De- or increases the number of scattering coefficients that are stored.
+   * If the number of scattering coefficients is increased, the new elements are
+   * set to 0.
+   *
+   * @param n The number of scattering coefficients to change the data to have.
+   */
+  void set_number_of_scattering_coeffs(Index n) {
+      Index current_stokes_dim = data_->dimension(5);
+      if (current_stokes_dim == n) {
+          return;
+      }
+      auto new_dimensions = data_->dimensions();
+      new_dimensions[5] = n;
+      DataTensorPtr data_new = std::make_shared<DataTensor>(new_dimensions);
+      eigen::copy(*data_new, *data_);
   }
 
   ScatteringDataFieldSpectral to_spectral(ShtPtr sht_other) const {
@@ -1422,6 +1465,25 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
     auto result = copy();
     result *= c;
     return result;
+  }
+
+  /** Set the number of scattering coefficients.
+   *
+   * De- or increases the number of scattering coefficients that are stored.
+   * If the number of scattering coefficients is increased, the new elements are
+   * set to 0.
+   *
+   * @param n The number of scattering coefficients to change the data to have.
+   */
+  void set_number_of_scattering_coeffs(Index n) {
+      Index current_stokes_dim = data_->dimension(4);
+      if (current_stokes_dim == n) {
+          return;
+      }
+      auto new_dimensions = data_->dimensions();
+      new_dimensions[4] = n;
+      DataTensorPtr data_new = std::make_shared<DataTensor>(new_dimensions);
+      eigen::copy(*data_new, *data_);
   }
 
   sht::SHT &get_sht_scat() const { return *sht_scat_; }

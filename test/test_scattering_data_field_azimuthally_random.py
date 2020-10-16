@@ -23,7 +23,7 @@ class ScatteringDataAzimuthallyRandom(ScatteringDataBase):
         n_lon_inc = 1
         l_max_scat = np.random.randint(10, 20)
         m_max_scat = np.random.randint(9, l_max_scat)
-        n_lat_scat = max(l_max_scat + 2, 32) * 2
+        n_lat_scat = max(2 * l_max_scat + 2, 32) * 2
         n_lon_scat = max(2 * m_max_scat + 2, 1) * 2
         self.f_grid = np.logspace(9, 11, 11)
         self.t_grid = np.linspace(250, 300, 6)
@@ -252,12 +252,27 @@ class TestScatteringDataFieldAzimuthallyRandom:
         i3 = data_gridded.to_spectral().integrate_scattering_angles()
         i4 = data_spectral.to_gridded().integrate_scattering_angles()
 
-        assert np.all(np.isclose(i1, 4.0 * np.pi))
-        assert np.all(np.isclose(i2, 4.0 * np.pi))
-        assert np.all(np.isclose(i3, 4.0 * np.pi))
-        assert np.all(np.isclose(i4, 4.0 * np.pi))
+        assert np.all(np.isclose(i1[..., 0], 4.0 * np.pi))
+        assert np.all(np.isclose(i2[..., 0], 4.0 * np.pi))
+        assert np.all(np.isclose(i3[..., 0], 4.0 * np.pi))
+        assert np.all(np.isclose(i4[..., 0], 4.0 * np.pi))
 
-test = TestScatteringDataFieldAzimuthallyRandom()
-test.setup_method()
-test.test_integration()
-test.test_normalization()
+    def test_set_n_scattering_coeffs(self):
+        """
+        Ensure that reduction of scattering coefficients works by reducing to 1 component
+        and comparing with original data.
+        """
+        data_gridded = self.data.scattering_data_gridded.copy()
+        data_spectral = self.data.scattering_data_spectral.copy()
+        data_fully_spectral = self.data.scattering_data_fully_spectral.copy()
+
+        data_gridded.set_number_of_scattering_coeffs(1)
+        data_spectral.set_number_of_scattering_coeffs(1)
+        data_fully_spectral.set_number_of_scattering_coeffs(1)
+
+        assert np.all(np.isclose(data_gridded.get_data()[..., 0],
+                                 self.data.scattering_data_gridded.get_data()[..., 0]))
+        assert np.all(np.isclose(data_spectral.get_data()[..., 0],
+                                 self.data.scattering_data_spectral.get_data()[..., 0]))
+        assert np.all(np.isclose(data_fully_spectral.get_data()[..., 0],
+                                 self.data.scattering_data_fully_spectral.get_data()[..., 0]))

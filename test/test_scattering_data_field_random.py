@@ -286,7 +286,27 @@ class TestScatteringDataFieldRandom:
         i3 = data_gridded.to_spectral().integrate_scattering_angles()
         i4 = data_spectral.to_gridded().integrate_scattering_angles()
 
-        assert np.all(np.isclose(i1, 4.0 * np.pi))
-        assert np.all(np.isclose(i2, 4.0 * np.pi))
-        assert np.all(np.isclose(i3, 4.0 * np.pi))
-        assert np.all(np.isclose(i4, 4.0 * np.pi))
+        assert np.all(np.isclose(i1[..., 0], 4.0 * np.pi))
+        assert np.all(np.isclose(i2[..., 0], 4.0 * np.pi))
+        assert np.all(np.isclose(i3[..., 0], 4.0 * np.pi))
+        assert np.all(np.isclose(i4[..., 0], 4.0 * np.pi))
+
+    def test_set_n_scattering_coeffs(self):
+        """
+        Ensure that reduction of scattering coefficients works by reducing to 1 component
+        and comparing with original data.
+        """
+        data_gridded = self.data.scattering_data.copy()
+        data_spectral = self.data.scattering_data_spectral.copy()
+        data_fully_spectral = self.data.scattering_data_fully_spectral.copy()
+
+        data_gridded.set_number_of_scattering_coeffs(1)
+        data_spectral.set_number_of_scattering_coeffs(1)
+        data_fully_spectral.set_number_of_scattering_coeffs(1)
+
+        assert np.all(np.isclose(data_gridded.get_data()[..., 0],
+                                 self.data.scattering_data.get_data()[..., 0]))
+        assert np.all(np.isclose(data_spectral.get_data()[..., 0],
+                                 self.data.scattering_data_spectral.get_data()[..., 0]))
+        assert np.all(np.isclose(data_fully_spectral.get_data()[..., 0],
+                                 self.data.scattering_data_fully_spectral.get_data()[..., 0]))

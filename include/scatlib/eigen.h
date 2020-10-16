@@ -514,6 +514,29 @@ template <typename Scalar, int rank>
     return t.shuffle(dimensions);
 }
 
+template <typename TensorType>
+struct CopyGenerator {
+  static constexpr int rank = TensorType::NumIndices;
+  using Scalar = typename TensorType::Scalar;
+  CopyGenerator(const TensorType &from_) : from(from_){};
+
+  Scalar operator()(const std::array<Index, rank> &coordinates) const {
+    for (size_t i = 0; i < rank; ++i) {
+      if (coordinates[i] >= from.dimension(i)) {
+        return 0.0;
+      }
+    }
+    return from(coordinates);
+  }
+
+  const TensorType &from;
+};
+
+template <typename TensorType1, typename TensorType2>
+void copy(TensorType1 &dest, const TensorType2 &source) {
+    dest.generate(CopyGenerator<TensorType2>(source));
+}
+
 }  // namespace eigen
 }  // namespace scatlib
 
