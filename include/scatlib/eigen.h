@@ -534,7 +534,7 @@ struct CopyGenerator {
 
 template <typename TensorType1, typename TensorType2>
 void copy(TensorType1 &dest, const TensorType2 &source) {
-    dest.generate(CopyGenerator<TensorType2>(source));
+    dest = dest.generate(CopyGenerator<TensorType2>(source));
 }
 
 }  // namespace eigen

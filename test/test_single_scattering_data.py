@@ -341,8 +341,10 @@ class TestSingleScatteringDataAzimuthallyRandom:
         """
         ssd_spectral = self.data.to_spectral()
         pm_gridded = self.data.get_phase_matrix()
+        pm_gridded_2 = self.data.to_gridded().get_phase_matrix()
         pm_spectral = ssd_spectral.get_phase_matrix()
 
+        assert np.all(np.isclose(pm_gridded, pm_gridded_2))
         assert np.all(np.isclose(pm_gridded, pm_spectral))
 
         ssd_spectral_1 = self.data.to_spectral(32, 0)

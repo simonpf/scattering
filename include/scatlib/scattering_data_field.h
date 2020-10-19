@@ -489,7 +489,10 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
       for (Index j = 0; j < data_->dimension(6); ++j) {
         auto matrix_coords = concat<Index, 4, 1>(i.coordinates, {j});
         auto matrix = eigen::get_submatrix<4, 5>(*data_, matrix_coords);
-        matrix *= value / integrals(matrix_coords);
+        auto integral = integrals(concat<Index, 4, 1>(i.coordinates, {0}));
+        if (integral != 0.0) {
+            matrix *= value / integral;
+        }
       }
     }
   }
@@ -559,6 +562,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
     new_dimensions[6] = n;
     DataTensorPtr data_new = std::make_shared<DataTensor>(new_dimensions);
     eigen::copy(*data_new, *data_);
+    data_ = data_new;
   }
 
   // pxx :: hide
@@ -1067,6 +1071,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
       new_dimensions[5] = n;
       DataTensorPtr data_new = std::make_shared<DataTensor>(new_dimensions);
       eigen::copy(*data_new, *data_);
+      data_ = data_new;
   }
 
   ScatteringDataFieldSpectral to_spectral(ShtPtr sht_other) const {
@@ -1484,6 +1489,7 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
       new_dimensions[4] = n;
       DataTensorPtr data_new = std::make_shared<DataTensor>(new_dimensions);
       eigen::copy(*data_new, *data_);
+      data_ = data_new;
   }
 
   sht::SHT &get_sht_scat() const { return *sht_scat_; }

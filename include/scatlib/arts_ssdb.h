@@ -158,7 +158,7 @@ class ScatteringData {
   sht::SHT get_sht() {
       auto phase_matrix_dimensions = group_.get_variable("phaMat_data_real").shape();
       auto l_max = sht::SHT::calc_l_max(phase_matrix_dimensions[3]);
-      return sht::SHT(l_max, l_max, l_max + 2 + l_max % 2, 2 * l_max + 2);
+      return sht::SHT(l_max, l_max, 2 * l_max + 2, 2 * l_max + 2);
   }
 
   eigen::Vector<double> get_f_grid() {return eigen::Vector<double>::Constant(1, frequency_);}

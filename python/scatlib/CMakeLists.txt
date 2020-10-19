@@ -83,3 +83,15 @@ add_pxx_module(
   MODULE integration
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
+
+#
+# particle model
+#
+
+add_pxx_module(
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/particle_model.h
+  MODULE particle_model
+  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
+  )
+add_dependencies(arts_ssdb libshtns)
+target_link_libraries(arts_ssdb ${NETCDF_LIBRARY} ${HDF5_LIBRARIES} scattering)
