@@ -730,7 +730,11 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
     return result;
   }
 
-  void normalize(Scalar norm) { phase_matrix_.normalize(norm); }
+  void normalize(Scalar norm) {
+      phase_matrix_.normalize(norm);
+      std::cout << "phase mat integrals: " << std::endl;
+      std::cout << phase_matrix_.integrate_scattering_angles() << std::endl;
+  }
 
   void set_number_of_scattering_coeffs(Index n) {
     phase_matrix_.set_number_of_scattering_coeffs(n);
