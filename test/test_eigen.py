@@ -66,3 +66,4 @@ def test_subvector():
         m = get_subvector(data, sub_indices)
         m_ref = data[indices[0], indices[1], indices[2], :, indices[4]]
         assert np.all(np.isclose(m, m_ref))
+

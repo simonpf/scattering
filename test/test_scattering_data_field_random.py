@@ -310,3 +310,27 @@ class TestScatteringDataFieldRandom:
                                  self.data.scattering_data_spectral.get_data()[..., 0]))
         assert np.all(np.isclose(data_fully_spectral.get_data()[..., 0],
                                  self.data.scattering_data_fully_spectral.get_data()[..., 0]))
+
+    def test_downsampling(self):
+        """
+        Check consistency of integration functions for gridded and spectral format
+        and compare to reference implementation using numpy.
+        """
+        dummy_grid = np.array([np.pi])
+        data_downsampled_gridded = self.data.scattering_data.downsample_angles(dummy_grid,
+                                                                               dummy_grid,
+                                                                               dummy_grid,
+                                                                               dummy_grid)
+        data_downsampled_spectral =  self.data.scattering_data.downsample_angles(dummy_grid,
+                                                                                 dummy_grid,
+                                                                                 dummy_grid,
+                                                                                 dummy_grid)
+        i_ref = self.data.scattering_data.integrate_scattering_angles()
+        i_1 = data_downsampled_gridded.integrate_scattering_angles()
+        i_2 = data_downsampled_spectral.integrate_scattering_angles()
+
+        return i_ref, i_1, i_2
+
+test = TestScatteringDataFieldRandom()
+test.setup_method()
+i_ref, i_1, i_2 = test_downsampling()

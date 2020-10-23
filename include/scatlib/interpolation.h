@@ -501,7 +501,7 @@ struct RegridImpl<i, a, Axis...> {
     }
     new_coords[a] += 1;
     auto r = RegridImpl<i + 1, Axis...>::compute(t, new_coords, weights, indices);
-    return w * l + (1.0 - w) * r;
+    return w * l + r * (static_cast<decltype(w)>(1.0) - w) * r;
   }
 };
 
@@ -515,6 +515,7 @@ struct RegridImpl<i> {
     return t(coords);
   }
 };
+
 
 /** Regridder for regular grids.
  *
@@ -659,6 +660,95 @@ class RegularRegridder {
 
 };
 
-}  // namespace scatlib
+// pxx :: export
+// pxx :: instance(["1", "Eigen::Tensor<float, 2, Eigen::RowMajor>", "float"])
+// pxx :: instance(["1", "Eigen::Tensor<double, 2, Eigen::RowMajor>", "double"])
+template <eigen::Index rank, typename TensorType, typename Scalar>
+eigen::Tensor<typename TensorType::Scalar, TensorType::NumIndices> downsample_dimension(
+    const TensorType& input,
+    const eigen::Vector<Scalar>& input_grid,
+    const eigen::Vector<Scalar>& output_grid,
+    Scalar minimum_value,
+    Scalar maximum_value) {
+  using eigen::Index;
+  using eigen::Tensor;
+  using eigen::Vector;
+
+  std::cout << "downsampling: " << rank << " / " << input_grid.size() << " / " << output_grid.size() << std::endl;
+  // Calculate integration limits.
+  Index n = output_grid.size();
+  Vector<Scalar> limits(n + 1);
+  limits[0] = minimum_value;
+  limits[n] = maximum_value;
+  for (Index i = 1; i < n; ++i) {
+    limits[i] = 0.5 * (output_grid[i - 1] + output_grid[i]);
+  }
+  std::cout << "meh ? " << std::endl;
+
+  // Interpolate input to boundary values.
+  auto regridder = RegularRegridder<Scalar, rank>({input_grid}, {limits});
+  auto regridded = regridder.regrid(input);
+
+  std::cout << "meh ? " << std::endl;
+  // Prepare output
+  auto result_dimensions = input.dimensions();
+  result_dimensions[rank] = output_grid.size();
+  auto result = Tensor<typename TensorType::Scalar, TensorType::NumIndices>{result_dimensions};
+
+  // Prepare integral value
+  std::array<Index, TensorType::NumIndices - 1> integral_dimensions;
+  Index dimension_index = 0;
+  for (Index i = 0; i < TensorType::NumIndices; ++i) {
+    if (i != rank) {
+      integral_dimensions[dimension_index] = input.dimension(i);
+      dimension_index += 1;
+    }
+  }
+  std::cout << "meh ? "  << limits.size() << std::endl;
+  auto integral =
+      Tensor<typename TensorType::Scalar, TensorType::NumIndices - 1>(integral_dimensions);
+
+  Index input_index = 0;
+
+  Scalar d_acc = 0.0;
+  for (Index i = 0; i < n; ++i) {
+      std::cout << "loop: " << i << std::endl;
+    Scalar left_limit = limits[i];
+    Scalar right_limit = limits[i + 1];
+
+    Scalar left = left_limit;
+    Scalar right = left_limit;
+    Scalar dx = 0.0;
+
+    auto left_value = regridded.template chip<rank>(i);
+    auto right_value = left_value;
+
+    integral.setZero();
+
+    while ((input_index < input_grid.size()) && (input_grid[input_index] < right_limit)) {
+      right_value = input.template chip<rank>(input_index);
+      right = input_grid[input_index];
+      integral += 0.5 * (right - left) * (left_value + right_value);
+      dx += (right - left);
+      left = right;
+      left_value = right_value;
+      input_index += 1;
+    }
+
+    right_value = regridded.template chip<rank>(i + 1);
+    right = right_limit;
+    dx += (right - left);
+    d_acc += dx;
+    integral += 0.5 * (right - left) * (left_value + right_value);
+    if (dx != 0.0) {
+        result.template chip<rank>(i) = 1.0 / dx * integral;
+    }
+    std::cout << d_acc << std::endl;
+  }
+
+  return result;
+}
+
+}  // Namespace scatlib
 
 #endif

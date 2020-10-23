@@ -5,8 +5,9 @@ import pytest
 import scipy as sp
 import scipy.interpolate
 import scatlib
-from scatlib.interpolation import interpolate, RegularGridInterpolator, RegularRegridder
-
+from scatlib.interpolation import (interpolate,
+                                   RegularGridInterpolator,
+                                   downsample_dimension)
 #
 # Interpolation
 #
@@ -92,55 +93,12 @@ def test_interpolation_degenerate_dimensions():
 
     assert(np.all(np.isclose(results, sp_results)))
 
+def test_downsampling():
+    x = np.linspace(0, 2 * np.pi, 1001)
+    y = np.broadcast_to(np.sin(x).reshape(1, -1), (2000, 1001))
+    y_down = downsample_dimension(y, x, np.array([0.5 * np.pi, 1.5 * np.pi]), 0., 2.0 * np.pi)
+    assert np.all(np.isclose(y_down[:, 0], 2.0 / np.pi))
+    assert np.all(np.isclose(y_down[:, 1], -2.0 / np.pi))
 
-#
-# Regridding
-#
 
-def setup_grids(rank, n_dims, low=2, high=10):
-    sizes = np.random.randint(low, high, rank)
-    dimensions = np.random.choice(range(rank), n_dims, replace=False)
-    old_grids = [np.arange(sizes[d]) for d in dimensions]
-    new_grids = [np.arange(np.random.randint(1, sizes[d])) for d in dimensions]
-    t = np.random.randn(*sizes)
 
-    return old_grids, new_grids, dimensions, t
-
-def regrid_scipy(old_grids, new_grids, dimensions, t):
-    grids = [np.arange(s) for s in t.shape]
-    output_grids = [np.arange(s) for s in t.shape]
-    for i, d in enumerate(dimensions):
-        output_grids[d] = new_grids[i]
-    positions = np.meshgrid(*output_grids, indexing="ij")
-    positions = np.stack([p.ravel() for p in positions], axis=-1)
-
-    interpolator = sp.interpolate.RegularGridInterpolator(grids, t)
-    results = interpolator(positions)
-    results = results.reshape(tuple([o.size for o in output_grids]))
-    return results
-
-def regrid_scatlib(old_grids, new_grids, dimensions, t):
-    regridder = RegularRegridder(old_grids, new_grids, dimensions)
-    result = regridder.regrid(t)
-    return result
-
-def test_regrid():
-    rank = 4
-    n_dims = 2
-
-    for i in range(10):
-        old_grids, new_grids, dimensions, t = setup_grids(rank, n_dims, 4, 10)
-        results_sp = regrid_scipy(old_grids, new_grids, dimensions, t)
-        results = regrid_scatlib(old_grids, new_grids, dimensions, t)
-        print(results_sp[0], results[0])
-        print(results_sp[0] - results[0])
-        assert(np.all(np.isclose(results_sp, results)))
-
-rank = 4
-n_dims = 2
-old_grids, new_grids, dimensions, t = setup_grids(rank, n_dims, 10, 20)
-results_sp = regrid_scipy(old_grids, new_grids, dimensions, t)
-results = regrid_scatlib(old_grids, new_grids, dimensions, t)
-print(results_sp[0], results[0])
-print(results_sp[0] - results[0])
-assert(np.all(np.isclose(results_sp, results)))

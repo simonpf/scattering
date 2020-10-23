@@ -97,7 +97,7 @@ SpectralCoeffMatrix SHT::add_coeffs(const SHT &sht_inc_l,
 
 SHT::Vector SHT::get_latitude_grid(Index n_lat) {
   Vector result(n_lat);
-  for (size_t i = 0; i < n_lat; ++i) {
+  for (Index i = 0; i < n_lat; ++i) {
     result[i] = M_PI / n_lat * (i + 0.5);
   }
   return result;

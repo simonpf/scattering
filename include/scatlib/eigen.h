@@ -9,6 +9,7 @@
 
 #include <Eigen/CXX11/Tensor>
 #include <Eigen/Core>
+
 #include <iostream>
 #include <type_traits>
 #include <memory>
@@ -535,6 +536,19 @@ struct CopyGenerator {
 template <typename TensorType1, typename TensorType2>
 void copy(TensorType1 &dest, const TensorType2 &source) {
     dest = dest.generate(CopyGenerator<TensorType2>(source));
+}
+
+template <typename VectorType1, typename VectorType2>
+bool equal(const VectorType1 &left, const VectorType2 &right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+  return left == right;
+}
+
+template <typename Scalar>
+auto colatitudes(const Vector<Scalar>& input) {
+    return input.unaryExpr([](Scalar x) { return -1.0 * cos(x);});
 }
 
 }  // namespace eigen
