@@ -26,12 +26,12 @@ class ScatteringDataRandom(ScatteringDataBase):
         self.lon_scat = np.ones(1)
         self.lat_scat = get_latitude_grid(180)
         self.data = np.ones((self.f_grid.size,
-                              self.t_grid.size,
-                              self.lon_inc.size,
-                              self.lat_inc.size,
-                              self.lon_scat.size,
-                              self.lat_scat.size,
-                              6))
+                             self.t_grid.size,
+                             self.lon_inc.size,
+                             self.lat_inc.size,
+                             self.lon_scat.size,
+                             self.lat_scat.size,
+                             6))
         for i_f in range(self.f_grid.size):
             for i_t in range(self.t_grid.size):
                 for i_c in range(6):
@@ -51,7 +51,7 @@ class ScatteringDataRandom(ScatteringDataBase):
         self.sht_scat = self.scattering_data_spectral.get_sht_scat()
         l = self.sht_scat.get_l_max()
         m = self.sht_scat.get_m_max()
-        self.scattering_data_spectral_2 = self.scattering_data.to_spectral(l, m)
+        self.scattering_data_spectral_2 = self.scattering_data.to_spectral(l - 2, m)
         self.scattering_data_fully_spectral = self.scattering_data_spectral.to_fully_spectral()
         self.sht_inc = self.scattering_data_fully_spectral.get_sht_inc()
 
@@ -317,20 +317,8 @@ class TestScatteringDataFieldRandom:
         and compare to reference implementation using numpy.
         """
         dummy_grid = np.array([np.pi])
-        data_downsampled_gridded = self.data.scattering_data.downsample_angles(dummy_grid,
-                                                                               dummy_grid,
-                                                                               dummy_grid,
-                                                                               dummy_grid)
-        data_downsampled_spectral =  self.data.scattering_data.downsample_angles(dummy_grid,
-                                                                                 dummy_grid,
-                                                                                 dummy_grid,
-                                                                                 dummy_grid)
+        data_downsampled_gridded = self.data.scattering_data.downsample_scattering_angles(dummy_grid,
+                                                                                          dummy_grid)
         i_ref = self.data.scattering_data.integrate_scattering_angles()
         i_1 = data_downsampled_gridded.integrate_scattering_angles()
-        i_2 = data_downsampled_spectral.integrate_scattering_angles()
-
-        return i_ref, i_1, i_2
-
-test = TestScatteringDataFieldRandom()
-test.setup_method()
-i_ref, i_1, i_2 = test_downsampling()
+        assert np.all(np.isclose(i_ref, i_1))

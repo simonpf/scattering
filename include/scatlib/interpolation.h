@@ -501,7 +501,7 @@ struct RegridImpl<i, a, Axis...> {
     }
     new_coords[a] += 1;
     auto r = RegridImpl<i + 1, Axis...>::compute(t, new_coords, weights, indices);
-    return w * l + r * (static_cast<decltype(w)>(1.0) - w) * r;
+    return w * l + r * (static_cast<decltype(w)>(1.0) - w);
   }
 };
 
@@ -674,7 +674,6 @@ eigen::Tensor<typename TensorType::Scalar, TensorType::NumIndices> downsample_di
   using eigen::Tensor;
   using eigen::Vector;
 
-  std::cout << "downsampling: " << rank << " / " << input_grid.size() << " / " << output_grid.size() << std::endl;
   // Calculate integration limits.
   Index n = output_grid.size();
   Vector<Scalar> limits(n + 1);
@@ -683,13 +682,11 @@ eigen::Tensor<typename TensorType::Scalar, TensorType::NumIndices> downsample_di
   for (Index i = 1; i < n; ++i) {
     limits[i] = 0.5 * (output_grid[i - 1] + output_grid[i]);
   }
-  std::cout << "meh ? " << std::endl;
 
   // Interpolate input to boundary values.
   auto regridder = RegularRegridder<Scalar, rank>({input_grid}, {limits});
   auto regridded = regridder.regrid(input);
 
-  std::cout << "meh ? " << std::endl;
   // Prepare output
   auto result_dimensions = input.dimensions();
   result_dimensions[rank] = output_grid.size();
@@ -704,15 +701,12 @@ eigen::Tensor<typename TensorType::Scalar, TensorType::NumIndices> downsample_di
       dimension_index += 1;
     }
   }
-  std::cout << "meh ? "  << limits.size() << std::endl;
   auto integral =
       Tensor<typename TensorType::Scalar, TensorType::NumIndices - 1>(integral_dimensions);
 
   Index input_index = 0;
 
-  Scalar d_acc = 0.0;
   for (Index i = 0; i < n; ++i) {
-      std::cout << "loop: " << i << std::endl;
     Scalar left_limit = limits[i];
     Scalar right_limit = limits[i + 1];
 
@@ -723,7 +717,7 @@ eigen::Tensor<typename TensorType::Scalar, TensorType::NumIndices> downsample_di
     auto left_value = regridded.template chip<rank>(i);
     auto right_value = left_value;
 
-    integral.setZero();
+    integral = integral.setZero();
 
     while ((input_index < input_grid.size()) && (input_grid[input_index] < right_limit)) {
       right_value = input.template chip<rank>(input_index);
@@ -738,12 +732,12 @@ eigen::Tensor<typename TensorType::Scalar, TensorType::NumIndices> downsample_di
     right_value = regridded.template chip<rank>(i + 1);
     right = right_limit;
     dx += (right - left);
-    d_acc += dx;
     integral += 0.5 * (right - left) * (left_value + right_value);
     if (dx != 0.0) {
         result.template chip<rank>(i) = 1.0 / dx * integral;
+    } else {
+        result.template chip<rank>(i) = integral.setZero();
     }
-    std::cout << d_acc << std::endl;
   }
 
   return result;

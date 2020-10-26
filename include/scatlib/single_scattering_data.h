@@ -115,9 +115,7 @@ class SingleScatteringDataImpl {
       eigen::VectorPtr<double> lat_inc,
       eigen::VectorPtr<double> lon_scat,
       eigen::VectorPtr<double> lat_scat) = 0;
-  virtual SingleScatteringDataImpl *downsample_angles(
-      eigen::VectorPtr<double> lon_inc,
-      eigen::VectorPtr<double> lat_inc,
+  virtual SingleScatteringDataImpl *downsample_scattering_angles(
       eigen::VectorPtr<double> lon_scat,
       eigen::VectorPtr<double> lat_scat) = 0;
   virtual eigen::Vector<double> get_f_grid() = 0;
@@ -392,26 +390,20 @@ class SingleScatteringData {
       return SingleScatteringData(std::move(result));
   }
 
-  SingleScatteringData downsample_angles(eigen::Vector<double> lon_inc,
-                                         eigen::Vector<double> lat_inc,
-                                         eigen::Vector<double> lon_scat,
-                                         eigen::Vector<double> lat_scat) {
-    auto result = data_->downsample_angles(
-        std::make_shared<eigen::Vector<double>>(lon_inc),
-        std::make_shared<eigen::Vector<double>>(lat_inc),
+  SingleScatteringData downsample_scattering_angles(eigen::Vector<double> lon_scat,
+                                                    eigen::Vector<double> lat_scat) {
+    auto result = data_->downsample_scattering_angles(
         std::make_shared<eigen::Vector<double>>(lon_scat),
         std::make_shared<eigen::Vector<double>>(lat_scat));
     return SingleScatteringData(std::move(result));
   }
 
   // pxx :: hide
-  SingleScatteringData downsample_angles(
-      std::shared_ptr<eigen::Vector<double>> lon_inc,
-      std::shared_ptr<eigen::Vector<double>> lat_inc,
+  SingleScatteringData downsample_scattering_angles(
       std::shared_ptr<eigen::Vector<double>> lon_scat,
       std::shared_ptr<eigen::Vector<double>> lat_scat) {
     auto result =
-        data_->downsample_angles(lon_inc, lat_inc, lon_scat, lat_scat);
+        data_->downsample_scattering_angles(lon_scat, lat_scat);
     return SingleScatteringData(std::move(result));
   }
 
@@ -728,41 +720,19 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
                                            forward_scattering_coeff);
   }
 
-  SingleScatteringDataImpl *downsample_angles(
-      eigen::VectorPtr<Scalar> lon_inc,
-      eigen::VectorPtr<Scalar> lat_inc,
+  SingleScatteringDataImpl *downsample_scattering_angles(
       eigen::VectorPtr<Scalar> lon_scat,
       eigen::VectorPtr<Scalar> lat_scat) {
     auto phase_matrix = ScatteringDataFieldGridded<Scalar>(
-        phase_matrix_.downsample_angles(lon_inc, lat_inc, lon_scat, lat_scat));
-    auto extinction_matrix = ScatteringDataFieldGridded<Scalar>(
-        extinction_matrix_.downsample_angles(lon_inc,
-                                             lat_inc,
-                                             dummy_grid_,
-                                             dummy_grid_));
-    auto absorption_vector = ScatteringDataFieldGridded<Scalar>(
-        absorption_vector_.downsample_angles(lon_inc,
-                                             lat_inc,
-                                             dummy_grid_,
-                                             dummy_grid_));
-    auto backward_scattering_coeff = ScatteringDataFieldGridded<Scalar>(
-        backward_scattering_coeff_.downsample_angles(lon_inc,
-                                                     lat_inc,
-                                                     dummy_grid_,
-                                                     dummy_grid_));
-    auto forward_scattering_coeff = ScatteringDataFieldGridded<Scalar>(
-        forward_scattering_coeff_.interpolate_angles(lon_inc,
-                                                     lat_inc,
-                                                     dummy_grid_,
-                                                     dummy_grid_));
+        phase_matrix_.downsample_scattering_angles(lon_scat, lat_scat));
 
     return new SingleScatteringDataGridded(f_grid_,
                                            t_grid_,
                                            phase_matrix,
-                                           extinction_matrix,
-                                           absorption_vector,
-                                           backward_scattering_coeff,
-                                           forward_scattering_coeff);
+                                           extinction_matrix_,
+                                           absorption_vector_,
+                                           backward_scattering_coeff_,
+                                           forward_scattering_coeff_);
   }
 
   void operator+=(const SingleScatteringDataImpl *other) {
@@ -1084,29 +1054,10 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
                                             forward_scattering_coeff);
   }
 
-  SingleScatteringDataImpl *downsample_angles(
-      eigen::VectorPtr<Scalar> lon_inc,
-      eigen::VectorPtr<Scalar> lat_inc,
+  SingleScatteringDataImpl *downsample_scattering_angles(
       eigen::VectorPtr<Scalar> /*lon_scat*/,
       eigen::VectorPtr<Scalar> /*lat_scat*/) {
-    auto phase_matrix = ScatteringDataFieldSpectral<Scalar>(
-        phase_matrix_.downsample_angles(lon_inc, lat_inc));
-    auto extinction_matrix = ScatteringDataFieldSpectral<Scalar>(
-        extinction_matrix_.downsample_angles(lon_inc, lat_inc));
-    auto absorption_vector = ScatteringDataFieldSpectral<Scalar>(
-        absorption_vector_.downsample_angles(lon_inc, lat_inc));
-    auto backward_scattering_coeff = ScatteringDataFieldSpectral<Scalar>(
-        backward_scattering_coeff_.downsample_angles(lon_inc, lat_inc));
-    auto forward_scattering_coeff = ScatteringDataFieldSpectral<Scalar>(
-        forward_scattering_coeff_.downsample_angles(lon_inc, lat_inc));
-
-    return new SingleScatteringDataSpectral(f_grid_,
-                                            t_grid_,
-                                            phase_matrix,
-                                            extinction_matrix,
-                                            absorption_vector,
-                                            backward_scattering_coeff,
-                                            forward_scattering_coeff);
+      return copy();
   }
 
   void operator+=(const SingleScatteringDataImpl *other) {

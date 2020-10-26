@@ -331,6 +331,8 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
    */
   ScatteringDataFieldGridded interpolate_frequency(
       std::shared_ptr<Vector> frequencies) const {
+      std::cout << "f_grid: " << *f_grid_ << std::endl;
+      std::cout << "freqs: " << *frequencies << std::endl;
     using Regridder = RegularRegridder<Scalar, 0>;
     Regridder regridder({*f_grid_}, {*frequencies});
     auto dimensions_new = data_->dimensions();
@@ -421,51 +423,17 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   }
 
   // pxx :: hide
-  ScatteringDataFieldGridded downsample_angles(VectorPtr lon_inc_new,
-                                               VectorPtr lat_inc_new,
-                                               VectorPtr lon_scat_new,
-                                               VectorPtr lat_scat_new) const {
-    DataTensorPtr data_new = std::make_shared<DataTensor>(*data_);
-    if ((lon_inc_new) && (!eigen::equal(*lon_inc_new, *lon_inc_))) {
-      *data_new = downsample_dimension<2>(*data_new,
-                                          *lon_inc_,
-                                          *lon_inc_new,
-                                          0.0,
-                                          2 * M_PI);
-    }
-    if ((lat_inc_new) && (!eigen::equal(*lat_inc_new, *lat_inc_))) {
-      eigen::Vector<Scalar> colat_old = eigen::colatitudes(*lat_inc_);
-      eigen::Vector<Scalar> colat_new = eigen::colatitudes(*lat_inc_new);
-      *data_new = downsample_dimension<3>(*data_new,
-                                          colat_old,
-                                          colat_new,
-                                          -1.0,
-                                          1.0);
-    }
-    if ((lon_scat_new) && (!eigen::equal(*lon_scat_new, *lon_scat_))) {
-      *data_new = downsample_dimension<4>(*data_new,
-                                          *lon_scat_,
-                                          *lon_scat_new,
-                                          0.0,
-                                          2 * M_PI);
-    }
-    if ((lat_scat_new) && (!eigen::equal(*lat_scat_new, *lat_scat_))) {
-      eigen::Vector<Scalar> colat_old = eigen::colatitudes(*lat_scat_);
-      eigen::Vector<Scalar> colat_new = eigen::colatitudes(*lat_scat_new);
-      *data_new = downsample_dimension<5>(*data_new,
-                                          colat_old,
-                                          colat_new,
-                                          -1.0,
-                                          1.0);
-    }
-
-    return ScatteringDataFieldGridded(f_grid_,
-                                      t_grid_,
-                                      lon_inc_new,
-                                      lat_inc_new,
-                                      lon_scat_new,
-                                      lat_scat_new,
-                                      data_new);
+  ScatteringDataFieldGridded downsample_scattering_angles(VectorPtr lon_scat_new,
+                                                          VectorPtr lat_scat_new) const {
+      if (n_lat_scat_ == 1) {
+          return copy();
+      }
+      eigen::Index n_lon = lon_scat_new->size();
+      eigen::Index m_max = (n_lon + n_lon % 2 - 2) / 2;
+      eigen::Index n_lat = std::max<eigen::Index>(lat_scat_new->size(), 32);
+      eigen::Index l_max = (n_lat + n_lat % 2 - 2) / 2;
+      auto spectral = to_spectral(l_max, m_max);
+      return spectral.to_gridded(std::max<eigen::Index>(n_lon - n_lon % 2, 1), n_lat - n_lat % 2);
   }
 
   /** Reduce angular resolution of scattering data by downsampling.
@@ -482,14 +450,10 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
    * @param lat_scat_new Pointer to new scattering latitude grid or nullptr if
    * this dimension should be left unchanged.
    */
-  ScatteringDataFieldGridded downsample_angles(Vector lon_inc_new,
-                                               Vector lat_inc_new,
-                                               Vector lon_scat_new,
-                                               Vector lat_scat_new) const {
-    return downsample_angles(std::make_shared<Vector>(lon_inc_new),
-                             std::make_shared<Vector>(lat_inc_new),
-                             std::make_shared<Vector>(lon_scat_new),
-                             std::make_shared<Vector>(lat_scat_new));
+  ScatteringDataFieldGridded downsample_scattering_angles(Vector lon_scat_new,
+                                                          Vector lat_scat_new) const {
+    return downsample_scattering_angles(std::make_shared<Vector>(lon_scat_new),
+                                        std::make_shared<Vector>(lat_scat_new));
   }
 
   /** Regrid data to new grids.
@@ -1007,54 +971,6 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
                               std::make_shared<Vector>(lat_inc_new));
   }
 
-  // pxx :: hide
-  ScatteringDataFieldSpectral downsample_angles(VectorPtr lon_inc_new,
-                                                VectorPtr lat_inc_new) const {
-    DataTensorPtr data_new = std::make_shared<DataTensor>(*data_);
-    if ((lon_inc_new) && (!eigen::equal(*lon_inc_new, *lon_inc_))) {
-      *data_new = downsample_dimension<2>(*data_new,
-                                          *lon_inc_,
-                                          *lon_inc_new,
-                                          0.0,
-                                          2 * M_PI);
-    }
-    if ((lat_inc_new) && (!eigen::equal(*lat_inc_new, *lat_inc_))) {
-      eigen::Vector<Scalar> colat_old = eigen::colatitudes(*lat_inc_);
-      eigen::Vector<Scalar> colat_new = eigen::colatitudes(*lat_inc_new);
-      *data_new = downsample_dimension<3>(*data_new,
-                                          colat_old,
-                                          colat_new,
-                                          -1.0,
-                                          1.0);
-    }
-    return ScatteringDataFieldSpectral(f_grid_,
-                                       t_grid_,
-                                       lon_inc_new,
-                                       lat_inc_new,
-                                       sht_scat_,
-                                       data_new);
-  }
-
-  /** Reduce angular resolution of scattering data by downsampling.
-   *
-   * This regrids the data to the given angular grids but in a way that
-   * ensures that the integral over each respective dimension is conserved.
-   *
-   * @param lon_inc_new Pointer to new incoming longitude grid or nullptr if
-   * this dimension should be left unchanged.
-   * @param lat_inc_new Pointer to new incoming latitude grid or nullptr if
-   * this dimension should be left unchanged.
-   * @param lon_scat_new Pointer to new scattering longitude grid or nullptr if
-   * this dimension should be left unchanged.
-   * @param lat_scat_new Pointer to new scattering latitude grid or nullptr if
-   * this dimension should be left unchanged.
-   */
-  ScatteringDataFieldSpectral downsample_angles(Vector lon_inc_new,
-                                                Vector lat_inc_new) const {
-    return downsample_angles(std::make_shared<Vector>(lon_inc_new),
-                             std::make_shared<Vector>(lat_inc_new));
-  }
-
   /** Regrid data to new grids.
    * @param f_grid The frequency grid.
    * @param t_grid The temperature grid.
@@ -1227,6 +1143,16 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   }
 
   ScatteringDataFieldGridded<Scalar> to_gridded() const;
+
+  ScatteringDataFieldGridded<Scalar> to_gridded(Index n_lon,
+                                                Index n_lat) const {
+      auto sht = std::make_shared<sht::SHT>(sht_scat_->get_l_max(),
+                                            sht_scat_->get_m_max(),
+                                            n_lon,
+                                            n_lat);
+      return to_spectral(sht).to_gridded();
+  }
+
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(ShtPtr sht) const;
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(
       Index l_max,
@@ -1715,6 +1641,7 @@ ScatteringDataFieldSpectral<Scalar>::to_gridded() const {
   using DataTensor = eigen::Tensor<Scalar, 7>;
   auto data_new = std::make_shared<DataTensor>(dimensions_new);
   for (eigen::DimensionCounter<5> i{dimensions_loop}; i; ++i) {
+      auto synthesized = sht_scat_->synthesize(eigen::get_subvector<4>(*data_, i.coordinates));
     eigen::get_submatrix<4, 5>(*data_new, i.coordinates) =
         sht_scat_->synthesize(eigen::get_subvector<4>(*data_, i.coordinates));
   }

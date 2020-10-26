@@ -9,14 +9,19 @@ struct FFTWDeleter {
   void operator()(T *t) {
     if (t) {
       fftw_free(t);
+      t = nullptr;
     }
   }
 };
 
-    template <typename Numeric>
-    FFTWArray<Numeric>::FFTWArray(Index n)
-    : ptr_(reinterpret_cast<Numeric *>(fftw_malloc(n * sizeof(Numeric))),
-           FFTWDeleter()) {}
+template <typename Numeric>
+FFTWArray<Numeric>::FFTWArray(Index n) : ptr_(nullptr) {
+  if (n > 0) {
+      ptr_ = std::shared_ptr<Numeric>(
+        reinterpret_cast<Numeric *>(fftw_malloc(n * sizeof(Numeric))),
+        FFTWDeleter());
+  }
+}
 
 shtns_cfg ShtnsHandle::get(Index l_max,
                            Index m_max,
@@ -199,6 +204,9 @@ SHT::IndexVector SHT::get_m_indices() {
 
 void SHT::set_spatial_coeffs(const GridCoeffsRef &m) const {
   Index index = 0;
+  // Rows and columns of input must match n_lon and n_lat of SHT.
+  assert(m.rows() == n_lon_);
+  assert(m.cols() == n_lat_);
   for (int i = 0; i < m.rows(); ++i) {
     for (int j = 0; j < m.cols(); ++j) {
       spatial_coeffs_[index] = m(i, j);
@@ -209,6 +217,9 @@ void SHT::set_spatial_coeffs(const GridCoeffsRef &m) const {
 
 void SHT::set_spatial_coeffs(const CmplxGridCoeffsRef &m) const {
   Index index = 0;
+  // Rows and columns of input must match n_lon and n_lat of SHT.
+  assert(m.rows() == n_lon_);
+  assert(m.cols() == n_lat_);
   for (int i = 0; i < m.rows(); ++i) {
     for (int j = 0; j < m.cols(); ++j) {
       cmplx_spatial_coeffs_[index] = m(i, j);
@@ -218,6 +229,8 @@ void SHT::set_spatial_coeffs(const CmplxGridCoeffsRef &m) const {
 }
 
 void SHT::set_spectral_coeffs(const SpectralCoeffsRef &m) const {
+  // Input size must match number of spectral coefficients of SHT.
+  assert(m.size() == n_spectral_coeffs_);
   Index index = 0;
   for (auto &x : m) {
     spectral_coeffs_[index] = x;
@@ -226,6 +239,8 @@ void SHT::set_spectral_coeffs(const SpectralCoeffsRef &m) const {
 }
 
 void SHT::set_spectral_coeffs_cmplx(const SpectralCoeffsRef &m) const {
+  // Input size must match number of spectral coefficients of SHT.
+  assert(m.size() == n_spectral_coeffs_);
   Index index = 0;
   for (auto &x : m) {
     spectral_coeffs_cmplx_[index] = x;
