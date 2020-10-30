@@ -7,12 +7,12 @@
 #ifndef __SCATLIB_EIGEN__
 #define __SCATLIB_EIGEN__
 
-#include <Eigen/CXX11/Tensor>
-#include <Eigen/Core>
-
 #include <iostream>
 #include <type_traits>
 #include <memory>
+
+#include <Eigen/CXX11/Tensor>
+#include <Eigen/Core>
 
 namespace scatlib {
 namespace eigen {

@@ -9,6 +9,7 @@
 #define __SCATLIB_SCATTERING_DATA_FIELD__
 
 #include <scatlib/eigen.h>
+#include <scatlib/stokes.h>
 #include <scatlib/integration.h>
 #include <scatlib/interpolation.h>
 #include <scatlib/sht.h>
@@ -647,6 +648,102 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   ScatteringDataFieldSpectral<Scalar> to_spectral() const {
     auto sht_params = get_sht_scat_params();
     return to_spectral(std::get<0>(sht_params), std::get<1>(sht_params));
+  }
+
+  ScatteringDataFieldGridded to_azimuthally_random(Index n_lat_inc,
+                                                   Index n_lon_scat,
+                                                   Index stokes_dimension) {
+    if ((n_lat_inc_ > 1) || (n_lon_scat_ > 1)) {
+      return copy();
+    }
+    auto lon_scat_new =
+        std::make_shared<Vector>(sht::SHT::get_longitude_grid(n_lon_scat));
+    auto lat_scat_new =
+        std::make_shared<Vector>(sht::SHT::get_latitude_grid(n_lon_scat));
+    auto lat_inc_new =
+        std::make_shared<Vector>(sht::SHT::get_latitude_grid(n_lat_inc));
+    auto scat_ang_new = Vector(n_lat_inc * n_lon_scat * n_lon_scat);
+    eigen::MatrixFixedRows<Scalar, 4> rotation_coeffs{
+        n_lat_inc * n_lon_scat * n_lon_scat,
+        4};
+
+    Index index = 0;
+    for (Index i = 0; i < n_lat_inc; ++i) {
+      for (Index j = 0; j < n_lon_scat; ++j) {
+        for (Index k = 0; k < n_lon_scat; ++k) {
+          auto lat_inc = lat_inc_new->operator[](i);
+          auto lon_scat = lon_scat_new->operator[](j);
+          auto lat_scat = lat_scat_new->operator[](k);
+          auto coeffs =
+              stokes::rotation_coefficients(0.0, lat_inc, lon_scat, lat_scat);
+          scat_ang_new[index] = coeffs[0];
+          rotation_coeffs(index, 0) = coeffs[1];
+          rotation_coeffs(index, 1) = coeffs[2];
+          rotation_coeffs(index, 2) = coeffs[3];
+          rotation_coeffs(index, 3) = coeffs[4];
+          index += 1;
+        }
+      }
+    }
+
+    // Interpolate data to scattering angles.
+    using Regridder = RegularRegridder<Scalar, 5>;
+    Regridder regridder({*lat_scat_}, {scat_ang_new});
+    eigen::IndexArray<7> dimensions_interp =
+        {n_freqs_, n_temps_, 1, n_lat_inc, n_lon_scat, n_lon_scat, 6};
+    auto data_interp = regridder.regrid(*data_);
+    data_interp.resize(dimensions_interp);
+
+    Index stokes_dimension_in = 4;
+    if (data_->dimension(6) <= 1) {
+      stokes_dimension_in = 1;
+    } else if (data_->dimension(6) <= 4) {
+      stokes_dimension_in = 2;
+    }
+    stokes_dimension = std::min(stokes_dimension_in, stokes_dimension);
+
+    // Tensor to hold results.
+    eigen::IndexArray<7> dimensions_new = {n_freqs_,
+                                           n_temps_,
+                                           1,
+                                           n_lat_inc,
+                                           n_lon_scat,
+                                           n_lon_scat,
+                                           stokes_dimension * stokes_dimension};
+    auto data_new = std::make_shared<DataTensor>(dimensions_new);
+
+    if (stokes_dimension == 1) {
+      stokes::CompactFormat<1>::expand_and_transform(*data_new,
+                                                     data_interp,
+                                                     scat_ang_new,
+                                                     *lon_scat_new,
+                                                     rotation_coeffs);
+    } else if (stokes_dimension == 2) {
+      stokes::CompactFormat<2>::expand_and_transform(*data_new,
+                                                     data_interp,
+                                                     scat_ang_new,
+                                                     *lon_scat_new,
+                                                     rotation_coeffs);
+    } else if (stokes_dimension == 3) {
+      stokes::CompactFormat<3>::expand_and_transform(*data_new,
+                                                     data_interp,
+                                                     scat_ang_new,
+                                                     *lon_scat_new,
+                                                     rotation_coeffs);
+    } else {
+      stokes::CompactFormat<4>::expand_and_transform(*data_new,
+                                                     data_interp,
+                                                     scat_ang_new,
+                                                     *lon_scat_new,
+                                                     rotation_coeffs);
+    }
+    return ScatteringDataFieldGridded<Scalar>(f_grid_,
+                                              t_grid_,
+                                              lon_inc_,
+                                              lat_inc_new,
+                                              lon_scat_new,
+                                              lat_scat_new,
+                                              data_new);
   }
 
   /// The data tensor containing the scattering data.

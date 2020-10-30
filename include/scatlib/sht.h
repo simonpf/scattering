@@ -84,7 +84,7 @@ class SHT {
                                         SpectralCoeffMatrixRef w);
 
   static Vector get_latitude_grid(Index n_lat);
-  static Vector get_longitude_grid(Index n_lat);
+  static Vector get_longitude_grid(Index n_lon);
 
   /** Calculates the number of spherical harmonics coefficients for a real
    * transform.

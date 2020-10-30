@@ -288,3 +288,4 @@ class TestScatteringDataFieldAzimuthallyRandom:
         i_ref = self.data.scattering_data.integrate_scattering_angles()
         i_1 = data_downsampled_gridded.integrate_scattering_angles()
         assert np.all(np.isclose(i_ref, i_1))
+

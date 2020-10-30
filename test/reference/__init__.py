@@ -281,3 +281,91 @@ class Habit:
         s += f"\t Phase: {self._phase}, Kind: {self._kind}, "
         s += f"Riming: {self._riming}, Orientation: {self._orientation}"
         return s
+
+def scattering_angles(lat_inc, lon_scat, lat_scat):
+    lat_inc, lon_scat, lat_scat = np.meshgrid(lat_inc, lon_scat, lat_scat, indexing="ij")
+    cos_theta = np.cos(lat_inc) * np.cos(lat_scat) + np.sin(lat_inc) * np.sin(lat_scat) * np.cos(lon_scat)
+    return np.arccos(cos_theta)
+
+def save_arccos(y):
+    x = np.arccos(y)
+    inds_0 = np.isnan(x) * (y > 0.0)
+    x[inds_0] = 0.0
+    inds_pi = np.isnan(x) * (y < 0.0)
+    x[inds_pi] = np.pi
+    return x
+
+
+def expand_compact_format(lat_inc, lon_scat, lat_scat, scat_angles, phase_matrix_compact):
+
+    phase_matrix_expanded = np.zeros(phase_matrix_compact.shape[:-1] + (4, 4))
+    cos_scat_angles = np.cos(lat_inc) * np.cos(lat_scat) + np.sin(lat_inc) * np.sin(lat_scat) * np.cos(lon_scat)
+
+    cos_sigma_1 = (np.cos(lat_scat) - np.cos(lat_inc) * cos_scat_angles) / (np.sin(lat_inc) * np.sin(scat_angles))
+    cos_sigma_2 = (np.cos(lat_inc) - np.cos(lat_scat) * cos_scat_angles) / (np.sin(lat_scat) * np.sin(scat_angles))
+    sigma_1 = save_arccos(cos_sigma_1)
+    sigma_2 = save_arccos(cos_sigma_2)
+
+    inds = np.where(np.logical_or(np.isclose(lat_inc, 0.0), np.isclose(lat_inc, np.pi)))
+    sigma_1[inds] = lon_scat[inds]
+    sigma_2[inds] = 0.0
+
+    inds = np.where(np.logical_or(np.isclose(lat_scat, 0.0), np.isclose(lat_scat, np.pi)))
+    sigma_1[inds] = 0.0
+    sigma_2[inds] = lon_scat[inds]
+
+    c_1 = np.cos(2.0 * sigma_1).reshape((1, 1, 1) + sigma_1.shape)
+    c_2 = np.cos(2.0 * sigma_2).reshape((1, 1, 1) + sigma_1.shape)
+    s_1 = np.sin(2.0 * sigma_1).reshape((1, 1, 1) + sigma_1.shape)
+    s_2 = np.sin(2.0 * sigma_2).reshape((1, 1, 1) + sigma_1.shape)
+
+    f11 = phase_matrix_compact[:, :, :, :, :, :, 0]
+    f12 = phase_matrix_compact[:, :, :, :, :, :, 1]
+    f22 = phase_matrix_compact[:, :, :, :, :, :, 2]
+    f33 = phase_matrix_compact[:, :, :, :, :, :, 3]
+    f34 = phase_matrix_compact[:, :, :, :, :, :, 4]
+    f44 = phase_matrix_compact[:, :, :, :, :, :, 5]
+
+    phase_matrix_expanded[:, :, :, :, :, :, 0, 0] = f11
+
+    phase_matrix_expanded[:, :, :, :, :, :, 0, 1] = c_1 * f12
+    phase_matrix_expanded[:, :, :, :, :, :, 1, 0] = c_2 * f12
+    phase_matrix_expanded[:, :, :, :, :, :, 1, 1] = c_1 * c_2 * f22 - s_1 * s_2 * f33
+
+    phase_matrix_expanded[:, :, :, :, :, :, 0, 2] = s_1 * f12
+    phase_matrix_expanded[:, :, :, :, :, :, 1, 2] = s_1 * c_2 * f22 + c_1 * s_2 * f33
+    phase_matrix_expanded[:, :, :, :, :, :, 2, 2] = -s_1 * s_2 * f22 + c_1 * c_2 * f33
+    phase_matrix_expanded[:, :, :, :, :, :, 2, 1] = -c_1 * s_2 * f22 - s_1 * c_2 * f33
+    phase_matrix_expanded[:, :, :, :, :, :, 2, 0] = -s_2 * f12
+
+    phase_matrix_expanded[:, :, :, :, :, :, 0, 3] = 0.0
+    phase_matrix_expanded[:, :, :, :, :, :, 1, 3] = s_2 * f34
+    phase_matrix_expanded[:, :, :, :, :, :, 2, 3] = c_2 * f34
+    phase_matrix_expanded[:, :, :, :, :, :, 3, 3] = f44
+    phase_matrix_expanded[:, :, :, :, :, :, 3, 2] = -c_1 * f34
+    phase_matrix_expanded[:, :, :, :, :, :, 3, 1] = s_1 * f34
+    phase_matrix_expanded[:, :, :, :, :, :, 3, 0] = 0.0
+
+    inds = np.where(lon_scat > np.pi)
+    phase_matrix_expanded[:, :, :, inds[0], inds[1], inds[2], 2:, :2] *= -1
+    phase_matrix_expanded[:, :, :, inds[0], inds[1], inds[2], :2, 2:] *= -1
+
+    expand_only = np.where(np.logical_or(np.logical_or(np.isclose(lon_scat, 0.0),
+                                                       np.isclose(lon_scat, np.pi)),
+                                         np.logical_or(np.isclose(scat_angles, 0.0),
+                                                       np.isclose(scat_angles, np.pi))))
+
+    phase_matrix_expanded[:, :, :, expand_only[0], expand_only[1], expand_only[2], :, :] = 0.0
+    phase_matrix_expanded[:, :, :, expand_only[0], expand_only[1], expand_only[2], 0, 0] = f11[:, :, :, expand_only[0], expand_only[1], expand_only[2]]
+    phase_matrix_expanded[:, :, :, expand_only[0], expand_only[1], expand_only[2], 0, 1] = f12[:, :, :, expand_only[0], expand_only[1], expand_only[2]]
+    phase_matrix_expanded[:, :, :, expand_only[0], expand_only[1], expand_only[2], 1, 0] = f12[:, :, :, expand_only[0], expand_only[1], expand_only[2]]
+    phase_matrix_expanded[:, :, :, expand_only[0], expand_only[1], expand_only[2], 1, 1] = f22[:, :, :, expand_only[0], expand_only[1], expand_only[2]]
+    phase_matrix_expanded[:, :, :, expand_only[0], expand_only[1], expand_only[2], 2, 2] = f33[:, :, :, expand_only[0], expand_only[1], expand_only[2]]
+    phase_matrix_expanded[:, :, :, expand_only[0], expand_only[1], expand_only[2], 2, 3] = f34[:, :, :, expand_only[0], expand_only[1], expand_only[2]]
+    phase_matrix_expanded[:, :, :, expand_only[0], expand_only[1], expand_only[2], 3, 2] = -f34[:, :, :, expand_only[0], expand_only[1], expand_only[2]]
+    phase_matrix_expanded[:, :, :, expand_only[0], expand_only[1], expand_only[2], 3, 3] = f44[:, :, :, expand_only[0], expand_only[1], expand_only[2]]
+
+    return phase_matrix_expanded
+
+
+

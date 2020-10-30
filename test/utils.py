@@ -15,18 +15,18 @@ def get_data_azimuthally_random():
 
 RANDOM_DATA_PATH = os.path.join(SCATLIB_TEST_PATH, "data", "random")
 file_1 = os.path.join(RANDOM_DATA_PATH,
-                      "Dmax00191um_Dveq00101um_Mass5.00440e-10kg.nc")
+                      "Dmax00688um_Dveq00361um_Mass2.25360e-08kg.nc")
 particle_random_1 = ParticleFile(file_1)
 file_2 = os.path.join(RANDOM_DATA_PATH,
-                      "Dmax00191um_Dveq00101um_Mass5.00440e-10kg.nc")
+                      "Dmax03369um_Dveq00771um_Mass2.19881e-07kg.nc")
 particle_random_2 = ParticleFile(file_2)
 
 AZIMUTHALLY_RANDOM_DATA_PATH = os.path.join(SCATLIB_TEST_PATH, "data", "azimuthally_random")
 file_1 = os.path.join(AZIMUTHALLY_RANDOM_DATA_PATH,
-                      "Dmax00191um_Dveq00101um_Mass5.00440e-10kg.nc")
+                      "Dmax00590um_Dveq00251um_Mass7.59425e-09kg.nc")
 particle_azimuthally_random_1 = ParticleFile(file_1)
 file_2 = os.path.join(AZIMUTHALLY_RANDOM_DATA_PATH,
-                      "Dmax01014um_Dveq00770um_Mass2.19345e-07kg.nc")
+                      "Dmax04151um_Dveq01257um_Mass9.53208e-07kg.nc")
 particle_azimuthally_random_2 = ParticleFile(file_2)
 
 def harmonic_random_field(n_lon, n_lat, n_components=10):
