@@ -6,7 +6,6 @@ import numpy as np
 import scipy as sp
 from scipy.special import roots_legendre
 from utils import (harmonic_random_field, ScatteringDataBase, get_latitude_grid)
-from reference import scattering_angles, expand_compact_format
 from scatlib.scattering_data_field import (ScatteringDataFieldGridded,
                                            ScatteringDataFieldSpectral,
                                            ScatteringDataFieldFullySpectral)
@@ -323,65 +322,3 @@ class TestScatteringDataFieldRandom:
         i_ref = self.data.scattering_data.integrate_scattering_angles()
         i_1 = data_downsampled_gridded.integrate_scattering_angles()
         assert np.all(np.isclose(i_ref, i_1))
-
-
-    def test_conversion_to_laboratory_frame(self):
-        converted_1 = self.data.scattering_data.to_azimuthally_random(8, 8, 1)
-        converted_2 = self.data.scattering_data.to_azimuthally_random(8, 8, 2)
-        converted_3 = self.data.scattering_data.to_azimuthally_random(8, 8, 3)
-        converted_4 = self.data.scattering_data.to_azimuthally_random(8, 8, 4)
-
-        print(converted_1.get_lon_scat())
-
-        theta = scattering_angles(converted_4.get_lat_inc(),
-                                  converted_4.get_lon_scat(),
-                                  converted_4.get_lat_scat())
-        sd = self.data.scattering_data.interpolate_angles(self.data.lon_inc,
-                                                          self.data.lat_inc,
-                                                          self.data.lon_scat,
-                                                          theta.ravel())
-
-        pm_scat = sd.get_data().reshape((self.data.f_grid.size,
-                                         self.data.t_grid.size,
-                                         self.data.lon_inc.size,
-                                         converted_4.get_lat_inc().size,
-                                         converted_4.get_lon_scat().size,
-                                         converted_4.get_lat_scat().size,
-                                         6))
-        lat_inc = converted_4.get_lat_inc()
-        lon_scat = converted_4.get_lon_scat()
-        lat_scat = converted_4.get_lat_scat()
-        lat_inc, lon_scat, lat_scat = np.meshgrid(lat_inc, lon_scat, lat_scat, indexing="ij")
-        pm_ref = expand_compact_format(lat_inc, lon_scat, lat_scat, theta, pm_scat)
-
-        shape = pm_scat.shape[:-1]
-        converted_1 = converted_1.get_data().reshape(shape + (1, 1))
-        converted_2 = converted_2.get_data().reshape(shape + (2, 2))
-        converted_3 = converted_3.get_data().reshape(shape + (3, 3))
-        converted_4 = converted_4.get_data().reshape(shape + (4, 4))
-
-        assert np.all(np.isclose(pm_ref, converted_4))
-
-        assert np.all(np.isclose(pm_scat[..., 0], converted_4[..., 0, 0]))
-        assert np.all(np.isclose(pm_scat[..., -1], converted_4[..., -1, -1]))
-
-        # Check expansion for different stokes dimensions
-        assert np.all(np.isclose(converted_1, converted_2[..., :1, :1]))
-        assert np.all(np.isclose(converted_1, converted_3[..., :1, :1]))
-        assert np.all(np.isclose(converted_1, converted_4[..., :1, :1]))
-        assert np.all(np.isclose(converted_2, converted_3[..., :2, :2]))
-        assert np.all(np.isclose(converted_2, converted_4[..., :2, :2]))
-        assert np.all(np.isclose(converted_3, converted_4[..., :3, :3]))
-
-        n_lon_scat = converted_4.shape[4]
-        n_2 = n_lon_scat // 2
-        assert np.all(np.isclose(converted_1[:, :, :, :, 1:n_2, :, :],
-                                 converted_1[:, :, :, :, :n_2:-1, :, :]))
-        assert np.all(np.isclose(converted_2[:, :, :, :, 1:n_2, :, :],
-                                 converted_2[:, :, :, :, :n_2:-1, :, :]))
-        assert np.all(np.isclose(converted_4[:, :, :, :, 1:n_2, :, 2:, 2:],
-                                 converted_4[:, :, :, :, :n_2:-1, :, 2:, 2:]))
-        assert np.all(np.isclose(converted_4[:, :, :, :, 1:n_2, :, :2, 2:],
-                                 -converted_4[:, :, :, :, :n_2:-1, :, :2, 2:]))
-        assert np.all(np.isclose(converted_4[:, :, :, :, 1:n_2, :, 2:, :2],
-                                 -converted_4[:, :, :, :, :n_2:-1, :, 2:, :2]))

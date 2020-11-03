@@ -551,6 +551,21 @@ auto colatitudes(const Vector<Scalar>& input) {
     return input.unaryExpr([](Scalar x) { return -1.0 * cos(x);});
 }
 
+template<Index n, typename TensorType>
+std::array<Index, n> get_dimensions(const TensorType &t) {
+    std::array<Index, n> result{};
+    for (Index i = 0; i < n; ++i) {
+        std::cout << "n : " << i << " / " << n <<  " // " << (i < n) << std::endl;
+        if (i < TensorType::NumIndices) {
+            result[i] = t.dimension(i);
+        } else {
+            result[i] = 0;
+        }
+    }
+    return result;
+}
+
+
 }  // namespace eigen
 }  // namespace scatlib
 

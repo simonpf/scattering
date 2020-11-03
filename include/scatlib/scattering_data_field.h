@@ -9,7 +9,6 @@
 #define __SCATLIB_SCATTERING_DATA_FIELD__
 
 #include <scatlib/eigen.h>
-#include <scatlib/stokes.h>
 #include <scatlib/integration.h>
 #include <scatlib/interpolation.h>
 #include <scatlib/sht.h>
@@ -76,7 +75,7 @@ class ScatteringDataFieldBase {
         n_lat_scat_(n_lat_scat),
         type_(determine_type(n_lon_inc, n_lat_inc, n_lon_scat, n_lat_scat)) {}
 
-  DataType get_type() const { return type_; }
+  DataType get_data_type() const { return type_; }
 
  protected:
   Index n_freqs_;
@@ -105,10 +104,10 @@ class ScatteringDataFieldBase {
  *     5: Scattering azimuth angle
  *     6: Scattering zenith angle
  */
-template <typename Scalar>
+template <typename Scalar_>
 class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
  public:
-  using ScatteringDataFieldBase::get_type;
+  using ScatteringDataFieldBase::get_data_type;
   using ScatteringDataFieldBase::n_freqs_;
   using ScatteringDataFieldBase::n_lat_inc_;
   using ScatteringDataFieldBase::n_lat_scat_;
@@ -117,6 +116,8 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   using ScatteringDataFieldBase::n_temps_;
   using ScatteringDataFieldBase::type_;
 
+  using Scalar = Scalar_;
+  using Coefficient = Scalar;
   using Vector = eigen::Vector<Scalar>;
   using VectorMap = eigen::VectorMap<Scalar>;
   using VectorPtr = std::shared_ptr<const eigen::Vector<Scalar>>;
@@ -136,6 +137,9 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   using ConstTensorMap = eigen::ConstTensorMap<Scalar, rank>;
   using DataTensor = eigen::Tensor<Scalar, 7>;
   using DataTensorPtr = std::shared_ptr<DataTensor>;
+
+  static constexpr Index coeff_dim = 6;
+  static constexpr Index rank = 7;
 
   // pxx :: hide
   /** Create gridded scattering data field.
@@ -271,6 +275,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   Index get_n_lat_inc() const { return lat_inc_->size(); }
   Index get_n_lon_scat() const { return lon_scat_->size(); }
   Index get_n_lat_scat() const { return lat_scat_->size(); }
+  Index get_n_coeffs() const { return data_->dimension(6); }
 
   std::array<Index, 4> get_sht_scat_params() const {
     return sht::SHT::get_params(n_lon_scat_, n_lat_scat_);
@@ -650,101 +655,6 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
     return to_spectral(std::get<0>(sht_params), std::get<1>(sht_params));
   }
 
-  ScatteringDataFieldGridded to_azimuthally_random(Index n_lat_inc,
-                                                   Index n_lon_scat,
-                                                   Index stokes_dimension) {
-    if ((n_lat_inc_ > 1) || (n_lon_scat_ > 1)) {
-      return copy();
-    }
-    auto lon_scat_new =
-        std::make_shared<Vector>(sht::SHT::get_longitude_grid(n_lon_scat));
-    auto lat_scat_new =
-        std::make_shared<Vector>(sht::SHT::get_latitude_grid(n_lon_scat));
-    auto lat_inc_new =
-        std::make_shared<Vector>(sht::SHT::get_latitude_grid(n_lat_inc));
-    auto scat_ang_new = Vector(n_lat_inc * n_lon_scat * n_lon_scat);
-    eigen::MatrixFixedRows<Scalar, 4> rotation_coeffs{
-        n_lat_inc * n_lon_scat * n_lon_scat,
-        4};
-
-    Index index = 0;
-    for (Index i = 0; i < n_lat_inc; ++i) {
-      for (Index j = 0; j < n_lon_scat; ++j) {
-        for (Index k = 0; k < n_lon_scat; ++k) {
-          auto lat_inc = lat_inc_new->operator[](i);
-          auto lon_scat = lon_scat_new->operator[](j);
-          auto lat_scat = lat_scat_new->operator[](k);
-          auto coeffs =
-              stokes::rotation_coefficients(0.0, lat_inc, lon_scat, lat_scat);
-          scat_ang_new[index] = coeffs[0];
-          rotation_coeffs(index, 0) = coeffs[1];
-          rotation_coeffs(index, 1) = coeffs[2];
-          rotation_coeffs(index, 2) = coeffs[3];
-          rotation_coeffs(index, 3) = coeffs[4];
-          index += 1;
-        }
-      }
-    }
-
-    // Interpolate data to scattering angles.
-    using Regridder = RegularRegridder<Scalar, 5>;
-    Regridder regridder({*lat_scat_}, {scat_ang_new});
-    eigen::IndexArray<7> dimensions_interp =
-        {n_freqs_, n_temps_, 1, n_lat_inc, n_lon_scat, n_lon_scat, 6};
-    auto data_interp = regridder.regrid(*data_);
-    data_interp.resize(dimensions_interp);
-
-    Index stokes_dimension_in = 4;
-    if (data_->dimension(6) <= 1) {
-      stokes_dimension_in = 1;
-    } else if (data_->dimension(6) <= 4) {
-      stokes_dimension_in = 2;
-    }
-    stokes_dimension = std::min(stokes_dimension_in, stokes_dimension);
-
-    // Tensor to hold results.
-    eigen::IndexArray<7> dimensions_new = {n_freqs_,
-                                           n_temps_,
-                                           1,
-                                           n_lat_inc,
-                                           n_lon_scat,
-                                           n_lon_scat,
-                                           stokes_dimension * stokes_dimension};
-    auto data_new = std::make_shared<DataTensor>(dimensions_new);
-
-    if (stokes_dimension == 1) {
-      stokes::CompactFormat<1>::expand_and_transform(*data_new,
-                                                     data_interp,
-                                                     scat_ang_new,
-                                                     *lon_scat_new,
-                                                     rotation_coeffs);
-    } else if (stokes_dimension == 2) {
-      stokes::CompactFormat<2>::expand_and_transform(*data_new,
-                                                     data_interp,
-                                                     scat_ang_new,
-                                                     *lon_scat_new,
-                                                     rotation_coeffs);
-    } else if (stokes_dimension == 3) {
-      stokes::CompactFormat<3>::expand_and_transform(*data_new,
-                                                     data_interp,
-                                                     scat_ang_new,
-                                                     *lon_scat_new,
-                                                     rotation_coeffs);
-    } else {
-      stokes::CompactFormat<4>::expand_and_transform(*data_new,
-                                                     data_interp,
-                                                     scat_ang_new,
-                                                     *lon_scat_new,
-                                                     rotation_coeffs);
-    }
-    return ScatteringDataFieldGridded<Scalar>(f_grid_,
-                                              t_grid_,
-                                              lon_inc_,
-                                              lat_inc_new,
-                                              lon_scat_new,
-                                              lat_scat_new,
-                                              data_new);
-  }
 
   /// The data tensor containing the scattering data.
   const DataTensor &get_data() const { return *data_; }
@@ -778,10 +688,10 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
  * Represents scattering data where the scattering-angle dependency is
  * represented using SH-coefficients.
  */
-template <typename Scalar>
+template <typename Scalar_>
 class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
  public:
-  using ScatteringDataFieldBase::get_type;
+  using ScatteringDataFieldBase::get_data_type;
   using ScatteringDataFieldBase::n_freqs_;
   using ScatteringDataFieldBase::n_lat_inc_;
   using ScatteringDataFieldBase::n_lat_scat_;
@@ -790,6 +700,8 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   using ScatteringDataFieldBase::n_temps_;
   using ScatteringDataFieldBase::type_;
 
+  using Scalar = Scalar_;
+  using Coefficient = std::complex<Scalar>;
   using Vector = eigen::Vector<Scalar>;
   using VectorMap = eigen::VectorMap<Scalar>;
   using VectorPtr = std::shared_ptr<const eigen::Vector<Scalar>>;
@@ -807,6 +719,9 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   using ConstCmplxTensorMap = eigen::ConstTensorMap<std::complex<Scalar>, rank>;
   using DataTensor = eigen::Tensor<std::complex<Scalar>, 6>;
   using DataTensorPtr = std::shared_ptr<DataTensor>;
+
+  static constexpr Index coeff_dim = 6;
+  static constexpr Index rank = 7;
 
   // pxx :: hide
   /** Create scattering data field.
@@ -939,6 +854,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   Index get_n_lat_inc() const { return lat_inc_->size(); }
   Index get_n_lon_scat() const { return sht_scat_->get_n_longitudes(); }
   Index get_n_lat_scat() const { return sht_scat_->get_n_latitudes(); }
+  Index get_n_coeffs() const { return data_->dimension(5); }
 
   std::array<Index, 4> get_sht_inc_params() const {
     return sht::SHT::get_params(n_lon_inc_, n_lat_inc_);
@@ -1268,10 +1184,13 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   sht::SHT &get_sht_scat() const { return *sht_scat_; }
 
  protected:
+
   VectorPtr f_grid_;
   VectorPtr t_grid_;
   VectorPtr lon_inc_;
   VectorPtr lat_inc_;
+  VectorPtr lon_scat_;
+  VectorPtr lat_scat_;
   ShtPtr sht_scat_;
 
   ConstVectorMap f_grid_map_;
@@ -1296,7 +1215,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
 template <typename Scalar>
 class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
  public:
-  using ScatteringDataFieldBase::get_type;
+  using ScatteringDataFieldBase::get_data_type;
   using ScatteringDataFieldBase::n_freqs_;
   using ScatteringDataFieldBase::n_lat_inc_;
   using ScatteringDataFieldBase::n_lat_scat_;
@@ -1441,6 +1360,7 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
   Index get_n_lat_inc() const { return sht_inc_->get_n_latitudes(); }
   Index get_n_lon_scat() const { return sht_scat_->get_n_longitudes(); }
   Index get_n_lat_scat() const { return sht_scat_->get_n_latitudes(); }
+  Index get_n_coeffs() const { return data_->dimension(4); }
 
   /** Set scattering data for given frequency and temperature index.
    *
