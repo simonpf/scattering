@@ -118,11 +118,11 @@ class TestSingleScatteringDataRandom:
 
                 assert np.all(np.isclose(sd_ref.get_phase_matrix_data(),
                                          sd.get_phase_matrix_data()))
-                assert np.all(np.isclose(sd_ref.get_extinction_matrix(),
-                                         sd.get_extinction_matrix()))
+                assert np.all(np.isclose(sd_ref.get_extinction_matrix_data(),
+                                         sd.get_extinction_matrix_data()))
 
-                assert np.all(np.isclose(sd_ref.get_absorption_vector(),
-                                         sd.get_absorption_vector()))
+                assert np.all(np.isclose(sd_ref.get_absorption_vector_data(),
+                                         sd.get_absorption_vector_data()))
                 assert np.all(np.isclose(sd_ref.get_forward_scattering_coeff(),
                                          sd.get_forward_scattering_coeff()))
                 assert np.all(np.isclose(sd_ref.get_backward_scattering_coeff(),
@@ -142,10 +142,10 @@ class TestSingleScatteringDataRandom:
 
                 assert np.all(np.isclose(sd_ref.get_phase_matrix_data(),
                                          sd.get_phase_matrix_data()))
-                assert np.all(np.isclose(sd_ref.get_extinction_matrix(),
-                                         sd.get_extinction_matrix()))
-                assert np.all(np.isclose(sd_ref.get_absorption_vector(),
-                                         sd.get_absorption_vector()))
+                assert np.all(np.isclose(sd_ref.get_extinction_matrix_data(),
+                                         sd.get_extinction_matrix_data()))
+                assert np.all(np.isclose(sd_ref.get_absorption_vector_data(),
+                                         sd.get_absorption_vector_data()))
                 assert np.all(np.isclose(sd_ref.get_forward_scattering_coeff(),
                                          sd.get_forward_scattering_coeff()))
                 assert np.all(np.isclose(sd_ref.get_backward_scattering_coeff(),
@@ -193,9 +193,26 @@ class TestSingleScatteringDataRandom:
 
     def test_conversion_to_laboratory_frame(self):
         converted_1 = self.data.to_lab_frame(16, 16, 1)
+
+
         converted_2 = self.data.to_lab_frame(16, 16, 2)
+        copy = self.data.copy()
+        copy.set_stokes_dim(2)
+        converted_2_copy = copy.to_lab_frame(16, 16, 2)
+        return converted_2.get_phase_matrix_data(), converted_2_copy.get_phase_matrix_data())
+        assert np.all(np.isclose(converted_2.get_phase_matrix_data(),
+                                 converted_2_copy.get_phase_matrix_data()))
+
         converted_3 = self.data.to_lab_frame(16, 16, 3)
+        copy = self.data.copy()
+        copy.set_stokes_dim(3)
+        assert np.all(np.isclose(converted_3.get_phase_matrix_data(),
+                                 converted_3_copy.get_phase_matrix_data()))
+
+        converted_3_copy = copy.to_lab_frame(16, 16, 3)
         converted_4 = self.data.to_lab_frame(16, 16, 4)
+        assert np.all(np.isclose(converted_4.get_phase_matrix_data(),
+                                 converted_4_copy.get_phase_matrix_data()))
 
         print(converted_1.get_lon_scat())
 
@@ -256,6 +273,27 @@ class TestSingleScatteringDataRandom:
         phase_function = self.data.get_phase_function()
         phase_matrix_data = self.data.get_phase_matrix_data()
         assert np.all(np.isclose(phase_function, phase_matrix_data[..., 0]))
+
+    def test_absorption_vector(self):
+        absorption_vector = self.data.get_absorption_vector(4)
+        absorption_vector_data = self.data.get_absorption_vector_data()
+
+        assert absorption_vector.shape[-1] == 4
+        assert np.all(np.isclose(absorption_vector[..., 0],
+                                 absorption_vector_data[..., 0]))
+
+    def test_extinction_matrix(self):
+        extinction_matrix = self.data.get_extinction_matrix(4)
+        extinction_matrix_data = self.data.get_extinction_matrix_data()
+
+        assert extinction_matrix.shape[-1] == 4
+        assert extinction_matrix.shape[-2] == 4
+        for i in range(4):
+            for j in range(4):
+                if i != j:
+                    assert np.all(np.isclose(extinction_matrix[..., i, j], 0.0))
+            assert np.all(np.isclose(extinction_matrix[..., i, i],
+                                     extinction_matrix_data[..., 0]))
 
 
 def particle_to_single_scattering_data_azimuthally_random(particle_data,
@@ -369,10 +407,10 @@ class TestSingleScatteringDataAzimuthallyRandom:
                     return sd, sd_ref
                 assert np.all(np.isclose(sd_ref.get_phase_matrix_data(),
                                          sd.get_phase_matrix_data()))
-                assert np.all(np.isclose(sd_ref.get_extinction_matrix(),
-                                         sd.get_extinction_matrix()))
-                assert np.all(np.isclose(sd_ref.get_absorption_vector(),
-                                         sd.get_absorption_vector()))
+                assert np.all(np.isclose(sd_ref.get_extinction_matrix_data(),
+                                         sd.get_extinction_matrix_data()))
+                assert np.all(np.isclose(sd_ref.get_absorption_vector_data(),
+                                         sd.get_absorption_vector_data()))
                 assert np.all(np.isclose(sd_ref.get_forward_scattering_coeff(),
                                          sd.get_forward_scattering_coeff()))
                 assert np.all(np.isclose(sd_ref.get_backward_scattering_coeff(),
@@ -395,10 +433,10 @@ class TestSingleScatteringDataAzimuthallyRandom:
 
                 assert np.all(np.isclose(sd_ref.get_phase_matrix_data(),
                                          sd.get_phase_matrix_data()))
-                assert np.all(np.isclose(sd_ref.get_extinction_matrix(),
-                                         sd.get_extinction_matrix()))
-                assert np.all(np.isclose(sd_ref.get_absorption_vector(),
-                                         sd.get_absorption_vector()))
+                assert np.all(np.isclose(sd_ref.get_extinction_matrix_data(),
+                                         sd.get_extinction_matrix_data()))
+                assert np.all(np.isclose(sd_ref.get_absorption_vector_data(),
+                                         sd.get_absorption_vector_data()))
                 assert np.all(np.isclose(sd_ref.get_forward_scattering_coeff(),
                                          sd.get_forward_scattering_coeff()))
                 assert np.all(np.isclose(sd_ref.get_backward_scattering_coeff(),
@@ -455,3 +493,43 @@ class TestSingleScatteringDataAzimuthallyRandom:
         assert np.all(np.isclose(lat_inc_ref, lat_inc))
         assert np.all(np.isclose(lat_scat_ref, lat_scat))
         assert np.all(np.isclose(lon_scat_ref, lon_scat))
+
+    def test_scattering_matrix(self):
+        scattering_matrix = self.data.get_scattering_matrix(4)
+        assert scattering_matrix.shape[-2] == 4
+        assert scattering_matrix.shape[-1] == 4
+
+    def test_absorption_vector(self):
+        absorption_vector = self.data.get_absorption_vector(4)
+        absorption_vector_data = self.data.get_absorption_vector_data()
+
+        assert absorption_vector.shape[-1] == 4
+        assert np.all(np.isclose(absorption_vector[..., 0],
+                                 absorption_vector_data[..., 0]))
+        assert np.all(np.isclose(absorption_vector[..., 1],
+                                 absorption_vector_data[..., 1]))
+        assert np.all(np.isclose(absorption_vector[..., 2], 0.0))
+        assert np.all(np.isclose(absorption_vector[..., 3], 0.0))
+
+    def test_extinction_matrix(self):
+        extinction_matrix = self.data.get_extinction_matrix(4)
+        extinction_matrix_data = self.data.get_extinction_matrix_data()
+
+        assert extinction_matrix.shape[-1] == 4
+        assert extinction_matrix.shape[-2] == 4
+        for i in range(4):
+            assert np.all(np.isclose(extinction_matrix[..., i, i],
+                                     extinction_matrix_data[..., 0]))
+
+        assert np.all(np.isclose(extinction_matrix[..., 0, 1],
+                                 extinction_matrix_data[..., 1]))
+        assert np.all(np.isclose(extinction_matrix[..., 1, 0],
+                                 extinction_matrix_data[..., 1]))
+        assert np.all(np.isclose(extinction_matrix[..., 2, 3],
+                                 extinction_matrix_data[..., 2]))
+        assert np.all(np.isclose(extinction_matrix[..., 3, 2],
+                                 -extinction_matrix_data[..., 2]))
+
+test = TestSingleScatteringDataRandom()
+test.setup_method()
+m1, m2 = test.test_conversion_to_laboratory_frame()

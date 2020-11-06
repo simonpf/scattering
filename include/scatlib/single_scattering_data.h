@@ -126,10 +126,11 @@ class SingleScatteringDataImpl {
   virtual eigen::Vector<double> get_lon_scat() = 0;
   virtual eigen::Vector<double> get_lat_scat() = 0;
 
-  virtual eigen::Index get_n_lon_inc() = 0;
-  virtual eigen::Index get_n_lat_inc() = 0;
-  virtual eigen::Index get_n_lon_scat() = 0;
-  virtual eigen::Index get_n_lat_scat() = 0;
+  virtual eigen::Index get_n_lon_inc() const = 0;
+  virtual eigen::Index get_n_lat_inc() const = 0;
+  virtual eigen::Index get_n_lon_scat() const = 0;
+  virtual eigen::Index get_n_lat_scat() const = 0;
+  virtual eigen::Index get_stokes_dim() const = 0;
 
   // Data access.
   virtual eigen::Tensor<double, 6> get_phase_function() const = 0;
@@ -177,6 +178,9 @@ class SingleScatteringDataImpl {
   virtual SingleScatteringDataImpl *to_lab_frame(Index n_lat_inc,
                                                  Index n_lon_scat,
                                                  Index stokes_dimensions) = 0;
+
+  virtual void set_stokes_dim(Index stokes_dim) = 0;
+
 
   // Conversion operators
   // virtual operator SingleScatteringDataGridded<float>() = 0;
@@ -341,10 +345,11 @@ class SingleScatteringData {
   eigen::Vector<double> get_lon_scat() { return data_->get_lon_scat(); }
   eigen::Vector<double> get_lat_scat() { return data_->get_lat_scat(); }
 
-  eigen::Index get_n_lon_inc() { return data_->get_n_lon_inc(); }
-  eigen::Index get_n_lat_inc() { return data_->get_n_lon_inc(); }
-  eigen::Index get_n_lon_scat() { return data_->get_n_lon_inc(); }
-  eigen::Index get_n_lat_scat() { return data_->get_n_lon_inc(); }
+  eigen::Index get_n_lon_inc() const { return data_->get_n_lon_inc(); }
+  eigen::Index get_n_lat_inc() const { return data_->get_n_lat_inc(); }
+  eigen::Index get_n_lon_scat() const { return data_->get_n_lon_scat(); }
+  eigen::Index get_n_lat_scat() const { return data_->get_n_lat_scat(); }
+  eigen::Index get_stokes_dim() const { return data_->get_stokes_dim(); }
 
   void set_data(Index f_index,
                 Index t_index,
@@ -427,8 +432,8 @@ class SingleScatteringData {
   }
 
   // Data access.
-  eigen::Tensor<double, 5> get_phase_function_spectral() const {
-      return data_->get_phase_function();
+  eigen::Tensor<std::complex<double>, 5> get_phase_function_spectral() const {
+      return data_->get_phase_function_spectral();
   }
 
   eigen::Tensor<double, 8> get_scattering_matrix(Index stokes_dim) const {
@@ -439,7 +444,7 @@ class SingleScatteringData {
       return data_->get_phase_matrix_data();
   }
 
-  eigen::Tensor<std::complex<double>, 8> get_phase_matrix_data_spectral() const {
+  eigen::Tensor<std::complex<double>, 6> get_phase_matrix_data_spectral() const {
       return data_->get_phase_matrix_data_spectral();
   }
 
@@ -511,6 +516,8 @@ class SingleScatteringData {
                                     Index stokes_dimension) {
     return data_->to_lab_frame(n_lat_inc, n_lon_scat, stokes_dimension);
   }
+
+  void set_stokes_dim(Index stokes_dim) { data_->set_stokes_dim(stokes_dim); }
 
  private:
   std::shared_ptr<SingleScatteringDataImpl> data_;
@@ -629,10 +636,11 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
   eigen::Vector<double> get_lon_scat() { return phase_matrix_.get_lon_scat(); }
   eigen::Vector<double> get_lat_scat() { return phase_matrix_.get_lat_scat(); }
 
-  eigen::Index get_n_lon_inc() { return phase_matrix_.get_n_lon_inc(); }
-  eigen::Index get_n_lat_inc() { return phase_matrix_.get_n_lon_inc(); }
-  eigen::Index get_n_lon_scat() { return phase_matrix_.get_n_lon_inc(); }
-  eigen::Index get_n_lat_scat() { return phase_matrix_.get_n_lon_inc(); }
+  eigen::Index get_n_lon_inc() const { return phase_matrix_.get_n_lon_inc(); }
+  eigen::Index get_n_lat_inc() const { return phase_matrix_.get_n_lat_inc(); }
+  eigen::Index get_n_lon_scat() const { return phase_matrix_.get_n_lon_scat(); }
+  eigen::Index get_n_lat_scat() const { return phase_matrix_.get_n_lat_scat(); }
+  eigen::Index get_stokes_dim() const { return phase_matrix_.get_stokes_dim(); }
 
   void set_data(Index f_index,
                 Index t_index,
@@ -684,7 +692,6 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
   }
 
   eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
-      std::cout << "FUCK YOU!" << std::endl;
     return extinction_matrix_.get_extinction_matrix(stokes_dim);
   }
 
@@ -845,8 +852,6 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
 
   void normalize(Scalar norm) {
       phase_matrix_.normalize(norm);
-      std::cout << "phase mat integrals: " << std::endl;
-      std::cout << phase_matrix_.integrate_scattering_angles() << std::endl;
   }
 
   void set_number_of_scattering_coeffs(Index n) {
@@ -886,6 +891,12 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
                                            absorption_vector_,
                                            backward_scattering_coeff_,
                                            forward_scattering_coeff_);
+  }
+
+  void set_stokes_dim(Index stokes_dim) {
+    phase_matrix_.set_stokes_dim(stokes_dim);
+    extinction_matrix_.set_stokes_dim(stokes_dim);
+    absorption_vector_.set_stokes_dim(stokes_dim);
   }
 
   // explicit operator SingeScatteringDataSpectral();
@@ -1014,10 +1025,11 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
   eigen::Vector<double> get_lon_scat() { return phase_matrix_.get_lon_scat(); }
   eigen::Vector<double> get_lat_scat() { return phase_matrix_.get_lat_scat(); }
 
-  eigen::Index get_n_lon_inc() { return phase_matrix_.get_n_lon_inc(); }
-  eigen::Index get_n_lat_inc() { return phase_matrix_.get_n_lon_inc(); }
-  eigen::Index get_n_lon_scat() { return phase_matrix_.get_n_lon_inc(); }
-  eigen::Index get_n_lat_scat() { return phase_matrix_.get_n_lon_inc(); }
+  eigen::Index get_n_lon_inc() const { return phase_matrix_.get_n_lon_inc(); }
+  eigen::Index get_n_lat_inc() const { return phase_matrix_.get_n_lat_inc(); }
+  eigen::Index get_n_lon_scat() const { return phase_matrix_.get_n_lon_scat(); }
+  eigen::Index get_n_lat_scat() const { return phase_matrix_.get_n_lat_scat(); }
+  eigen::Index get_stokes_dim() const { return phase_matrix_.get_stokes_dim(); }
 
   void set_data(Index f_index,
                 Index t_index,
@@ -1284,6 +1296,12 @@ eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
                                               absorption_vector_,
                                               backward_scattering_coeff_,
                                               forward_scattering_coeff_);
+  }
+
+  void set_stokes_dim(Index stokes_dim) {
+      phase_matrix_.set_stokes_dim(stokes_dim);
+      extinction_matrix_.set_stokes_dim(stokes_dim);
+      absorption_vector_.set_stokes_dim(stokes_dim);
   }
   // explicit operator SingeScatteringDataSpectral();
   // explicit operator SingeScatteringDataFullySpectral();

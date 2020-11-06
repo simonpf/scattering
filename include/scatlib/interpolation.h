@@ -733,10 +733,23 @@ eigen::Tensor<typename TensorType::Scalar, TensorType::NumIndices> downsample_di
     right = right_limit;
     dx += (right - left);
     integral += 0.5 * (right - left) * (left_value + right_value);
-    if (dx != 0.0) {
-        result.template chip<rank>(i) = 1.0 / dx * integral;
+    if (i == 0) {
+      if (n == 1) {
+        dx = limits[1] - limits[0];
+      } else {
+        dx = output_grid[0] - limits[0] +
+             0.5 * (output_grid[1] - output_grid[0]);
+      }
+    } else if (i < n - 1) {
+      dx = 0.5 * (output_grid[i + 1] - output_grid[i - 1]);
     } else {
-        result.template chip<rank>(i) = integral.setZero();
+      dx = limits[i + 1] - output_grid[i] +
+           0.5 * (output_grid[i] - output_grid[i - 1]);
+    }
+    if (dx != 0.0) {
+      result.template chip<rank>(i) = 1.0 / dx * integral;
+    } else {
+      result.template chip<rank>(i) = integral.setZero();
     }
   }
 

@@ -220,7 +220,7 @@ class FejerQuadrature {
 
       // Calculate nodes.
       for (long int i = 0; i < n; i++) {
-          nodes_[i] = cos(M_PI * (i + 0.5) / n);
+          nodes_[i] = cos(M_PI * (static_cast<double>(i) + 0.5) / static_cast<double>(n));
       }
   }
 

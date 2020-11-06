@@ -337,8 +337,6 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
    */
   ScatteringDataFieldGridded interpolate_frequency(
       std::shared_ptr<Vector> frequencies) const {
-      std::cout << "f_grid: " << *f_grid_ << std::endl;
-      std::cout << "freqs: " << *frequencies << std::endl;
     using Regridder = RegularRegridder<Scalar, 0>;
     Regridder regridder({*f_grid_}, {*frequencies});
     auto dimensions_new = data_->dimensions();
@@ -431,15 +429,18 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   // pxx :: hide
   ScatteringDataFieldGridded downsample_scattering_angles(VectorPtr lon_scat_new,
                                                           VectorPtr lat_scat_new) const {
-      if (n_lat_scat_ == 1) {
-          return copy();
-      }
-      eigen::Index n_lon = lon_scat_new->size();
-      eigen::Index m_max = (n_lon + n_lon % 2 - 2) / 2;
-      eigen::Index n_lat = std::max<eigen::Index>(lat_scat_new->size(), 32);
-      eigen::Index l_max = (n_lat + n_lat % 2 - 2) / 2;
-      auto spectral = to_spectral(l_max, m_max);
-      return spectral.to_gridded(std::max<eigen::Index>(n_lon - n_lon % 2, 1), n_lat - n_lat % 2);
+      auto data_downsampled = downsample_dimension<4>(*data_, *lon_scat_, *lon_scat_new, 0.0, 2.0 * M_PI);
+
+      Vector colatitudes_new = -lat_scat_new->array().cos();
+      Vector colatitudes_old = -lat_scat_->array().cos();
+      data_downsampled = downsample_dimension<5>(data_downsampled, colatitudes_old, colatitudes_new, -1.0, 1.0);
+      return ScatteringDataFieldGridded(f_grid_,
+                                        t_grid_,
+                                        lon_inc_,
+                                        lat_inc_,
+                                        lon_scat_new,
+                                        lat_scat_new,
+                                        std::make_shared<DataTensor>(data_downsampled));
   }
 
   /** Reduce angular resolution of scattering data by downsampling.
@@ -720,8 +721,8 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   using DataTensor = eigen::Tensor<std::complex<Scalar>, 6>;
   using DataTensorPtr = std::shared_ptr<DataTensor>;
 
-  static constexpr Index coeff_dim = 6;
-  static constexpr Index rank = 7;
+  static constexpr Index coeff_dim = 5;
+  static constexpr Index rank = 6;
 
   // pxx :: hide
   /** Create scattering data field.
