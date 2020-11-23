@@ -10,5 +10,5 @@ configure_file(test_single_scattering_data.py test_single_scattering_data.py COP
 configure_file(test_scattering_data_field_random.py test_scattering_data_field_random.py COPYONLY)
 configure_file(test_scattering_data_field_azimuthally_random.py test_scattering_data_field_azimuthally_random.py COPYONLY)
 configure_file(test_arts_ssdb.py test_arts_ssdb.py COPYONLY)
-configure_file(test_particle_model.py test_particle_model.py COPYONLY)
+configure_file(test_particle_habit.py test_particle_habit.py COPYONLY)
 configure_file(test_integration.py test_integration.py COPYONLY)

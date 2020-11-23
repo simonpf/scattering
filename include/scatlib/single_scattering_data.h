@@ -104,21 +104,21 @@ class SingleScatteringDataImpl {
                         Index t_index,
                         const SingleScatteringDataImpl &) = 0;
 
-  virtual SingleScatteringDataImpl *copy() = 0;
+  virtual SingleScatteringDataImpl *copy() const = 0;
 
   // Interpolation functions
   virtual SingleScatteringDataImpl *interpolate_frequency(
-      eigen::VectorPtr<double> frequencies) = 0;
+      eigen::VectorPtr<double> frequencies) const = 0;
   virtual SingleScatteringDataImpl *interpolate_temperature(
-      eigen::VectorPtr<double> temperatures) = 0;
+      eigen::VectorPtr<double> temperatures) const = 0;
   virtual SingleScatteringDataImpl *interpolate_angles(
       eigen::VectorPtr<double> lon_inc,
       eigen::VectorPtr<double> lat_inc,
       eigen::VectorPtr<double> lon_scat,
-      eigen::VectorPtr<double> lat_scat) = 0;
+      eigen::VectorPtr<double> lat_scat) const = 0;
   virtual SingleScatteringDataImpl *downsample_scattering_angles(
       eigen::VectorPtr<double> lon_scat,
-      eigen::VectorPtr<double> lat_scat) = 0;
+      eigen::VectorPtr<double> lat_scat) const = 0;
   virtual eigen::Vector<double> get_f_grid() = 0;
   virtual eigen::Vector<double> get_t_grid() = 0;
   virtual eigen::Vector<double> get_lon_inc() = 0;
@@ -157,11 +157,11 @@ class SingleScatteringDataImpl {
 
   // Scaling
   virtual void operator*=(double c) = 0;
-  virtual SingleScatteringDataImpl *operator*(double c) = 0;
+  virtual SingleScatteringDataImpl *operator*(double c) const = 0;
   virtual void normalize(double norm) = 0;
 
   // Regridding
-  virtual SingleScatteringDataImpl *regrid() = 0;
+  virtual SingleScatteringDataImpl *regrid() const = 0;
 
   virtual void set_number_of_scattering_coeffs(Index n) = 0;
 
@@ -175,9 +175,15 @@ class SingleScatteringDataImpl {
   virtual detail::ConversionPtr<const SingleScatteringDataSpectral<double>>
   to_spectral() const = 0;
 
+  // pxx :: hide
+  virtual SingleScatteringDataImpl *to_lab_frame(std::shared_ptr<eigen::Vector<double>> lat_inc,
+                                                 std::shared_ptr<eigen::Vector<double>> lon_scat,
+                                                 std::shared_ptr<eigen::Vector<double>> lat_scat,
+                                                 Index stokes_dimensions) const = 0;
+
   virtual SingleScatteringDataImpl *to_lab_frame(Index n_lat_inc,
                                                  Index n_lon_scat,
-                                                 Index stokes_dimensions) = 0;
+                                                 Index stokes_dimensions) const = 0;
 
   virtual void set_stokes_dim(Index stokes_dim) = 0;
 
@@ -360,27 +366,27 @@ class SingleScatteringData {
   // Interpolation functions
 
   SingleScatteringData interpolate_frequency(
-      eigen::Vector<double> frequencies) {
+      eigen::Vector<double> frequencies) const {
     auto result = data_->interpolate_frequency(
         std::make_shared<eigen::Vector<double>>(frequencies));
     return SingleScatteringData(std::move(result));
   }
   // pxx :: hide
   SingleScatteringData interpolate_frequency(
-      std::shared_ptr<eigen::Vector<double>> frequencies) {
+      std::shared_ptr<eigen::Vector<double>> frequencies) const {
       auto result = data_->interpolate_frequency(frequencies);
       return SingleScatteringData(std::move(result));
   }
 
   SingleScatteringData interpolate_temperature(
-      eigen::Vector<double> temperatures) {
+      eigen::Vector<double> temperatures) const {
     auto result = data_->interpolate_temperature(
         std::make_shared<eigen::Vector<double>>(temperatures));
     return SingleScatteringData(std::move(result));
   }
   // pxx :: hide
   SingleScatteringData interpolate_temperature(
-      std::shared_ptr<eigen::Vector<double>> temperatures) {
+      std::shared_ptr<eigen::Vector<double>> temperatures) const {
       auto result = data_->interpolate_temperature(temperatures);
       return SingleScatteringData(std::move(result));
   }
@@ -388,7 +394,7 @@ class SingleScatteringData {
   SingleScatteringData interpolate_angles(eigen::Vector<double> lon_inc,
                                           eigen::Vector<double> lat_inc,
                                           eigen::Vector<double> lon_scat,
-                                          eigen::Vector<double> lat_scat) {
+                                          eigen::Vector<double> lat_scat) const {
     auto result = data_->interpolate_angles(
         std::make_shared<eigen::Vector<double>>(lon_inc),
         std::make_shared<eigen::Vector<double>>(lat_inc),
@@ -401,7 +407,7 @@ class SingleScatteringData {
   SingleScatteringData interpolate_angles(std::shared_ptr<eigen::Vector<double>> lon_inc,
                                           std::shared_ptr<eigen::Vector<double>> lat_inc,
                                           std::shared_ptr<eigen::Vector<double>> lon_scat,
-                                          std::shared_ptr<eigen::Vector<double>> lat_scat) {
+                                          std::shared_ptr<eigen::Vector<double>> lat_scat) const {
       auto result = data_->interpolate_angles(lon_inc,
                                               lat_inc,
                                               lon_scat,
@@ -410,7 +416,7 @@ class SingleScatteringData {
   }
 
   SingleScatteringData downsample_scattering_angles(eigen::Vector<double> lon_scat,
-                                                    eigen::Vector<double> lat_scat) {
+                                                    eigen::Vector<double> lat_scat) const {
     auto result = data_->downsample_scattering_angles(
         std::make_shared<eigen::Vector<double>>(lon_scat),
         std::make_shared<eigen::Vector<double>>(lat_scat));
@@ -420,7 +426,7 @@ class SingleScatteringData {
   // pxx :: hide
   SingleScatteringData downsample_scattering_angles(
       std::shared_ptr<eigen::Vector<double>> lon_scat,
-      std::shared_ptr<eigen::Vector<double>> lat_scat) {
+      std::shared_ptr<eigen::Vector<double>> lat_scat) const {
     auto result =
         data_->downsample_scattering_angles(lon_scat, lat_scat);
     return SingleScatteringData(std::move(result));
@@ -489,14 +495,14 @@ class SingleScatteringData {
     data_->operator*=(c);
     return *this;
   }
-  SingleScatteringData operator*(double c) {
+  SingleScatteringData operator*(double c) const {
     return SingleScatteringData(data_->operator*(c));
   }
 
   void normalize(double norm) { data_->normalize(norm); }
 
   // Regrid
-  SingleScatteringData regrid() { return data_->regrid(); }
+  SingleScatteringData regrid() const { return data_->regrid(); }
 
   void set_number_of_scattering_coeffs(Index n) {
       data_->set_number_of_scattering_coeffs(n);
@@ -511,10 +517,18 @@ class SingleScatteringData {
                                           Index n_lon,
                                           Index n_lat) const;
 
+  // pxx :: hide
+  SingleScatteringData to_lab_frame(std::shared_ptr<eigen::Vector<double>> lat_inc,
+                                    std::shared_ptr<eigen::Vector<double>> lon_scat,
+                                    std::shared_ptr<eigen::Vector<double>> lat_scat,
+                                    Index stokes_dim) const {
+      return data_->to_lab_frame(lat_inc, lon_scat, lat_scat, stokes_dim);
+  }
+
   SingleScatteringData to_lab_frame(Index n_lat_inc,
                                     Index n_lon_scat,
-                                    Index stokes_dimension) {
-    return data_->to_lab_frame(n_lat_inc, n_lon_scat, stokes_dimension);
+                                    Index stokes_dim) const {
+    return data_->to_lab_frame(n_lat_inc, n_lon_scat, stokes_dim);
   }
 
   void set_stokes_dim(Index stokes_dim) { data_->set_stokes_dim(stokes_dim); }
@@ -715,7 +729,7 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
       return forward_scattering_coeff_.get_data();
   }
 
-  SingleScatteringDataGridded *copy() {
+  SingleScatteringDataGridded *copy() const {
     return new SingleScatteringDataGridded(f_grid_,
                                            t_grid_,
                                            phase_matrix_.copy(),
@@ -726,7 +740,7 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
   }
 
   SingleScatteringDataImpl *interpolate_frequency(
-      eigen::VectorPtr<double> frequencies) {
+      eigen::VectorPtr<double> frequencies) const {
     auto phase_matrix = ScatteringDataFieldGridded<Scalar>(
         phase_matrix_.interpolate_frequency(frequencies));
     auto extinction_matrix = ScatteringDataFieldGridded<Scalar>(
@@ -748,7 +762,7 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
   }
 
   SingleScatteringDataImpl *interpolate_temperature(
-      eigen::VectorPtr<Scalar> temperatures) {
+      eigen::VectorPtr<Scalar> temperatures) const {
     auto phase_matrix = ScatteringDataFieldGridded<Scalar>(
         phase_matrix_.interpolate_temperature(temperatures));
     auto extinction_matrix = ScatteringDataFieldGridded<Scalar>(
@@ -773,7 +787,7 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
       eigen::VectorPtr<Scalar> lon_inc,
       eigen::VectorPtr<Scalar> lat_inc,
       eigen::VectorPtr<Scalar> lon_scat,
-      eigen::VectorPtr<Scalar> lat_scat) {
+      eigen::VectorPtr<Scalar> lat_scat) const {
     auto phase_matrix = ScatteringDataFieldGridded<Scalar>(
         phase_matrix_.interpolate_angles(lon_inc, lat_inc, lon_scat, lat_scat));
     auto extinction_matrix = ScatteringDataFieldGridded<Scalar>(
@@ -808,7 +822,7 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
 
   SingleScatteringDataImpl *downsample_scattering_angles(
       eigen::VectorPtr<Scalar> lon_scat,
-      eigen::VectorPtr<Scalar> lat_scat) {
+      eigen::VectorPtr<Scalar> lat_scat) const {
     auto phase_matrix = ScatteringDataFieldGridded<Scalar>(
         phase_matrix_.downsample_scattering_angles(lon_scat, lat_scat));
 
@@ -844,7 +858,7 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
     forward_scattering_coeff_ *= c;
   }
 
-  SingleScatteringDataImpl *operator*(Scalar c) {
+  SingleScatteringDataImpl *operator*(Scalar c) const {
     auto result = this->copy();
     result->operator*=(c);
     return result;
@@ -879,9 +893,24 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
       Index n_lon,
       Index n_lat) const;
 
+  SingleScatteringDataImpl *to_lab_frame(std::shared_ptr<eigen::Vector<double>> lat_inc,
+                                         std::shared_ptr<eigen::Vector<double>> lon_scat,
+                                         std::shared_ptr<eigen::Vector<double>> lat_scat,
+                                         Index stokes_dim) const {
+      auto phase_matrix =
+          phase_matrix_.to_lab_frame(lat_inc, lon_scat, lat_scat, stokes_dim);
+      return new SingleScatteringDataGridded(f_grid_,
+                                             t_grid_,
+                                             phase_matrix,
+                                             extinction_matrix_,
+                                             absorption_vector_,
+                                             backward_scattering_coeff_,
+                                             forward_scattering_coeff_);
+  }
+
   SingleScatteringDataImpl *to_lab_frame(Index n_lat_inc,
                                          Index n_lon_scat,
-                                         Index stokes_dimension) {
+                                         Index stokes_dimension) const {
     auto phase_matrix =
         phase_matrix_.to_lab_frame(n_lat_inc, n_lon_scat, stokes_dimension);
     return new SingleScatteringDataGridded(f_grid_,
@@ -902,7 +931,7 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
   // explicit operator SingeScatteringDataSpectral();
   // explicit operator SingeScatteringDataFullySpectral();
 
-  SingleScatteringDataImpl * regrid() {
+  SingleScatteringDataImpl * regrid() const {
       auto n_lon_inc = phase_matrix_.get_n_lon_inc();
       auto n_lat_inc = phase_matrix_.get_n_lat_inc();
       auto n_lon_scat = phase_matrix_.get_n_lon_scat();
@@ -1117,7 +1146,7 @@ eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
     return forward_scattering_coeff_gridded.get_data();
   }
 
-  SingleScatteringDataSpectral *copy() {
+  SingleScatteringDataSpectral *copy() const {
     return new SingleScatteringDataSpectral(f_grid_,
                                             t_grid_,
                                             phase_matrix_.copy(),
@@ -1128,7 +1157,7 @@ eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
   }
 
   SingleScatteringDataImpl *interpolate_frequency(
-      eigen::VectorPtr<double> frequencies) {
+      eigen::VectorPtr<double> frequencies) const {
     auto phase_matrix = ScatteringDataFieldSpectral<Scalar>(
         phase_matrix_.interpolate_frequency(frequencies));
     auto extinction_matrix = ScatteringDataFieldSpectral<Scalar>(
@@ -1149,7 +1178,7 @@ eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
   }
 
   SingleScatteringDataImpl *interpolate_temperature(
-      eigen::VectorPtr<Scalar> temperatures) {
+      eigen::VectorPtr<Scalar> temperatures) const {
     auto phase_matrix = ScatteringDataFieldSpectral<Scalar>(
         phase_matrix_.interpolate_temperature(temperatures));
     auto extinction_matrix = ScatteringDataFieldSpectral<Scalar>(
@@ -1174,7 +1203,7 @@ eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
       eigen::VectorPtr<Scalar> lon_inc,
       eigen::VectorPtr<Scalar> lat_inc,
       eigen::VectorPtr<Scalar> /*lon_scat*/,
-      eigen::VectorPtr<Scalar> /*lat_scat*/) {
+      eigen::VectorPtr<Scalar> /*lat_scat*/) const {
     auto phase_matrix = ScatteringDataFieldSpectral<Scalar>(
         phase_matrix_.interpolate_angles(lon_inc, lat_inc));
     auto extinction_matrix = ScatteringDataFieldSpectral<Scalar>(
@@ -1197,7 +1226,7 @@ eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
 
   SingleScatteringDataImpl *downsample_scattering_angles(
       eigen::VectorPtr<Scalar> /*lon_scat*/,
-      eigen::VectorPtr<Scalar> /*lat_scat*/) {
+      eigen::VectorPtr<Scalar> /*lat_scat*/) const {
       return copy();
   }
 
@@ -1224,7 +1253,7 @@ eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
     forward_scattering_coeff_ *= c;
   }
 
-  SingleScatteringDataImpl *operator*(Scalar c) {
+  SingleScatteringDataImpl *operator*(Scalar c) const {
     auto result = this->copy();
     result->operator*=(c);
     return result;
@@ -1240,7 +1269,7 @@ eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
       forward_scattering_coeff_.set_number_of_scattering_coeffs(n);
   }
 
-  SingleScatteringDataImpl* regrid() {
+  SingleScatteringDataImpl* regrid() const {
       auto n_lon_inc = phase_matrix_.get_n_lon_inc();
       auto n_lat_inc = phase_matrix_.get_n_lat_inc();
       n_lon_inc = std::max<Index>(n_lon_inc - n_lon_inc % 2, 1);
@@ -1282,9 +1311,27 @@ eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
       Index n_lat,
       Index n_lon) const;
 
+  SingleScatteringDataImpl *to_lab_frame(std::shared_ptr<eigen::Vector<double>> lat_inc,
+                                         std::shared_ptr<eigen::Vector<double>> lon_scat,
+                                         std::shared_ptr<eigen::Vector<double>> lat_scat,
+                                         Index stokes_dim) const {
+      stokes::PhaseMatrix<ScatteringDataFieldGridded<Scalar>> phase_matrix = phase_matrix_.to_gridded();
+      auto phase_matrix_lab = phase_matrix.to_lab_frame(lat_inc, lon_scat, lat_scat, stokes_dim);
+      auto n_lon_scat = lon_scat->size();
+      Index l_max = (n_lon_scat - 2 + (n_lon_scat % 2)) / 2;
+      auto sht_scat = std::make_shared<sht::SHT>(l_max, l_max, n_lon_scat, n_lon_scat);
+      return new SingleScatteringDataSpectral(f_grid_,
+                                              t_grid_,
+                                              phase_matrix_lab.to_spectral(sht_scat),
+                                              extinction_matrix_,
+                                              absorption_vector_,
+                                              backward_scattering_coeff_,
+                                              forward_scattering_coeff_);
+  }
+
   SingleScatteringDataImpl *to_lab_frame(Index n_lat_inc,
                                          Index n_lon_scat,
-                                         Index stokes_dimension) {
+                                         Index stokes_dimension) const {
       stokes::PhaseMatrix<ScatteringDataFieldGridded<Scalar>> phase_matrix = phase_matrix_.to_gridded();
       auto phase_matrix_lab = phase_matrix.to_lab_frame(n_lat_inc, n_lon_scat, stokes_dimension);
       Index l_max = (n_lon_scat - 2 + (n_lon_scat % 2)) / 2;

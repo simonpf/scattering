@@ -430,10 +430,9 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   ScatteringDataFieldGridded downsample_scattering_angles(VectorPtr lon_scat_new,
                                                           VectorPtr lat_scat_new) const {
       auto data_downsampled = downsample_dimension<4>(*data_, *lon_scat_, *lon_scat_new, 0.0, 2.0 * M_PI);
-
-      Vector colatitudes_new = -lat_scat_new->array().cos();
-      Vector colatitudes_old = -lat_scat_->array().cos();
-      data_downsampled = downsample_dimension<5>(data_downsampled, colatitudes_old, colatitudes_new, -1.0, 1.0);
+      using Regridder = RegularRegridder<Scalar, 5>;
+      Regridder regridder({*lat_scat_}, {*lat_scat_new});
+      data_downsampled = regridder.regrid(data_downsampled);
       return ScatteringDataFieldGridded(f_grid_,
                                         t_grid_,
                                         lon_inc_,

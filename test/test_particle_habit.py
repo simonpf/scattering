@@ -17,7 +17,7 @@ class TestRandomData():
         # Particle model
         #
         self.habit_folder = HabitFolder(RANDOM_DATA_PATH)
-        self.particle_model = self.habit_folder.to_particle_model()
+        self.particle_model = self.habit_folder.to_particle_habit()
 
         #
         # First particle
@@ -56,7 +56,7 @@ class TestRandomData():
         added according to provided particle densities.
         """
         habit_folder = HabitFolder(RANDOM_DATA_PATH)
-        particle_model = habit_folder.to_particle_model()
+        particle_model = habit_folder.to_particle_habit()
         assert all(particle_model.get_d_eq() == [101 * 1e-6, 770 * 1e-6])
         assert all(particle_model.get_d_max() == [191 * 1e-6, 1014 * 1e-6])
         assert all(particle_model.get_mass() == [5.0044e-10, 2.19345e-7])
@@ -95,7 +95,7 @@ class TestAzimuthallyRandomData():
         # Particle model
         #
         self.habit_folder = HabitFolder(AZIMUTHALLY_RANDOM_DATA_PATH)
-        self.particle_model = self.habit_folder.to_particle_model()
+        self.particle_model = self.habit_folder.to_particle_habit()
 
         #
         # First particle
@@ -134,7 +134,7 @@ class TestAzimuthallyRandomData():
         added according to provided particle densities.
         """
         habit_folder = HabitFolder(AZIMUTHALLY_RANDOM_DATA_PATH)
-        particle_model = habit_folder.to_particle_model()
+        particle_model = habit_folder.to_particle_habit()
         assert all(particle_model.get_d_eq() == [101 * 1e-6, 770 * 1e-6])
         assert all(particle_model.get_d_max() == [191 * 1e-6, 1014 * 1e-6])
         assert all(particle_model.get_mass() == [5.0044e-10, 2.19345e-7])

@@ -89,9 +89,9 @@ add_pxx_module(
 #
 
 add_pxx_module(
-  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/particle_model.h
-  MODULE particle_model
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/particle_habit.h
+  MODULE particle_habit
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
-add_dependencies(particle_model libshtns)
-target_link_libraries(particle_model ${NETCDF_LIBRARY} ${HDF5_LIBRARIES} scattering)
+add_dependencies(particle_habit libshtns)
+target_link_libraries(particle_habit ${NETCDF_LIBRARY} ${HDF5_LIBRARIES} scattering)

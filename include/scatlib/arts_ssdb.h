@@ -9,8 +9,8 @@
 
 #include <scatlib/eigen.h>
 #include <scatlib/utils/array.h>
-#include <scatlib/single_scattering_data.h>
-#include <scatlib/particle_model.h>
+#include <scatlib/scattering_particle.h>
+#include <scatlib/particle_habit.h>
 
 namespace scatlib {
 
@@ -57,7 +57,7 @@ std::tuple<bool, double, double, double> match_particle_properties(
   return std::make_tuple(false, 0.0, 0.0, 0.0);
 }
 
-/** Indirect sort w.r.t. equivalent diameter.
+ /** Indirect sort w.r.t. equivalent diameter.
  *
  * @param d_eq Vector containing the water equivalent diameter of the particles.
  * @param d_max Vector containing the maximum diameter of the particles.
@@ -513,7 +513,6 @@ class ParticleFile {
                                         lat_inc,
                                         l_max,
                                         first.get_particle_type());
-          
       }
       for (size_t i = 0; i < freqs_.size(); ++i) {
           for (size_t j = 0; j < temps_.size(); ++j) {
@@ -525,6 +524,16 @@ class ParticleFile {
   }
 
   SingleScatteringData to_single_scattering_data() { return *this; }
+  ScatteringParticle to_scattering_particle() {
+      auto properties = ParticleProperties{"",
+                                           "ARTS SSDB",
+                                           "",
+                                           mass_,
+                                           d_max_,
+                                           d_eq_,
+                                           0.0};
+      return ScatteringParticle(properties, to_single_scattering_data());
+  }
 
  private:
   double d_eq_, d_max_, mass_;
@@ -646,16 +655,26 @@ HabitFolder(std::string path) : base_path_(path) {
   DataIterator begin();
   DataIterator end();
 
-  operator ParticleModel() {
-    std::vector<SingleScatteringData> data;
-    data.reserve(files_.size());
-    for (auto &d : d_eq_) {
-      data.push_back(ParticleFile(files_[d]));
+  operator ParticleHabit() {
+    std::vector<ScatteringParticle> particles;
+    particles.reserve(files_.size());
+
+    ParticleProperties properties{};
+    properties.description = "";
+    properties.source = "ARTS SSDB";
+    properties.refractive_index = "";
+
+    for (size_t i = 0; i < d_eq_.size(); ++i) {
+        properties.d_eq = d_eq_[i];
+        properties.d_max = d_max_[i];
+        properties.d_eq = mass_[i];
+        properties.d_aero = 0.0;
+        particles.push_back(ScatteringParticle(properties, ParticleFile(files_[d_eq_[i]])));
     }
-    return ParticleModel(get_d_eq(), get_d_max(), get_mass(), data);
+    return ParticleHabit(particles);
   }
 
-  ParticleModel to_particle_model() { return *this; }
+  ParticleHabit to_particle_habit() { return *this; }
 
  private:
   std::filesystem::path base_path_;

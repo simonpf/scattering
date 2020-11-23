@@ -12,7 +12,7 @@ def test_load_random_particle():
     Test loading of random particle data.
     """
     path = os.path.join(RANDOM_DATA_PATH,
-                        "Dmax01014um_Dveq00770um_Mass2.19345e-07kg.nc")
+                        "Dmax00688um_Dveq00361um_Mass2.25360e-08kg.nc")
     particle_file = ssdb.ParticleFile(path)
     temps = particle_file.get_temperatures()
     freqs = particle_file.get_frequencies()
@@ -51,7 +51,7 @@ def test_load_azimuthally_random_particle():
     Test loading of azimuthally random particle data.
     """
     path = os.path.join(AZIMUTHALLY_RANDOM_DATA_PATH,
-                        "Dmax01014um_Dveq00770um_Mass2.19345e-07kg.nc")
+                        "Dmax00590um_Dveq00251um_Mass7.59425e-09kg.nc")
     particle_file = ssdb.ParticleFile(path)
     temps = particle_file.get_temperatures()
     freqs = particle_file.get_frequencies()
@@ -79,5 +79,3 @@ def test_load_azimuthally_random_particle():
             assert t == data.get_temperature()
 
             assert data.get_particle_type() == ssdb.ParticleType.AzimuthallyRandom
-
-test_load_azimuthally_random_particle()
