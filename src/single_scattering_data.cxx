@@ -1,6 +1,6 @@
-#include "scatlib/single_scattering_data.h"
+#include "scattering/single_scattering_data.h"
 
-namespace scatlib {
+namespace scattering {
 
 //
 // Gridded
@@ -31,12 +31,12 @@ SingleScatteringData::SingleScatteringData(
                                                     forward_scattering_coeff)) {}
 
 SingleScatteringData::SingleScatteringData(
-    scatlib::eigen::Vector<double> f_grid,
-    scatlib::eigen::Vector<double> t_grid,
-    scatlib::eigen::Vector<double> lon_inc,
-    scatlib::eigen::Vector<double> lat_inc,
-    scatlib::eigen::Vector<double> lon_scat,
-    scatlib::eigen::Vector<double> lat_scat,
+    scattering::eigen::Vector<double> f_grid,
+    scattering::eigen::Vector<double> t_grid,
+    scattering::eigen::Vector<double> lon_inc,
+    scattering::eigen::Vector<double> lat_inc,
+    scattering::eigen::Vector<double> lon_scat,
+    scattering::eigen::Vector<double> lat_scat,
     ParticleType type)
     : SingleScatteringData(
           std::make_shared<eigen::Vector<double>>(f_grid),
@@ -136,10 +136,10 @@ SingleScatteringData::SingleScatteringData(
                 std::make_shared<eigen::Tensor<std::complex<double>, 6>>(forward_scattering_coeff))) {}
 
 SingleScatteringData::SingleScatteringData(
-    scatlib::eigen::Vector<double> f_grid,
-    scatlib::eigen::Vector<double> t_grid,
-    scatlib::eigen::Vector<double> lon_inc,
-    scatlib::eigen::Vector<double> lat_inc,
+    scattering::eigen::Vector<double> f_grid,
+    scattering::eigen::Vector<double> t_grid,
+    scattering::eigen::Vector<double> lon_inc,
+    scattering::eigen::Vector<double> lat_inc,
     Index l_max,
     ParticleType type)
     : SingleScatteringData(

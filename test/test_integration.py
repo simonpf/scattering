@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 from scipy.special import roots_legendre
 
-from scatlib.integration import RegularQuadrature, GaussLegendreQuadrature
+from scattering.integration import RegularQuadrature, GaussLegendreQuadrature
 
 def test_regular_quadrature():
     n = np.random.randint(10, 100)

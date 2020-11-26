@@ -8,7 +8,7 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate
 from reference import scattering_angles, expand_compact_format
-from scatlib.single_scattering_data import (SingleScatteringData,
+from scattering.single_scattering_data import (SingleScatteringData,
                                             ParticleType,
                                             SHT)
 

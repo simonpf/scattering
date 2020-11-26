@@ -1,5 +1,5 @@
-#ifndef __SCATLIB_ARTS_SSDB__
-#define __SCATLIB_ARTS_SSDB__
+#ifndef __SCATTERING_ARTS_SSDB__
+#define __SCATTERING_ARTS_SSDB__
 
 #include "netcdfpp.hpp"
 #include <regex>
@@ -7,12 +7,12 @@
 #include <utility>
 #include <filesystem>
 
-#include <scatlib/eigen.h>
-#include <scatlib/utils/array.h>
-#include <scatlib/scattering_particle.h>
-#include <scatlib/particle_habit.h>
+#include <scattering/eigen.h>
+#include <scattering/utils/array.h>
+#include <scattering/particle.h>
+#include <scattering/particle_habit.h>
 
-namespace scatlib {
+namespace scattering {
 
 namespace arts_ssdb {
 
@@ -524,15 +524,15 @@ class ParticleFile {
   }
 
   SingleScatteringData to_single_scattering_data() { return *this; }
-  ScatteringParticle to_scattering_particle() {
+  Particle to_scattering_particle() {
       auto properties = ParticleProperties{"",
                                            "ARTS SSDB",
                                            "",
                                            mass_,
-                                           d_max_,
                                            d_eq_,
+                                           d_max_,
                                            0.0};
-      return ScatteringParticle(properties, to_single_scattering_data());
+      return Particle(properties, to_single_scattering_data());
   }
 
  private:
@@ -656,7 +656,7 @@ HabitFolder(std::string path) : base_path_(path) {
   DataIterator end();
 
   operator ParticleHabit() {
-    std::vector<ScatteringParticle> particles;
+    std::vector<Particle> particles;
     particles.reserve(files_.size());
 
     ParticleProperties properties{};
@@ -669,7 +669,7 @@ HabitFolder(std::string path) : base_path_(path) {
         properties.d_max = d_max_[i];
         properties.d_eq = mass_[i];
         properties.d_aero = 0.0;
-        particles.push_back(ScatteringParticle(properties, ParticleFile(files_[d_eq_[i]])));
+        particles.push_back(Particle(properties, ParticleFile(files_[d_eq_[i]])));
     }
     return ParticleHabit(particles);
   }

@@ -1,8 +1,8 @@
-#ifndef __SCATLIB_SHT__
-#define __SCATLIB_SHT__
+#ifndef __SCATTERING_SHT__
+#define __SCATTERING_SHT__
 
 #include <fftw3.h>
-#include <scatlib/eigen.h>
+#include <scattering/eigen.h>
 #include <shtns.h>
 
 #include <complex>
@@ -12,20 +12,20 @@
 
 #include "Eigen/Dense"
 
-using GridCoeffs = scatlib::eigen::Matrix<double>;
-using GridCoeffsRef = scatlib::eigen::ConstMatrixRef<double>;
-using CmplxGridCoeffs = scatlib::eigen::Matrix<std::complex<double>>;
-using CmplxGridCoeffsRef = scatlib::eigen::ConstMatrixRef<std::complex<double>>;
-using SpectralCoeffs = scatlib::eigen::Vector<std::complex<double>>;
-using SpectralCoeffsRef = scatlib::eigen::ConstVectorRef<std::complex<double>>;
-using SpectralCoeffMatrix = scatlib::eigen::Matrix<std::complex<double>>;
+using GridCoeffs = scattering::eigen::Matrix<double>;
+using GridCoeffsRef = scattering::eigen::ConstMatrixRef<double>;
+using CmplxGridCoeffs = scattering::eigen::Matrix<std::complex<double>>;
+using CmplxGridCoeffsRef = scattering::eigen::ConstMatrixRef<std::complex<double>>;
+using SpectralCoeffs = scattering::eigen::Vector<std::complex<double>>;
+using SpectralCoeffsRef = scattering::eigen::ConstVectorRef<std::complex<double>>;
+using SpectralCoeffMatrix = scattering::eigen::Matrix<std::complex<double>>;
 using SpectralCoeffMatrixRef =
-    scatlib::eigen::ConstMatrixRef<std::complex<double>>;
+    scattering::eigen::ConstMatrixRef<std::complex<double>>;
 
-namespace scatlib {
+namespace scattering {
 namespace sht {
 
-using scatlib::eigen::Index;
+using scattering::eigen::Index;
 
 
 /** FFTW coefficient array
@@ -360,6 +360,6 @@ class SHTProvider {
 };
 
 }  // namespace sht
-}  // namespace scatlib
+}  // namespace scattering
 
 #endif

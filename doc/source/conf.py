@@ -19,7 +19,7 @@ import os
 
 # -- Project information -----------------------------------------------------
 
-project = 'scatlib'
+project = 'scattering'
 copyright = '2020, Simon Pfreundschuh'
 author = 'Simon Pfreundschuh'
 
@@ -111,7 +111,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'scatlibdoc'
+htmlhelp_basename = 'scatteringdoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -141,7 +141,7 @@ latex_elements = {
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'scatlib', 'scatlib Documentation',
+    (master_doc, 'scattering', 'scattering Documentation',
      [author], 1)
 ]
 
@@ -152,8 +152,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'scatlib', 'scatlib Documentation',
-     author, 'scatlib', 'One line description of project.',
+    (master_doc, 'scattering', 'scattering Documentation',
+     author, 'scattering', 'One line description of project.',
      'Miscellaneous'),
 ]
 
@@ -183,5 +183,5 @@ epub_exclude_files = ['search.html']
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
-#breathe_projects = { "scatlib": "@DOXYGEN_XML_PATH@"}
-#breathe_default_project = "scatlib"
+#breathe_projects = { "scattering": "@DOXYGEN_XML_PATH@"}
+#breathe_default_project = "scattering"

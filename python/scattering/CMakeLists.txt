@@ -8,7 +8,7 @@ include_directories(${CMAKE_SOURCE_DIR}/ext/netcdfhpp)
 #
 
 add_pxx_module(
-  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/sht.h
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scattering/sht.h
   MODULE sht
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
@@ -23,7 +23,7 @@ target_link_libraries(sht scattering)
 #
 
 add_pxx_module(
-  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/eigen.h
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scattering/eigen.h
   MODULE eigen
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
@@ -33,7 +33,7 @@ add_pxx_module(
 #
 
 add_pxx_module(
-  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/interpolation.h
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scattering/interpolation.h
   MODULE interpolation
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
@@ -43,7 +43,7 @@ add_pxx_module(
 #
 
 add_pxx_module(
-  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/scattering_data_field.h
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scattering/scattering_data_field.h
   MODULE scattering_data_field
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
@@ -55,7 +55,7 @@ target_link_libraries(scattering_data_field scattering)
 #
 
 add_pxx_module(
-  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/single_scattering_data.h
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scattering/single_scattering_data.h
   MODULE single_scattering_data
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
@@ -67,7 +67,7 @@ target_link_libraries(single_scattering_data scattering)
 #
 
 add_pxx_module(
-  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/arts_ssdb.h
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scattering/arts_ssdb.h
   MODULE arts_ssdb
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/ext/netcdfpp ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
@@ -79,7 +79,7 @@ target_link_libraries(arts_ssdb ${NETCDF_LIBRARY} ${HDF5_LIBRARIES} scattering)
 #
 
 add_pxx_module(
-  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/integration.h
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scattering/integration.h
   MODULE integration
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
@@ -89,7 +89,7 @@ add_pxx_module(
 #
 
 add_pxx_module(
-  SOURCE ${PROJECT_SOURCE_DIR}/include/scatlib/particle_habit.h
+  SOURCE ${PROJECT_SOURCE_DIR}/include/scattering/particle_habit.h
   MODULE particle_habit
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )

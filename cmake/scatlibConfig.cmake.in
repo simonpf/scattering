@@ -1,5 +1,0 @@
-@PACKAGE_INIT@
-
-set(scatlib_INCLUDE_DIR  "@PACKAGE_scatlib_INCLUDE_DIR@")
-set(scatlib_INCLUDE_DIRS "@PACKAGE_scatlib_INCLUDE_DIR@")
-set(scatlib_LIBRARIES    "@PACKAGE_scatlib_LIBRARIES@")

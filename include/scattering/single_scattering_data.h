@@ -5,19 +5,19 @@
  *
  * @author Simon Pfreundschuh, 2020
  */
-#ifndef __SCATLIB_SINGLE_SCATTERING_DATA__
-#define __SCATLIB_SINGLE_SCATTERING_DATA__
+#ifndef __SCATTERING_SINGLE_SCATTERING_DATA__
+#define __SCATTERING_SINGLE_SCATTERING_DATA__
 
-#include <scatlib/eigen.h>
-#include <scatlib/interpolation.h>
-#include <scatlib/scattering_data_field.h>
-#include <scatlib/sht.h>
-#include <scatlib/stokes.h>
+#include <scattering/eigen.h>
+#include <scattering/interpolation.h>
+#include <scattering/scattering_data_field.h>
+#include <scattering/sht.h>
+#include <scattering/stokes.h>
 
 #include <cassert>
 #include <memory>
 
-namespace scatlib {
+namespace scattering {
 
 ////////////////////////////////////////////////////////////////////////////////
 // Forward declarations
@@ -244,30 +244,30 @@ class SingleScatteringData {
    */
   // pxx :: hide
   SingleScatteringData(
-      scatlib::eigen::VectorPtr<double> f_grid,
-      scatlib::eigen::VectorPtr<double> t_grid,
-      scatlib::eigen::VectorPtr<double> lon_inc,
-      scatlib::eigen::VectorPtr<double> lat_inc,
-      scatlib::eigen::VectorPtr<double> lon_scat,
-      scatlib::eigen::VectorPtr<double> lat_scat,
-      scatlib::eigen::TensorPtr<double, 7> phase_matrix,
-      scatlib::eigen::TensorPtr<double, 7> extinction_matrix,
-      scatlib::eigen::TensorPtr<double, 7> absorption_vector,
-      scatlib::eigen::TensorPtr<double, 7> backward_scattering_coeff,
-      scatlib::eigen::TensorPtr<double, 7> forward_scattering_coeff);
+      scattering::eigen::VectorPtr<double> f_grid,
+      scattering::eigen::VectorPtr<double> t_grid,
+      scattering::eigen::VectorPtr<double> lon_inc,
+      scattering::eigen::VectorPtr<double> lat_inc,
+      scattering::eigen::VectorPtr<double> lon_scat,
+      scattering::eigen::VectorPtr<double> lat_scat,
+      scattering::eigen::TensorPtr<double, 7> phase_matrix,
+      scattering::eigen::TensorPtr<double, 7> extinction_matrix,
+      scattering::eigen::TensorPtr<double, 7> absorption_vector,
+      scattering::eigen::TensorPtr<double, 7> backward_scattering_coeff,
+      scattering::eigen::TensorPtr<double, 7> forward_scattering_coeff);
 
   SingleScatteringData(
-      scatlib::eigen::Vector<double> f_grid,
-      scatlib::eigen::Vector<double> t_grid,
-      scatlib::eigen::Vector<double> lon_inc,
-      scatlib::eigen::Vector<double> lat_inc,
-      scatlib::eigen::Vector<double> lon_scat,
-      scatlib::eigen::Vector<double> lat_scat,
-      scatlib::eigen::Tensor<double, 7> phase_matrix,
-      scatlib::eigen::Tensor<double, 7> extinction_matrix,
-      scatlib::eigen::Tensor<double, 7> absorption_vector,
-      scatlib::eigen::Tensor<double, 7> backward_scattering_coeff,
-      scatlib::eigen::Tensor<double, 7> forward_scattering_coeff)
+      scattering::eigen::Vector<double> f_grid,
+      scattering::eigen::Vector<double> t_grid,
+      scattering::eigen::Vector<double> lon_inc,
+      scattering::eigen::Vector<double> lat_inc,
+      scattering::eigen::Vector<double> lon_scat,
+      scattering::eigen::Vector<double> lat_scat,
+      scattering::eigen::Tensor<double, 7> phase_matrix,
+      scattering::eigen::Tensor<double, 7> extinction_matrix,
+      scattering::eigen::Tensor<double, 7> absorption_vector,
+      scattering::eigen::Tensor<double, 7> backward_scattering_coeff,
+      scattering::eigen::Tensor<double, 7> forward_scattering_coeff)
       : SingleScatteringData(
             std::make_shared<eigen::Vector<double>>(f_grid),
             std::make_shared<eigen::Vector<double>>(t_grid),
@@ -283,12 +283,12 @@ class SingleScatteringData {
             std::make_shared<eigen::Tensor<double, 7>>(
                 forward_scattering_coeff)) {}
 
-  SingleScatteringData(scatlib::eigen::Vector<double> f_grid,
-                       scatlib::eigen::Vector<double> t_grid,
-                       scatlib::eigen::Vector<double> lon_inc,
-                       scatlib::eigen::Vector<double> lat_inc,
-                       scatlib::eigen::Vector<double> lon_scat,
-                       scatlib::eigen::Vector<double> lat_scat,
+  SingleScatteringData(scattering::eigen::Vector<double> f_grid,
+                       scattering::eigen::Vector<double> t_grid,
+                       scattering::eigen::Vector<double> lon_inc,
+                       scattering::eigen::Vector<double> lat_inc,
+                       scattering::eigen::Vector<double> lon_scat,
+                       scattering::eigen::Vector<double> lat_scat,
                        ParticleType type);
 
   /** Create from spectral scattering data.
@@ -312,35 +312,35 @@ class SingleScatteringData {
    */
   // pxx :: hide
   SingleScatteringData(
-      scatlib::eigen::VectorPtr<double> f_grid,
-      scatlib::eigen::VectorPtr<double> t_grid,
-      scatlib::eigen::VectorPtr<double> lon_inc,
-      scatlib::eigen::VectorPtr<double> lat_inc,
+      scattering::eigen::VectorPtr<double> f_grid,
+      scattering::eigen::VectorPtr<double> t_grid,
+      scattering::eigen::VectorPtr<double> lon_inc,
+      scattering::eigen::VectorPtr<double> lat_inc,
       std::shared_ptr<sht::SHT> sht_scat,
-      scatlib::eigen::TensorPtr<std::complex<double>, 6> phase_matrix,
-      scatlib::eigen::TensorPtr<std::complex<double>, 6> extinction_matrix,
-      scatlib::eigen::TensorPtr<std::complex<double>, 6> absorption_vector,
-      scatlib::eigen::TensorPtr<std::complex<double>, 6>
+      scattering::eigen::TensorPtr<std::complex<double>, 6> phase_matrix,
+      scattering::eigen::TensorPtr<std::complex<double>, 6> extinction_matrix,
+      scattering::eigen::TensorPtr<std::complex<double>, 6> absorption_vector,
+      scattering::eigen::TensorPtr<std::complex<double>, 6>
           backward_scattering_coeff,
-      scatlib::eigen::TensorPtr<std::complex<double>, 6>
+      scattering::eigen::TensorPtr<std::complex<double>, 6>
           forward_scattering_coeff);
 
   SingleScatteringData(
-      scatlib::eigen::Vector<double> f_grid,
-      scatlib::eigen::Vector<double> t_grid,
-      scatlib::eigen::Vector<double> lon_inc,
-      scatlib::eigen::Vector<double> lat_inc,
-      scatlib::sht::SHT sht_scat,
-      scatlib::eigen::Tensor<std::complex<double>, 6> phase_matrix,
-      scatlib::eigen::Tensor<std::complex<double>, 6> extinction_matrix,
-      scatlib::eigen::Tensor<std::complex<double>, 6> absorption_vector,
-      scatlib::eigen::Tensor<std::complex<double>, 6> backward_scattering_coeff,
-      scatlib::eigen::Tensor<std::complex<double>, 6> forward_scattering_coeff);
+      scattering::eigen::Vector<double> f_grid,
+      scattering::eigen::Vector<double> t_grid,
+      scattering::eigen::Vector<double> lon_inc,
+      scattering::eigen::Vector<double> lat_inc,
+      scattering::sht::SHT sht_scat,
+      scattering::eigen::Tensor<std::complex<double>, 6> phase_matrix,
+      scattering::eigen::Tensor<std::complex<double>, 6> extinction_matrix,
+      scattering::eigen::Tensor<std::complex<double>, 6> absorption_vector,
+      scattering::eigen::Tensor<std::complex<double>, 6> backward_scattering_coeff,
+      scattering::eigen::Tensor<std::complex<double>, 6> forward_scattering_coeff);
 
-  SingleScatteringData(scatlib::eigen::Vector<double> f_grid,
-                       scatlib::eigen::Vector<double> t_grid,
-                       scatlib::eigen::Vector<double> lon_inc,
-                       scatlib::eigen::Vector<double> lat_inc,
+  SingleScatteringData(scattering::eigen::Vector<double> f_grid,
+                       scattering::eigen::Vector<double> t_grid,
+                       scattering::eigen::Vector<double> lon_inc,
+                       scattering::eigen::Vector<double> lat_inc,
                        Index l_max,
                        ParticleType type);
 
@@ -1527,6 +1527,6 @@ SingleScatteringData SingleScatteringData::to_spectral(Index l_max,
                                     *data_->to_spectral(l_max, m_max, n_lon, n_lat)));
 }
 
-}  // namespace scatlib
+}  // namespace scattering
 
 #endif

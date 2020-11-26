@@ -1,4 +1,4 @@
-/** \file scatlib/integration.h
+/** \file scattering/integration.h
  *
  * Quadratures and integration functions.
  *
@@ -9,10 +9,10 @@
 #include "fftw3.h"
 #include "eigen.h"
 
-#ifndef __SCATLIB_INTEGRATION__
-#define __SCATLIB_INTEGRATION__
+#ifndef __SCATTERING_INTEGRATION__
+#define __SCATTERING_INTEGRATION__
 
-namespace scatlib {
+namespace scattering {
 namespace detail {
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -298,5 +298,5 @@ Scalar integrate_angles(eigen::ConstMatrixRef<Scalar> data,
   return result;
 }
 
-}  // namespace scatlib
+}  // namespace scattering
 #endif

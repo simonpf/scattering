@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 from utils import RANDOM_DATA_PATH, AZIMUTHALLY_RANDOM_DATA_PATH
-from scatlib.arts_ssdb import HabitFolder, ParticleFile
+from scattering.arts_ssdb import HabitFolder, ParticleFile
 
 
 class TestRandomData():

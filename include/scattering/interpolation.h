@@ -5,10 +5,10 @@
  *
  * @author Simon Pfreundschuh, 2020
  */
-#ifndef __SCATLIB_INTERPOLATION__
-#define __SCATLIB_INTERPOLATION__
+#ifndef __SCATTERING_INTERPOLATION__
+#define __SCATTERING_INTERPOLATION__
 
-#include <scatlib/eigen.h>
+#include <scattering/eigen.h>
 
 #include <algorithm>
 #include <utility>
@@ -17,7 +17,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace scatlib {
+namespace scattering {
 namespace detail {
 
 //
@@ -433,7 +433,7 @@ class RegularGridInterpolator {
     int n_results = weights.rows();
     results.resize(n_results);
     for (int i = 0; i < n_results; ++i) {
-        results[i] = scatlib::interpolate<Tensor, degree, Scalar>(t,
+        results[i] = scattering::interpolate<Tensor, degree, Scalar>(t,
                                                         weights.row(i),
                                                         indices.row(i));
     }
@@ -457,7 +457,7 @@ class RegularGridInterpolator {
 
     int n_results = weights.rows();
     for (int i = 0; i < n_results; ++i) {
-        eigen::tensor_index<1>(results, {i}) = scatlib::interpolate<Tensor, degree, Scalar>(t,
+        eigen::tensor_index<1>(results, {i}) = scattering::interpolate<Tensor, degree, Scalar>(t,
                                                                                     weights.row(i),
                                                                                     indices.row(i));
     }
@@ -756,6 +756,6 @@ eigen::Tensor<typename TensorType::Scalar, TensorType::NumIndices> downsample_di
   return result;
 }
 
-}  // Namespace scatlib
+}  // Namespace scattering
 
 #endif

@@ -8,12 +8,12 @@ import scipy.interpolate
 from scipy.special import roots_legendre, sph_harm
 from reference import ParticleFile
 
-SCATLIB_TEST_PATH = "@SCATLIB_TEST_PATH@"
+SCATTERING_TEST_PATH = "@SCATTERING_TEST_PATH@"
 
 def get_data_azimuthally_random():
-    return os.path.join(SCATLIB_TEST_PATH, "data", "scattering_data_azimuthally_random.nc")
+    return os.path.join(SCATTERING_TEST_PATH, "data", "scattering_data_azimuthally_random.nc")
 
-RANDOM_DATA_PATH = os.path.join(SCATLIB_TEST_PATH, "data", "random")
+RANDOM_DATA_PATH = os.path.join(SCATTERING_TEST_PATH, "data", "random")
 file_1 = os.path.join(RANDOM_DATA_PATH,
                       "Dmax00688um_Dveq00361um_Mass2.25360e-08kg.nc")
 particle_random_1 = ParticleFile(file_1)
@@ -21,7 +21,7 @@ file_2 = os.path.join(RANDOM_DATA_PATH,
                       "Dmax03369um_Dveq00771um_Mass2.19881e-07kg.nc")
 particle_random_2 = ParticleFile(file_2)
 
-AZIMUTHALLY_RANDOM_DATA_PATH = os.path.join(SCATLIB_TEST_PATH, "data", "azimuthally_random")
+AZIMUTHALLY_RANDOM_DATA_PATH = os.path.join(SCATTERING_TEST_PATH, "data", "azimuthally_random")
 file_1 = os.path.join(AZIMUTHALLY_RANDOM_DATA_PATH,
                       "Dmax00590um_Dveq00251um_Mass7.59425e-09kg.nc")
 particle_azimuthally_random_1 = ParticleFile(file_1)

@@ -7,10 +7,10 @@ import scipy as sp
 import scipy.interpolate
 from scipy.special import roots_legendre
 from utils import (harmonic_random_field, ScatteringDataBase)
-from scatlib.scattering_data_field import (ScatteringDataFieldGridded,
-                                           ScatteringDataFieldSpectral,
-                                           ScatteringDataFieldFullySpectral,
-                                           SHT)
+from scattering.scattering_data_field import (ScatteringDataFieldGridded,
+                                              ScatteringDataFieldSpectral,
+                                              ScatteringDataFieldFullySpectral,
+                                              SHT)
 
 class ScatteringDataAzimuthallyRandom(ScatteringDataBase):
     """

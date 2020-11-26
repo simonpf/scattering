@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.10)
-project (scatlib)
+project (scattering)
 
 #
 # C++20
@@ -46,23 +46,23 @@ add_subdirectory(python)
 include (CMakePackageConfigHelpers)
 
 
-add_library (scatlib_export INTERFACE)
-target_include_directories(scatlib_export INTERFACE "${CMAKE_SOURCE_DIR}/include" "${CMAKE_SOURCE_DIR}/ext/shtns")
-target_link_libraries(scatlib_export
+add_library (scattering_export INTERFACE)
+target_include_directories(scattering_export INTERFACE "${CMAKE_SOURCE_DIR}/include" "${CMAKE_SOURCE_DIR}/ext/shtns")
+target_link_libraries(scattering_export
   INTERFACE "${CMAKE_BINARY_DIR}/src/libscattering.a" "${CMAKE_BINARY_DIR}/ext/shtns/libshtns.a"
   )
 
-get_target_property(scatlib_INCLUDE_DIR scatlib_export INTERFACE_INCLUDE_DIRECTORIES)
-get_target_property(scatlib_INCLUDE_DIRS scatlib_export INTERFACE_INCLUDE_DIRECTORIES)
-get_target_property(scatlib_LIBRARIES scatlib_export INTERFACE_LINK_LIBRARIES)
+get_target_property(scattering_INCLUDE_DIR scattering_export INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(scattering_INCLUDE_DIRS scattering_export INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(scattering_LIBRARIES scattering_export INTERFACE_LINK_LIBRARIES)
 
-add_library (scatlib INTERFACE)
-add_library (scatlib::scatlib ALIAS scatlib)
-install (TARGETS scatlib EXPORT scatlib)
+add_library (scattering_interface INTERFACE)
+add_library (scattering_interface::scattering ALIAS scattering)
+install (TARGETS scattering_interface EXPORT scattering)
 configure_package_config_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scatlibConfig.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/scatlibConfig.cmake
-  PATH_VARS scatlib_INCLUDE_DIR scatlib_LIBRARIES
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scatteringConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/scatteringConfig.cmake
+  PATH_VARS scattering_INCLUDE_DIR scattering_LIBRARIES
   INSTALL_DESTINATION ${CMAKE_BINARY_DIR}
   NO_CHECK_REQUIRED_COMPONENTS_MACRO #
 )

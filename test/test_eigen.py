@@ -4,9 +4,9 @@ Test of functions defined in eigen.h.
 import itertools
 import numpy as np
 import pytest
-from scatlib.eigen import (tensor_index,
-                           get_submatrix,
-                           get_subvector)
+from scattering.eigen import (tensor_index,
+                              get_submatrix,
+                              get_subvector)
 
 
 def test_indexing():

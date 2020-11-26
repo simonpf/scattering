@@ -5,13 +5,13 @@
  *
  * @author Simon Pfreundschuh, 2020
  */
-#ifndef __SCATLIB_PARTICLE_MODEL__
-#define __SCATLIB_PARTICLE_MODEL__
+#ifndef __SCATTERING_PARTICLE_MODEL__
+#define __SCATTERING_PARTICLE_MODEL__
 
-#include <scatlib/single_scattering_data.h>
-#include <scatlib/scattering_particle.h>
+#include <scattering/single_scattering_data.h>
+#include <scattering/particle.h>
 
-namespace scatlib {
+namespace scattering {
 
 // pxx :: export
 /** Particle habit
@@ -26,12 +26,12 @@ public:
   ParticleHabit() {};
 
   /// Create a ParticleHabit from given particles
-ParticleHabit(std::vector<scatlib::ScatteringParticle> particles) : particles_(particles) {}
+  ParticleHabit(const std::vector<scattering::Particle> &particles)
+      : particles_(particles) {}
 
   /// Return vector contatining volume equivalent diameter of particles in the
   /// habit.
   eigen::Vector<double> get_d_eq() const {
-
     eigen::Vector<double> result(particles_.size());
     for (size_t i = 0; i < particles_.size(); ++i) {
       result[i] = particles_[i].get_d_eq();
@@ -49,7 +49,7 @@ ParticleHabit(std::vector<scatlib::ScatteringParticle> particles) : particles_(p
   }
 
   /// Return vector contatining the mass of the particles in the habit.
-  eigen::Vector<double> get_d_mass() const {
+  eigen::Vector<double> get_mass() const {
       eigen::Vector<double> result(particles_.size());
       for (size_t i = 0; i < particles_.size(); ++i) {
           result[i] = particles_[i].get_mass();
@@ -73,7 +73,7 @@ ParticleHabit(std::vector<scatlib::ScatteringParticle> particles) : particles_(p
    */
   ParticleHabit interpolate_frequency(eigen::Vector<double> f_grid) {
       auto f_grid_ptr = std::make_shared<eigen::Vector<double>>(f_grid);
-      std::vector<scatlib::ScatteringParticle> new_data{};
+      std::vector<scattering::Particle> new_data{};
       new_data.reserve(particles_.size());
       for (size_t i = 0; i < particles_.size(); ++i) {
           new_data.push_back(particles_[i].interpolate_frequency(f_grid_ptr));
@@ -93,21 +93,20 @@ ParticleHabit(std::vector<scatlib::ScatteringParticle> particles) : particles_(p
    * grids required for SHT transforms.
    */
     ParticleHabit regrid() const {
-        std::vector<scatlib::ScatteringParticle> new_particles{};
+        std::vector<scattering::Particle> new_particles{};
         new_particles.reserve(particles_.size());
         for (size_t i = 0; i < particles_.size(); ++i) {
-            new_particles[i] = particles_[i].regrid();
+            new_particles.push_back(particles_[i].regrid());
         }
         return ParticleHabit(new_particles);
     }
 
     /** Transform single scattering data in habit to spectral representation.
      *
-     * 
      *
      */
     ParticleHabit to_spectral(Index l_max, Index m_max) {
-        std::vector<scatlib::ScatteringParticle> new_particles{};
+        std::vector<scattering::Particle> new_particles{};
         new_particles.reserve(particles_.size());
         for (size_t i = 0; i < particles_.size(); ++i) {
             new_particles.push_back(particles_[i].to_spectral(l_max, m_max));
@@ -116,7 +115,7 @@ ParticleHabit(std::vector<scatlib::ScatteringParticle> particles) : particles_(p
     }
 
     ParticleHabit set_stokes_dim(Index n) const {
-        std::vector<scatlib::ScatteringParticle> new_particles{};
+        std::vector<scattering::Particle> new_particles{};
         new_particles.reserve(particles_.size());
         for (size_t i = 0; i < particles_.size(); ++i) {
             new_particles.push_back(particles_[i].set_stokes_dim(n));
@@ -134,12 +133,12 @@ ParticleHabit(std::vector<scatlib::ScatteringParticle> particles) : particles_(p
       auto lon_scat_ptr = std::make_shared<eigen::Vector<double>>(lon_scat);
       auto lat_scat_ptr = std::make_shared<eigen::Vector<double>>(lat_scat);
 
-      std::vector<scatlib::ScatteringParticle> new_particles{};
+      std::vector<scattering::Particle> new_particles{};
       new_particles.reserve(particles_.size());
       for (size_t i = 0; i < particles_.size(); ++i) {
           new_particles.push_back(particles_[i].to_gridded(lon_inc_ptr,
-                                                      lat_inc_ptr,
-                                                      lon_scat_ptr,
+                                                           lat_inc_ptr,
+                                                           lon_scat_ptr,
                                                            lat_scat_ptr));
       }
       return ParticleHabit(new_particles);
@@ -152,7 +151,7 @@ ParticleHabit(std::vector<scatlib::ScatteringParticle> particles) : particles_(p
         auto lat_inc_ptr = std::make_shared<eigen::Vector<double>>(lat_inc);
         auto lon_scat_ptr = std::make_shared<eigen::Vector<double>>(lon_scat);
         auto lat_scat_ptr = std::make_shared<eigen::Vector<double>>(lat_scat);
-        std::vector<scatlib::ScatteringParticle> new_particles{};
+        std::vector<scattering::Particle> new_particles{};
         new_particles.reserve(particles_.size());
         for (size_t i = 0; i < particles_.size(); ++i) {
             new_particles.push_back(particles_[i].to_lab_frame(lat_inc_ptr, lon_scat_ptr, lat_scat_ptr, stokes_dim));
@@ -161,7 +160,7 @@ ParticleHabit(std::vector<scatlib::ScatteringParticle> particles) : particles_(p
     }
 
     ParticleHabit to_lab_frame(Index n_lat_inc, Index n_lon_scat, Index stokes_dim) const {
-        std::vector<scatlib::ScatteringParticle> new_particles{};
+        std::vector<scattering::Particle> new_particles{};
         new_particles.reserve(particles_.size());
       for (size_t i = 0; i < particles_.size(); ++i) {
           new_particles.push_back(particles_[i].to_lab_frame(n_lat_inc, n_lon_scat, stokes_dim));
@@ -171,13 +170,13 @@ ParticleHabit(std::vector<scatlib::ScatteringParticle> particles) : particles_(p
 
     ParticleHabit downsample_scattering_angles(const eigen::Vector<double> &lon_scat,
                                                const eigen::Vector<double> &lat_scat) const {
-        std::vector<scatlib::ScatteringParticle> new_particles{};
+        std::vector<scattering::Particle> new_particles{};
         new_particles.reserve(particles_.size());
       auto lon_scat_ptr = std::make_shared<eigen::Vector<double>>(lon_scat);
       auto lat_scat_ptr = std::make_shared<eigen::Vector<double>>(lat_scat);
       for (size_t i = 0; i < particles_.size(); ++i) {
-        new_particles[i] = particles_[i].downsample_scattering_angles(lon_scat_ptr,
-                                                                      lat_scat_ptr);
+          new_particles.push_back(particles_[i].downsample_scattering_angles(lon_scat_ptr,
+                                                                             lat_scat_ptr));
       }
       return ParticleHabit(new_particles);
     }
@@ -220,7 +219,7 @@ ParticleHabit(std::vector<scatlib::ScatteringParticle> particles) : particles_(p
 
 private:
 
-    std::vector<scatlib::ScatteringParticle> particles_;
+    std::vector<scattering::Particle> particles_;
 };
 
 }

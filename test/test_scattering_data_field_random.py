@@ -6,7 +6,7 @@ import numpy as np
 import scipy as sp
 from scipy.special import roots_legendre
 from utils import (harmonic_random_field, ScatteringDataBase, get_latitude_grid)
-from scatlib.scattering_data_field import (ScatteringDataFieldGridded,
+from scattering.scattering_data_field import (ScatteringDataFieldGridded,
                                            ScatteringDataFieldSpectral,
                                            ScatteringDataFieldFullySpectral)
 

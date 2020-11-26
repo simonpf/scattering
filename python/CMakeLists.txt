@@ -1,4 +1,4 @@
-add_subdirectory(scatlib)
+add_subdirectory(scattering)
 
 #
 # Version from git
@@ -12,4 +12,4 @@ execute_process(
 
 string(REGEX REPLACE "\n$" "" VERSION "${VERSION}")
 configure_file(setup.py setup.py @ONLY)
-configure_file(scatlib/__init__.py scatlib/__init__.py @ONLY)
+configure_file(scattering/__init__.py scattering/__init__.py @ONLY)

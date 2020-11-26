@@ -1,9 +1,9 @@
-#ifndef __SCATLIB_UTILS_MATH__
-#define __SCATLIB_UTILS_MATH__
+#ifndef __SCATTERING_UTILS_MATH__
+#define __SCATTERING_UTILS_MATH__
 
 #include <cmath>
 
-namespace scatlib {
+namespace scattering {
 namespace math {
 template<typename Scalar> bool equal(Scalar a,
                                      Scalar b,
@@ -28,5 +28,5 @@ Scalar save_acos(Scalar a, Scalar epsilon = 1e-6) {
 }
 
 }  // namespace math
-}  // namespace scatlib
+}  // namespace scattering
 # endif

@@ -5,19 +5,19 @@
  *
  * @author Simon Pfreundschuh, 2020
  */
-#ifndef __SCATLIB_SCATTERING_DATA_FIELD__
-#define __SCATLIB_SCATTERING_DATA_FIELD__
+#ifndef __SCATTERING_SCATTERING_DATA_FIELD__
+#define __SCATTERING_SCATTERING_DATA_FIELD__
 
-#include <scatlib/eigen.h>
-#include <scatlib/integration.h>
-#include <scatlib/interpolation.h>
-#include <scatlib/sht.h>
-#include <scatlib/utils/array.h>
+#include <scattering/eigen.h>
+#include <scattering/integration.h>
+#include <scattering/interpolation.h>
+#include <scattering/sht.h>
+#include <scattering/utils/array.h>
 
 #include <cassert>
 #include <memory>
 
-namespace scatlib {
+namespace scattering {
 
 using eigen::Index;
 
@@ -1732,6 +1732,6 @@ ScatteringDataFieldFullySpectral<Scalar>::to_spectral() const {
                                              data_new);
 }
 
-}  // namespace scatlib
+}  // namespace scattering
 
 #endif

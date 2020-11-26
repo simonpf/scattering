@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+
+set(scattering_INCLUDE_DIR  "@PACKAGE_scattering_INCLUDE_DIR@")
+set(scattering_INCLUDE_DIRS "@PACKAGE_scattering_INCLUDE_DIR@")
+set(scattering_LIBRARIES    "@PACKAGE_scattering_LIBRARIES@")

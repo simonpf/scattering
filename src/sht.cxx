@@ -1,6 +1,6 @@
-#include <scatlib/sht.h>
+#include <scattering/sht.h>
 
-namespace scatlib {
+namespace scattering {
 namespace sht {
 
 /** Deleter functional for smart pointers. */
@@ -380,4 +380,4 @@ SHT &SHTProvider::get_sht_instance(SHTProvider::SHTParams params) {
 }
 
 }  // namespace sht
-}  // namespace scatlib
+}  // namespace scattering
