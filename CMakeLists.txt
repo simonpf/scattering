@@ -23,7 +23,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 # Find required packages
 #
 
-set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+set (CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 find_package(NetCDF)
 find_package(HDF5)
 find_package(Eigen3)
@@ -48,9 +48,9 @@ include (CMakePackageConfigHelpers)
 
 
 add_library (scattering_export INTERFACE)
-target_include_directories(scattering_export INTERFACE "${CMAKE_SOURCE_DIR}/include" "${CMAKE_SOURCE_DIR}/ext/shtns")
+target_include_directories(scattering_export INTERFACE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/ext/shtns")
 target_link_libraries(scattering_export
-  INTERFACE "${CMAKE_BINARY_DIR}/src/libscattering.a" "${CMAKE_BINARY_DIR}/ext/shtns/libshtns.a"
+  INTERFACE "${PROJECT_BINARY_DIR}/src/libscattering.a" "${PROJECT_BINARY_DIR}/ext/shtns/libshtns.a"
   )
 
 get_target_property(scattering_INCLUDE_DIR scattering_export INTERFACE_INCLUDE_DIRECTORIES)
@@ -64,6 +64,6 @@ configure_package_config_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scatteringConfig.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/scatteringConfig.cmake
   PATH_VARS scattering_INCLUDE_DIR scattering_LIBRARIES
-  INSTALL_DESTINATION ${CMAKE_BINARY_DIR}
+  INSTALL_DESTINATION ${PROJECT_BINARY_DIR}
   NO_CHECK_REQUIRED_COMPONENTS_MACRO #
 )

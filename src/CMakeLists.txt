@@ -6,8 +6,8 @@ get_target_property(Eigen3_INCLUDE_DIRS Eigen3::Eigen INTERFACE_INCLUDE_DIRECTOR
 
 add_library(scattering sht.cxx single_scattering_data.cxx)
 target_include_directories(scattering
-  PUBLIC "${CMAKE_SOURCE_DIR}/ext/shtns"
-  PUBLIC "${CMAKE_SOURCE_DIR}/include"
+  PUBLIC "${PROJECT_SOURCE_DIR}/ext/shtns"
+  PUBLIC "${PROJECT_SOURCE_DIR}/include"
   PUBLIC ${Eigen3_INCLUDE_DIRS}
   PUBLIC ${Eigen3_INCLUDE_DIRS}/unsupported)
 add_dependencies(scattering libshtns)
