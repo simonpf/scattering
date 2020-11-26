@@ -28,6 +28,7 @@ find_package(NetCDF)
 find_package(HDF5)
 find_package(Eigen3)
 find_package(pxx)
+find_package(netcdfhpp)
 
 #
 # External code

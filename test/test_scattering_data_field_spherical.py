@@ -6,7 +6,7 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate
 from utils import ScatteringDataBase
-from scatlib.scattering_data_field import ScatteringDataFieldGridded
+from scattering.scattering_data_field import ScatteringDataFieldGridded
 
 class ScatteringDataSpherical(ScatteringDataBase):
     """

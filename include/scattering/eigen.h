@@ -213,16 +213,16 @@ struct TensorIndexer<T, rank_in, rank_in> {
 };
 
 // pxx :: export
-// pxx :: instance(["4", "scattering::eigen::TensorMap<double, 4>"])
-// pxx :: instance(["3", "scattering::eigen::TensorMap<double, 4>"])
-// pxx :: instance(["2", "scattering::eigen::TensorMap<double, 4>"])
-// pxx :: instance(["1", "scattering::eigen::TensorMap<double, 4>"])
-// pxx :: instance(["3", "scattering::eigen::TensorMap<double, 3>"])
-// pxx :: instance(["2", "scattering::eigen::TensorMap<double, 3>"])
-// pxx :: instance(["1", "scattering::eigen::TensorMap<double, 3>"])
-// pxx :: instance(["2", "scattering::eigen::TensorMap<double, 2>"])
-// pxx :: instance(["1", "scattering::eigen::TensorMap<double, 2>"])
-// pxx :: instance(["1", "scattering::eigen::TensorMap<double, 1>"])
+// pxx :: instance(["4", "scattering::eigen::Tensor<double, 4>"])
+// pxx :: instance(["3", "scattering::eigen::Tensor<double, 4>"])
+// pxx :: instance(["2", "scattering::eigen::Tensor<double, 4>"])
+// pxx :: instance(["1", "scattering::eigen::Tensor<double, 4>"])
+// pxx :: instance(["3", "scattering::eigen::Tensor<double, 3>"])
+// pxx :: instance(["2", "scattering::eigen::Tensor<double, 3>"])
+// pxx :: instance(["1", "scattering::eigen::Tensor<double, 3>"])
+// pxx :: instance(["2", "scattering::eigen::Tensor<double, 2>"])
+// pxx :: instance(["1", "scattering::eigen::Tensor<double, 2>"])
+// pxx :: instance(["1", "scattering::eigen::Tensor<double, 1>"])
 template <size_t N, typename T>
     __attribute__((always_inline)) inline auto tensor_index(T &t, std::array<typename T::Index, N> indices) ->
     typename IndexResult<T, N>::type {
@@ -331,7 +331,7 @@ auto calculate_strides(const TensorType &t) {
 }  // namespace detail
 
 // pxx :: export
-// pxx :: instance(["1", "3", "scattering::eigen::TensorMap<double, 5>", "std::array<int, 3>"])
+// pxx :: instance(["1", "3", "scattering::eigen::Tensor<double, 5>", "std::array<int, 3>"])
 template <int m,
           int n,
           typename TensorType,
@@ -377,7 +377,7 @@ auto inline get_submatrix(TensorType &t, IndexArray matrix_index) ->
 }
 
 // pxx :: export
-// pxx :: instance(["3", "scattering::eigen::TensorMap<double, 5>", "std::array<int, 4>"])
+// pxx :: instance(["3", "scattering::eigen::Tensor<double, 5>", "std::array<int, 4>"])
 template <int m,
           typename TensorType,
           typename IndexArray = std::array<typename TensorType::Index,

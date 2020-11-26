@@ -1,12 +1,12 @@
-/** \file particle_model.h
+/** \file particle_habit.h
  *
- * Contains the ParticleHabit class which represents a model of a scattering particle,
+ * Contains the ParticleHabit class which represents a habit of a scattering particle,
  * which consists of a collection of scattering data for different particle sizes.
  *
  * @author Simon Pfreundschuh, 2020
  */
-#ifndef __SCATTERING_PARTICLE_MODEL__
-#define __SCATTERING_PARTICLE_MODEL__
+#ifndef __SCATTERING_PARTICLE_HABIT__
+#define __SCATTERING_PARTICLE_HABIT__
 
 #include <scattering/single_scattering_data.h>
 #include <scattering/particle.h>
@@ -187,8 +187,8 @@ public:
      * distribution.
      *
      * @param The atmospheric temperature in K
-     * @param pnd Vector containing the number of particles of each of the species in the model.
-     * @return The scattering properties corresponding to the sum of the particle in the model
+     * @param pnd Vector containing the number of particles of each of the species in the habit.
+     * @return The scattering properties corresponding to the sum of the particle in the habit
      * multiplied by the number given in pnd.
      */
     SingleScatteringData calculate_bulk_properties(

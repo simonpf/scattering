@@ -1,7 +1,7 @@
 """
 Test interface to ARTS single scattering database (SSDB).
 """
-import scatlib.arts_ssdb as ssdb
+import scattering.arts_ssdb as ssdb
 import os
 import utils
 from utils import RANDOM_DATA_PATH, AZIMUTHALLY_RANDOM_DATA_PATH

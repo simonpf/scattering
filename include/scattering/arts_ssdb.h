@@ -1,7 +1,7 @@
 #ifndef __SCATTERING_ARTS_SSDB__
 #define __SCATTERING_ARTS_SSDB__
 
-#include "netcdfpp.hpp"
+#include "netcdf.hpp"
 #include <regex>
 #include <set>
 #include <utility>
