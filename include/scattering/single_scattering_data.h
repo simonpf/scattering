@@ -126,6 +126,8 @@ class SingleScatteringDataImpl {
   virtual eigen::Vector<double> get_lon_scat() = 0;
   virtual eigen::Vector<double> get_lat_scat() = 0;
 
+  virtual eigen::Index get_n_freqs() const = 0;
+  virtual eigen::Index get_n_temps() const = 0;
   virtual eigen::Index get_n_lon_inc() const = 0;
   virtual eigen::Index get_n_lat_inc() const = 0;
   virtual eigen::Index get_n_lon_scat() const = 0;
@@ -351,6 +353,8 @@ class SingleScatteringData {
   eigen::Vector<double> get_lon_scat() { return data_->get_lon_scat(); }
   eigen::Vector<double> get_lat_scat() { return data_->get_lat_scat(); }
 
+  eigen::Index get_n_freqs() const { return data_->get_n_freqs(); }
+  eigen::Index get_n_temps() const { return data_->get_n_temps(); }
   eigen::Index get_n_lon_inc() const { return data_->get_n_lon_inc(); }
   eigen::Index get_n_lat_inc() const { return data_->get_n_lat_inc(); }
   eigen::Index get_n_lon_scat() const { return data_->get_n_lon_scat(); }
@@ -650,6 +654,8 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
   eigen::Vector<double> get_lon_scat() { return phase_matrix_.get_lon_scat(); }
   eigen::Vector<double> get_lat_scat() { return phase_matrix_.get_lat_scat(); }
 
+  eigen::Index get_n_freqs() const { return phase_matrix_.get_n_freqs(); }
+  eigen::Index get_n_temps() const { return phase_matrix_.get_n_temps(); }
   eigen::Index get_n_lon_inc() const { return phase_matrix_.get_n_lon_inc(); }
   eigen::Index get_n_lat_inc() const { return phase_matrix_.get_n_lat_inc(); }
   eigen::Index get_n_lon_scat() const { return phase_matrix_.get_n_lon_scat(); }
@@ -1054,6 +1060,8 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
   eigen::Vector<double> get_lon_scat() { return phase_matrix_.get_lon_scat(); }
   eigen::Vector<double> get_lat_scat() { return phase_matrix_.get_lat_scat(); }
 
+  eigen::Index get_n_freqs() const { return phase_matrix_.get_n_freqs(); }
+  eigen::Index get_n_temps() const { return phase_matrix_.get_n_temps(); }
   eigen::Index get_n_lon_inc() const { return phase_matrix_.get_n_lon_inc(); }
   eigen::Index get_n_lat_inc() const { return phase_matrix_.get_n_lat_inc(); }
   eigen::Index get_n_lon_scat() const { return phase_matrix_.get_n_lon_scat(); }

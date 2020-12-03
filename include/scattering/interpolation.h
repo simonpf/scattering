@@ -268,30 +268,34 @@ template <typename WeightVector,
 void calculate_weights(WeightVector&& weights,
                        IndexVector&& indices,
                        const GridVector& grid,
-                       const PositionVector& positions) {
+                       const PositionVector& positions,
+                       bool extrapolate=false) {
   using Scalar = typename std::remove_reference<WeightVector>::type::Scalar;
 
   for (int i = 0; i < positions.size(); ++i) {
     auto p = positions[i];
     auto f = std::lower_bound(grid.begin(), grid.end(), p);
-    if (f != grid.end()) {
-      if (f == grid.begin()) {
-        indices[i] = 0;
-        weights[i] = 1.0;
+    if (extrapolate || (f != grid.end())) {
+      // p is within grid limits.
+      if (etrapolate || (f != grid.begin())) {
+          indices[i] = f - grid.begin();
+          if (*f != p) {
+              indices[i] -= 1;
+          }
+          Scalar l = grid[indices[i]];
+          if (l == p) {
+              weights[i] = 1.0;
+          } else {
+              Scalar r = grid[indices[i] + 1];
+              weights[i] = (r - p) / (r - l);
+          }
       } else {
-        indices[i] = f - grid.begin();
-        if (*f != p) {
-          indices[i] -= 1;
-        }
-        Scalar l = grid[indices[i]];
-        if (l == p) {
-          weights[i] = 1.0;
-        } else {
-          Scalar r = grid[indices[i] + 1];
-          weights[i] = (r - p) / (r - l);
-        }
+      // p is left of lower limit.
+      indices[i] = 0;
+      weights[i] = 1.0;
       }
     } else {
+      // p is right of upper limit.
       indices[i] = grid.size() - 1;
       weights[i] = 1.0;
     }

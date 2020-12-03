@@ -195,7 +195,7 @@ public:
         double temperature,
         eigen::ConstVectorRef<double> pnd,
         double phase_function_norm) {
-        assert(pnd.size() == particles_.size());
+        assert(static_cast<size_t>(pnd.size()) == particles_.size());
 
       auto temperature_vector = std::make_shared<eigen::Vector<double>>(1);
       (*temperature_vector)[0] = temperature;

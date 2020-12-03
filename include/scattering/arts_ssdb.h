@@ -24,7 +24,7 @@ namespace detail {
  *     frequency.
  */
 std::pair<double, double> match_temp_and_freq(std::string group_name) {
-  std::regex group_regex("Freq([0-9\.]*)GHz_T([0-9\.]*)K");
+  std::regex group_regex(R"(Freq([0-9\.]*)GHz_T([0-9\.]*)K)");
   std::smatch match;
   bool matches = std::regex_match(group_name, match, group_regex);
   if (matches) {
@@ -45,7 +45,7 @@ std::pair<double, double> match_temp_and_freq(std::string group_name) {
  */
 std::tuple<bool, double, double, double> match_particle_properties(
     std::string file_name) {
-  std::regex file_regex("Dmax([0-9]*)um_Dveq([0-9]*)um_Mass([-0-9\.e]*)kg\.nc");
+  std::regex file_regex(R"(Dmax([0-9]*)um_Dveq([0-9]*)um_Mass([-0-9\.e]*)kg\.nc)");
   std::smatch match;
   bool matches = std::regex_match(file_name, match, file_regex);
   if (matches) {

@@ -38,6 +38,8 @@ class ScatteringDataFieldFullySpectral;
  * the type of scattering data.
  */
 class ScatteringDataFieldBase {
+
+public:
   /** Determine scattering data type
    *
    * Determines the type of scattering data for a given phase matrix
@@ -60,6 +62,10 @@ class ScatteringDataFieldBase {
     return DataType::General;
   }
 
+  DataType get_data_type() const { return type_; }
+  Index get_n_freqs() const { return n_freqs_; }
+  Index get_n_temps() const { return n_temps_; }
+
  protected:
   ScatteringDataFieldBase(Index n_freqs,
                           Index n_temps,
@@ -74,8 +80,6 @@ class ScatteringDataFieldBase {
         n_lon_scat_(n_lon_scat),
         n_lat_scat_(n_lat_scat),
         type_(determine_type(n_lon_inc, n_lat_inc, n_lon_scat, n_lat_scat)) {}
-
-  DataType get_data_type() const { return type_; }
 
  protected:
   Index n_freqs_;
