@@ -66,13 +66,16 @@ Particle(ParticleProperties properties,
   SingleScatteringData interpolate_scattering_data(
       double temperature) const {
       auto t_grid = data_.get_t_grid();
-      if (t_grid.size() == 1) {
+      auto n_temps = data_.get_n_temps();
+      if (n_temps == 1) {
           return data_;
       }
 
       auto l = t_grid[0];
       auto r = t_grid[1];
       auto lower_limit = l - 0.5 * (r - l);
+      r = t_grid[n_temps - 1];
+      l = t_grid[n_temps - 2];
       auto upper_limit = r + 0.5 * (r - l);
 
       auto temperature_vector = std::make_shared<eigen::Vector<double>>(1);
