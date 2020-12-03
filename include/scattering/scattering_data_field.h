@@ -269,12 +269,12 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   /// Shallow copy of the ScatteringDataField.
   ScatteringDataFieldGridded(const ScatteringDataFieldGridded &) = default;
 
-  eigen::Vector<double> get_f_grid() const { return *f_grid_; }
-  eigen::Vector<double> get_t_grid() const { return *t_grid_; }
-  eigen::Vector<double> get_lon_inc() const { return *lon_inc_; }
-  eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
-  eigen::Vector<double> get_lon_scat() const { return *lon_scat_; }
-  eigen::Vector<double> get_lat_scat() const { return *lat_scat_; }
+  const eigen::Vector<double> &get_f_grid() const { return *f_grid_; }
+  const eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
+  const eigen::Vector<double>& get_lon_inc() const { return *lon_inc_; }
+  const eigen::Vector<double>& get_lat_inc() const { return *lat_inc_; }
+  const eigen::Vector<double>& get_lon_scat() const { return *lon_scat_; }
+  const eigen::Vector<double>& get_lat_scat() const { return *lat_scat_; }
   Index get_n_lon_inc() const { return lon_inc_->size(); }
   Index get_n_lat_inc() const { return lat_inc_->size(); }
   Index get_n_lon_scat() const { return lon_scat_->size(); }
@@ -368,9 +368,10 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
    * temperature grid.
    */
   ScatteringDataFieldGridded interpolate_temperature(
-      std::shared_ptr<Vector> temperatures) const {
+      std::shared_ptr<Vector> temperatures,
+      bool extrapolate=false) const {
     using Regridder = RegularRegridder<Scalar, 1>;
-    Regridder regridder({*t_grid_}, {*temperatures});
+    Regridder regridder({*t_grid_}, {*temperatures}, extrapolate);
     auto dimensions_new = data_->dimensions();
     auto data_interp = regridder.regrid(*data_);
     dimensions_new[1] = temperatures->size();
@@ -385,8 +386,9 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   }
 
   ScatteringDataFieldGridded interpolate_temperature(
-      const Vector &temperatures) const {
-    return interpolate_temperature(std::make_shared<Vector>(temperatures));
+      const Vector &temperatures,
+      bool extrapolate=false) const {
+    return interpolate_temperature(std::make_shared<Vector>(temperatures), extrapolate);
   }
 
   // pxx :: hide
@@ -844,11 +846,11 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
                                        data_new);
   }
 
-  eigen::Vector<double> get_f_grid() const { return *f_grid_; }
-  eigen::Vector<double> get_t_grid() const { return *t_grid_; }
-  eigen::Vector<double> get_lon_inc() const { return *lon_inc_; }
-  eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
-  eigen::Vector<double> get_lon_scat() const {
+  const eigen::Vector<double>& get_f_grid() const { return *f_grid_; }
+  const eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
+  const eigen::Vector<double>& get_lon_inc() const { return *lon_inc_; }
+  const eigen::Vector<double>& get_lat_inc() const { return *lat_inc_; }
+  const eigen::Vector<double>& get_lon_scat() const {
     return sht_scat_->get_longitude_grid();
   }
   eigen::Vector<double> get_lat_scat() const {
@@ -939,9 +941,10 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
    * to the given temperatures.
    */
   ScatteringDataFieldSpectral interpolate_temperature(
-      std::shared_ptr<Vector> temperatures) const {
+      std::shared_ptr<Vector> temperatures,
+      bool extrapolate=false) const {
     using Regridder = RegularRegridder<Scalar, 1>;
-    Regridder regridder({*t_grid_}, {*temperatures});
+    Regridder regridder({*t_grid_}, {*temperatures}, extrapolate);
     auto dimensions_new = data_->dimensions();
     auto data_interp = regridder.regrid(*data_);
     dimensions_new[1] = temperatures->size();
@@ -955,8 +958,10 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   }
 
   ScatteringDataFieldSpectral interpolate_temperature(
-      const Vector &temperatures) const {
-    return interpolate_temperature(std::make_shared<Vector>(temperatures));
+      const Vector &temperatures,
+      bool extrapolate=false) const {
+      return interpolate_temperature(std::make_shared<Vector>(temperatures),
+                                     extrapolate);
   }
 
   // pxx :: hide
@@ -1350,11 +1355,11 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
                                             data_new);
   }
 
-  eigen::Vector<double> get_f_grid() { return *f_grid_; }
-  eigen::Vector<double> get_t_grid() { return *t_grid_; }
-  eigen::Vector<double> get_lon_inc() { return sht_inc_->get_longitude_grid(); }
-  eigen::Vector<double> get_lat_inc() { return sht_inc_->get_latitude_grid(); }
-  eigen::Vector<double> get_lon_scat() {
+  const eigen::Vector<double>& get_f_grid() { return *f_grid_; }
+  const eigen::Vector<double>& get_t_grid() { return *t_grid_; }
+  const eigen::Vector<double>& get_lon_inc() { return sht_inc_->get_longitude_grid(); }
+  const eigen::Vector<double>& get_lat_inc() { return sht_inc_->get_latitude_grid(); }
+  const eigen::Vector<double>& get_lon_scat() {
     return sht_scat_->get_longitude_grid();
   }
   eigen::Vector<double> get_lat_scat() {
@@ -1435,9 +1440,10 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
    * to the given temperatures.
    */
   ScatteringDataFieldFullySpectral interpolate_temperature(
-      std::shared_ptr<Vector> temperatures) const {
+      std::shared_ptr<Vector> temperatures,
+      bool extrapolate=false) const {
     using Regridder = RegularRegridder<Scalar, 1>;
-    Regridder regridder({*t_grid_}, {*temperatures});
+    Regridder regridder({*t_grid_}, {*temperatures}, extrapolate);
     auto dimensions_new = data_->dimensions();
     auto data_interp = regridder.regrid(*data_);
     dimensions_new[1] = temperatures->size();
@@ -1451,8 +1457,10 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
   }
 
   ScatteringDataFieldFullySpectral interpolate_temperature(
-      const Vector &temperatures) const {
-    return interpolate_temperature(std::make_shared<Vector>(temperatures));
+      const Vector &temperatures,
+      bool extrapolate=false) const {
+      return interpolate_temperature(std::make_shared<Vector>(temperatures),
+                                     extrapolate);
   }
 
   /** Regrid data to new grids.

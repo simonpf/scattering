@@ -2,6 +2,7 @@ get_target_property(Eigen3_INCLUDE_DIRS Eigen3::Eigen INTERFACE_INCLUDE_DIRECTOR
 set(Eigen3_INCLUDE_DIRS ${Eigen3_INCLUDE_DIRS} ${Eigen3_INCLUDE_DIRS}/unsupported)
 get_target_property(netcdfhpp_INCLUDE_DIRS netcdfhpp::headers INTERFACE_INCLUDE_DIRECTORIES)
 include_directories(${netcdfhpp_INCLUDE_DIRS} ${Eigen3_INCLUDE_DIRS})
+message(WARNING ${netcdfhpp_INCLUDE_DIRS})
 
 #
 # SHT
@@ -69,7 +70,7 @@ target_link_libraries(single_scattering_data scattering)
 add_pxx_module(
   SOURCE ${PROJECT_SOURCE_DIR}/include/scattering/arts_ssdb.h
   MODULE arts_ssdb
-  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/ext/netcdfpp ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS} ${netcdfhpp_INCLUDE_DIRS}
+  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/ext/shtns ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS} ${netcdfhpp_INCLUDE_DIRS}
   )
 add_dependencies(arts_ssdb libshtns)
 target_link_libraries(arts_ssdb ${NETCDF_LIBRARY} ${HDF5_LIBRARIES} scattering)

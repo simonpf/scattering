@@ -110,7 +110,8 @@ class SingleScatteringDataImpl {
   virtual SingleScatteringDataImpl *interpolate_frequency(
       eigen::VectorPtr<double> frequencies) const = 0;
   virtual SingleScatteringDataImpl *interpolate_temperature(
-      eigen::VectorPtr<double> temperatures) const = 0;
+      eigen::VectorPtr<double> temperatures,
+      bool extrapolate=false) const = 0;
   virtual SingleScatteringDataImpl *interpolate_angles(
       eigen::VectorPtr<double> lon_inc,
       eigen::VectorPtr<double> lat_inc,
@@ -119,12 +120,12 @@ class SingleScatteringDataImpl {
   virtual SingleScatteringDataImpl *downsample_scattering_angles(
       eigen::VectorPtr<double> lon_scat,
       eigen::VectorPtr<double> lat_scat) const = 0;
-  virtual eigen::Vector<double> get_f_grid() = 0;
-  virtual eigen::Vector<double> get_t_grid() = 0;
-  virtual eigen::Vector<double> get_lon_inc() = 0;
-  virtual eigen::Vector<double> get_lat_inc() = 0;
-  virtual eigen::Vector<double> get_lon_scat() = 0;
-  virtual eigen::Vector<double> get_lat_scat() = 0;
+  virtual const eigen::Vector<double>& get_f_grid() const = 0;
+  virtual const eigen::Vector<double>& get_t_grid() const = 0;
+  virtual const eigen::Vector<double>& get_lon_inc() const = 0;
+  virtual const eigen::Vector<double>& get_lat_inc() const = 0;
+  virtual const eigen::Vector<double>& get_lon_scat() const = 0;
+  virtual const eigen::Vector<double>& get_lat_scat() const = 0;
 
   virtual eigen::Index get_n_freqs() const = 0;
   virtual eigen::Index get_n_temps() const = 0;
@@ -346,12 +347,12 @@ class SingleScatteringData {
                        Index l_max,
                        ParticleType type);
 
-  eigen::Vector<double> get_f_grid() { return data_->get_f_grid(); }
-  eigen::Vector<double> get_t_grid() { return data_->get_t_grid(); }
-  eigen::Vector<double> get_lon_inc() { return data_->get_lon_inc(); }
-  eigen::Vector<double> get_lat_inc() { return data_->get_lat_inc(); }
-  eigen::Vector<double> get_lon_scat() { return data_->get_lon_scat(); }
-  eigen::Vector<double> get_lat_scat() { return data_->get_lat_scat(); }
+  const eigen::Vector<double>& get_f_grid() const { return data_->get_f_grid(); }
+  const eigen::Vector<double>& get_t_grid() const { return data_->get_t_grid(); }
+  const eigen::Vector<double>& get_lon_inc() const { return data_->get_lon_inc(); }
+  const eigen::Vector<double>& get_lat_inc() const { return data_->get_lat_inc(); }
+  const eigen::Vector<double>& get_lon_scat() const { return data_->get_lon_scat(); }
+  const eigen::Vector<double>& get_lat_scat() const { return data_->get_lat_scat(); }
 
   eigen::Index get_n_freqs() const { return data_->get_n_freqs(); }
   eigen::Index get_n_temps() const { return data_->get_n_temps(); }
@@ -383,15 +384,19 @@ class SingleScatteringData {
   }
 
   SingleScatteringData interpolate_temperature(
-      eigen::Vector<double> temperatures) const {
+      eigen::Vector<double> temperatures,
+      bool extrapolate=false) const {
     auto result = data_->interpolate_temperature(
-        std::make_shared<eigen::Vector<double>>(temperatures));
+        std::make_shared<eigen::Vector<double>>(temperatures),
+        extrapolate);
     return SingleScatteringData(std::move(result));
   }
+
   // pxx :: hide
   SingleScatteringData interpolate_temperature(
-      std::shared_ptr<eigen::Vector<double>> temperatures) const {
-      auto result = data_->interpolate_temperature(temperatures);
+      std::shared_ptr<eigen::Vector<double>> temperatures,
+      bool extrapolate=false) const {
+      auto result = data_->interpolate_temperature(temperatures, extrapolate);
       return SingleScatteringData(std::move(result));
   }
 
@@ -647,12 +652,12 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
                                   dummy_grid_,
                                   forward_scattering_coeff) {}
 
-  eigen::Vector<double> get_f_grid() { return *f_grid_; }
-  eigen::Vector<double> get_t_grid() { return *t_grid_; }
-  eigen::Vector<double> get_lon_inc() { return phase_matrix_.get_lon_inc(); }
-  eigen::Vector<double> get_lat_inc() { return phase_matrix_.get_lat_inc(); }
-  eigen::Vector<double> get_lon_scat() { return phase_matrix_.get_lon_scat(); }
-  eigen::Vector<double> get_lat_scat() { return phase_matrix_.get_lat_scat(); }
+  const eigen::Vector<double> &get_f_grid() const { return *f_grid_; }
+  const eigen::Vector<double> &get_t_grid() const { return *t_grid_; }
+  const eigen::Vector<double> &get_lon_inc() const { return phase_matrix_.get_lon_inc(); }
+  const eigen::Vector<double> &get_lat_inc() const { return phase_matrix_.get_lat_inc(); }
+  const eigen::Vector<double> &get_lon_scat() const { return phase_matrix_.get_lon_scat(); }
+  const eigen::Vector<double> &get_lat_scat() const { return phase_matrix_.get_lat_scat(); }
 
   eigen::Index get_n_freqs() const { return phase_matrix_.get_n_freqs(); }
   eigen::Index get_n_temps() const { return phase_matrix_.get_n_temps(); }
@@ -768,17 +773,18 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
   }
 
   SingleScatteringDataImpl *interpolate_temperature(
-      eigen::VectorPtr<Scalar> temperatures) const {
+      eigen::VectorPtr<Scalar> temperatures,
+      bool extrapolate=false) const {
     auto phase_matrix = ScatteringDataFieldGridded<Scalar>(
-        phase_matrix_.interpolate_temperature(temperatures));
+        phase_matrix_.interpolate_temperature(temperatures, extrapolate));
     auto extinction_matrix = ScatteringDataFieldGridded<Scalar>(
-        extinction_matrix_.interpolate_temperature(temperatures));
+        extinction_matrix_.interpolate_temperature(temperatures, extrapolate));
     auto absorption_vector = ScatteringDataFieldGridded<Scalar>(
-        absorption_vector_.interpolate_temperature(temperatures));
+        absorption_vector_.interpolate_temperature(temperatures, extrapolate));
     auto backward_scattering_coeff = ScatteringDataFieldGridded<Scalar>(
-        backward_scattering_coeff_.interpolate_temperature(temperatures));
+        backward_scattering_coeff_.interpolate_temperature(temperatures, extrapolate));
     auto forward_scattering_coeff = ScatteringDataFieldGridded<Scalar>(
-        forward_scattering_coeff_.interpolate_temperature(temperatures));
+        forward_scattering_coeff_.interpolate_temperature(temperatures, extrapolate));
 
     return new SingleScatteringDataGridded(f_grid_,
                                            temperatures,
@@ -1053,12 +1059,12 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
                                   sht_dummy_,
                                   forward_scattering_coeff} {}
 
-  eigen::Vector<double> get_f_grid() { return *f_grid_; }
-  eigen::Vector<double> get_t_grid() { return *t_grid_; }
-  eigen::Vector<double> get_lon_inc() { return phase_matrix_.get_lon_inc(); }
-  eigen::Vector<double> get_lat_inc() { return phase_matrix_.get_lat_inc(); }
-  eigen::Vector<double> get_lon_scat() { return phase_matrix_.get_lon_scat(); }
-  eigen::Vector<double> get_lat_scat() { return phase_matrix_.get_lat_scat(); }
+  const eigen::Vector<double>& get_f_grid() const { return *f_grid_; }
+  const eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
+  const eigen::Vector<double>& get_lon_inc() const { return phase_matrix_.get_lon_inc(); }
+  const eigen::Vector<double>& get_lat_inc() const { return phase_matrix_.get_lat_inc(); }
+  const eigen::Vector<double>& get_lon_scat() const { return phase_matrix_.get_lon_scat(); }
+  const eigen::Vector<double>& get_lat_scat() const { return phase_matrix_.get_lat_scat(); }
 
   eigen::Index get_n_freqs() const { return phase_matrix_.get_n_freqs(); }
   eigen::Index get_n_temps() const { return phase_matrix_.get_n_temps(); }
@@ -1186,17 +1192,18 @@ eigen::Tensor<Scalar, 8> get_extinction_matrix(Index stokes_dim) const {
   }
 
   SingleScatteringDataImpl *interpolate_temperature(
-      eigen::VectorPtr<Scalar> temperatures) const {
+      eigen::VectorPtr<Scalar> temperatures,
+      bool extrapolate=false) const {
     auto phase_matrix = ScatteringDataFieldSpectral<Scalar>(
-        phase_matrix_.interpolate_temperature(temperatures));
+        phase_matrix_.interpolate_temperature(temperatures, extrapolate));
     auto extinction_matrix = ScatteringDataFieldSpectral<Scalar>(
-        extinction_matrix_.interpolate_temperature(temperatures));
+        extinction_matrix_.interpolate_temperature(temperatures, extrapolate));
     auto absorption_vector = ScatteringDataFieldSpectral<Scalar>(
-        absorption_vector_.interpolate_temperature(temperatures));
+        absorption_vector_.interpolate_temperature(temperatures, extrapolate));
     auto backward_scattering_coeff = ScatteringDataFieldSpectral<Scalar>(
-        backward_scattering_coeff_.interpolate_temperature(temperatures));
+        backward_scattering_coeff_.interpolate_temperature(temperatures, extrapolate));
     auto forward_scattering_coeff = ScatteringDataFieldSpectral<Scalar>(
-        forward_scattering_coeff_.interpolate_temperature(temperatures));
+        forward_scattering_coeff_.interpolate_temperature(temperatures, extrapolate));
 
     return new SingleScatteringDataSpectral(f_grid_,
                                             temperatures,

@@ -42,6 +42,13 @@ Particle(ParticleProperties properties,
 
   double get_d_aero() const { return properties_.d_aero; }
 
+  const eigen::Vector<double>& get_f_grid() { return data_.get_f_grid(); }
+  const eigen::Vector<double>& get_t_grid() { return data_.get_t_grid(); }
+  const eigen::Vector<double>& get_lon_inc() { return data_.get_lon_inc(); }
+  const eigen::Vector<double>& get_lat_inc() { return data_.get_lat_inc(); }
+  const eigen::Vector<double>& get_lon_scat() { return data_.get_lon_scat(); }
+  const eigen::Vector<double>& get_lat_scat() { return data_.get_lat_scat(); }
+
   //////////////////////////////////////////////////////////////////////////////
   // Manipulation of scattering data
   //////////////////////////////////////////////////////////////////////////////
@@ -54,6 +61,23 @@ Particle(ParticleProperties properties,
   // pxx :: hide
   Particle interpolate_temperature(std::shared_ptr<eigen::Vector<double>> t_grid) {
       return Particle(properties_, data_.interpolate_temperature(t_grid));
+  }
+
+  SingleScatteringData interpolate_scattering_data(
+      double temperature) const {
+      auto t_grid = data_.get_t_grid();
+      if (t_grid.size() == 1) {
+          return data_;
+      }
+
+      auto l = t_grid[0];
+      auto r = t_grid[1];
+      auto lower_limit = l - 0.5 * (r - l);
+      auto upper_limit = r + 0.5 * (r - l);
+
+      auto temperature_vector = std::make_shared<eigen::Vector<double>>(1);
+      (*temperature_vector)[0] = std::min(std::max(temperature, lower_limit), upper_limit);
+      return data_.interpolate_temperature(temperature_vector);
   }
 
   // pxx :: hide

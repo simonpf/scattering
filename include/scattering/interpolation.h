@@ -277,7 +277,7 @@ void calculate_weights(WeightVector&& weights,
     auto f = std::lower_bound(grid.begin(), grid.end(), p);
     if (extrapolate || (f != grid.end())) {
       // p is within grid limits.
-      if (etrapolate || (f != grid.begin())) {
+      if (extrapolate || (f != grid.begin())) {
           indices[i] = f - grid.begin();
           if (*f != p) {
               indices[i] -= 1;
@@ -305,7 +305,8 @@ void calculate_weights(WeightVector&& weights,
 template <typename Scalar>
 WeightIndexPair<Scalar> calculate_weights(
     const eigen::Vector<Scalar>& grid,
-    const eigen::Vector<Scalar>& positions) {
+    const eigen::Vector<Scalar>& positions,
+    bool extrapolate=false) {
   if (positions.size() == 0) {
     return std::make_pair<eigen::Vector<Scalar>, eigen::Vector<Eigen::Index>>(
         {},
@@ -321,7 +322,7 @@ WeightIndexPair<Scalar> calculate_weights(
     return std::make_pair(weights, indices);
   }
 
-  calculate_weights(weights, indices, grid, positions);
+  calculate_weights(weights, indices, grid, positions, extrapolate);
 
   return std::make_pair(weights, indices);
 }
@@ -603,10 +604,13 @@ class RegularRegridder {
    * given grids correspond.
    */
   RegularRegridder(std::array<eigen::Vector<Scalar>, n_dimensions> old_grids,
-                   std::array<eigen::Vector<Scalar>, n_dimensions> new_grids)
+                   std::array<eigen::Vector<Scalar>, n_dimensions> new_grids,
+                   bool extrapolate=false)
       : old_grids_(old_grids), new_grids_(new_grids) {
     for (size_t i = 0; i < dimensions_.size(); ++i) {
-      auto ws = detail::calculate_weights<Scalar>(old_grids_[i], new_grids_[i]);
+      auto ws = detail::calculate_weights<Scalar>(old_grids_[i],
+                                                  new_grids_[i],
+                                                  extrapolate);
       weights_[i] = std::get<0>(ws);
       indices_[i] = std::get<1>(ws);
     }
