@@ -199,11 +199,11 @@ public:
 
       auto temperature_vector = std::make_shared<eigen::Vector<double>>(1);
       (*temperature_vector)[0] = temperature;
-      auto result = particles_[0].interpolate_scattering_data(temperature);
+      auto result = particles_[0].interpolate_scattering_data_temperature(temperature);
       result *= pnd[0];
 
       for (Index i = 1; i < pnd.size(); ++i) {
-        auto data = particles_[i].interpolate_scattering_data(temperature);
+        auto data = particles_[i].interpolate_scattering_data_temperature(temperature);
         result += data * pnd[i];
       }
       result.normalize(phase_function_norm);

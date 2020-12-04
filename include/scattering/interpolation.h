@@ -89,7 +89,7 @@ struct Interpolator {
                                                        weights,
                                                        indices,
                                                        offsets_new);
-    if (w < 1.0) {
+    if (w != 1.0) {
       offsets_new[I] = 1;
       t = w * t;
       t += static_cast<Real>(1.0 - w) *
@@ -275,9 +275,8 @@ void calculate_weights(WeightVector&& weights,
   for (int i = 0; i < positions.size(); ++i) {
     auto p = positions[i];
     auto f = std::lower_bound(grid.begin(), grid.end(), p);
-    if (extrapolate || (f != grid.end())) {
+    if ((f != grid.begin()) && (f != grid.end())) {
       // p is within grid limits.
-      if (extrapolate || (f != grid.begin())) {
           indices[i] = f - grid.begin();
           if (*f != p) {
               indices[i] -= 1;
@@ -290,15 +289,30 @@ void calculate_weights(WeightVector&& weights,
               weights[i] = (r - p) / (r - l);
           }
       } else {
-      // p is left of lower limit.
-      indices[i] = 0;
-      weights[i] = 1.0;
+          if (f == grid.begin()) {
+              // p is left of lower limit.
+              if (extrapolate) {
+                  indices[i] = 0;
+                  Scalar l = grid[indices[i]];
+                  Scalar r = grid[indices[i] + 1];
+                  weights[i] = 1.0 + (l - p) / (r - l);
+              } else {
+                  indices[i] = 0;
+                  weights[i] = 1.0;
+              }
+          } else {
+              // p is right of upper limit.
+              if (extrapolate) {
+                  indices[i] = grid.size() - 2;
+                  Scalar l = grid[indices[i]];
+                  Scalar r = grid[indices[i] + 1];
+                  weights[i] = - (p - r) / (r - l);
+              } else {
+                  indices[i] = grid.size() - 1;
+                  weights[i] = 1.0;
+              }
+          }
       }
-    } else {
-      // p is right of upper limit.
-      indices[i] = grid.size() - 1;
-      weights[i] = 1.0;
-    }
   }
 }
 

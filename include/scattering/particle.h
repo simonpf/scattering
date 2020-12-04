@@ -63,7 +63,7 @@ Particle(ParticleProperties properties,
       return Particle(properties_, data_.interpolate_temperature(t_grid));
   }
 
-  SingleScatteringData interpolate_scattering_data(
+  SingleScatteringData interpolate_scattering_data_temperature(
       double temperature) const {
       auto t_grid = data_.get_t_grid();
       auto n_temps = data_.get_n_temps();
@@ -80,7 +80,7 @@ Particle(ParticleProperties properties,
 
       auto temperature_vector = std::make_shared<eigen::Vector<double>>(1);
       (*temperature_vector)[0] = std::min(std::max(temperature, lower_limit), upper_limit);
-      return data_.interpolate_temperature(temperature_vector);
+      return data_.interpolate_temperature(temperature_vector, true);
   }
 
   // pxx :: hide
