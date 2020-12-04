@@ -47,17 +47,27 @@ add_subdirectory(python)
 include (CMakePackageConfigHelpers)
 
 
-add_library (libscattering INTERFACE)
-target_include_directories(libscattering INTERFACE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/ext/shtns")
-target_link_libraries(libscattering
+add_library (scattering_export INTERFACE)
+target_include_directories(
+  scattering_export
+  INTERFACE
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/ext/shtns>
+  $<INSTALL_INTERFACE:include>
+  $<INSTALL_INTERFACE:ext/shtns>
+  )
+target_link_libraries(
+  scattering_export
   INTERFACE "${PROJECT_BINARY_DIR}/src/libscattering.a" "${PROJECT_BINARY_DIR}/ext/shtns/libshtns.a"
   )
 
-get_target_property(scattering_INCLUDE_DIR libscattering INTERFACE_INCLUDE_DIRECTORIES)
-get_target_property(scattering_INCLUDE_DIRS libscattering INTERFACE_INCLUDE_DIRECTORIES)
-get_target_property(scattering_LIBRARIES libscattering INTERFACE_LINK_LIBRARIES)
+set_target_properties (scattering_export PROPERTIES EXPORT_NAME scattering)
 
-install (TARGETS libscattering EXPORT scattering)
+get_target_property(scattering_INCLUDE_DIR scattering_export INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(scattering_INCLUDE_DIRS scattering_export INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(scattering_LIBRARIES scattering_export INTERFACE_LINK_LIBRARIES)
+
+install (TARGETS scattering_export EXPORT scattering)
 configure_package_config_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scatteringConfig.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/scatteringConfig.cmake
@@ -65,3 +75,7 @@ configure_package_config_file(
   INSTALL_DESTINATION ${PROJECT_BINARY_DIR}
   NO_CHECK_REQUIRED_COMPONENTS_MACRO #
 )
+
+export (TARGETS scattering_export NAMESPACE scattering:: FILE scatteringTargets.cmake)
+export (PACKAGE scattering)
+install (EXPORT scattering NAMESPACE scattering:: DESTINATION ${PROJECT_BINARY_DIR})

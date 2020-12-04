@@ -34,9 +34,6 @@ class SingleScatteringDataFullySpectral;
 // Interface for format-specific implementations.
 ////////////////////////////////////////////////////////////////////////////////
 
-// pxx :: export
-enum class ParticleType { Random = 0, AzimuthallyRandom = 1, General = 2 };
-
 namespace detail {
 
 inline Index get_n_phase_matrix_elements(ParticleType type) {
@@ -122,10 +119,10 @@ class SingleScatteringDataImpl {
       eigen::VectorPtr<double> lat_scat) const = 0;
   virtual const eigen::Vector<double>& get_f_grid() const = 0;
   virtual const eigen::Vector<double>& get_t_grid() const = 0;
-  virtual const eigen::Vector<double>& get_lon_inc() const = 0;
-  virtual const eigen::Vector<double>& get_lat_inc() const = 0;
-  virtual const eigen::Vector<double>& get_lon_scat() const = 0;
-  virtual const eigen::Vector<double>& get_lat_scat() const = 0;
+  virtual eigen::Vector<double> get_lon_inc() const = 0;
+  virtual eigen::Vector<double> get_lat_inc() const = 0;
+  virtual eigen::Vector<double> get_lon_scat() const = 0;
+  virtual eigen::Vector<double> get_lat_scat() const = 0;
 
   virtual eigen::Index get_n_freqs() const = 0;
   virtual eigen::Index get_n_temps() const = 0;
@@ -134,6 +131,9 @@ class SingleScatteringDataImpl {
   virtual eigen::Index get_n_lon_scat() const = 0;
   virtual eigen::Index get_n_lat_scat() const = 0;
   virtual eigen::Index get_stokes_dim() const = 0;
+
+  virtual ParticleType get_particle_type() const = 0;
+  virtual DataFormat get_data_format() const = 0;
 
   // Data access.
   virtual eigen::Tensor<double, 6> get_phase_function() const = 0;
@@ -347,12 +347,15 @@ class SingleScatteringData {
                        Index l_max,
                        ParticleType type);
 
+  ParticleType get_particle_type() const { return data_->get_particle_type(); }
+  DataFormat get_data_format() const { return data_->get_data_format(); }
+
   const eigen::Vector<double>& get_f_grid() const { return data_->get_f_grid(); }
   const eigen::Vector<double>& get_t_grid() const { return data_->get_t_grid(); }
-  const eigen::Vector<double>& get_lon_inc() const { return data_->get_lon_inc(); }
-  const eigen::Vector<double>& get_lat_inc() const { return data_->get_lat_inc(); }
-  const eigen::Vector<double>& get_lon_scat() const { return data_->get_lon_scat(); }
-  const eigen::Vector<double>& get_lat_scat() const { return data_->get_lat_scat(); }
+  eigen::Vector<double> get_lon_inc() const { return data_->get_lon_inc(); }
+  eigen::Vector<double> get_lat_inc() const { return data_->get_lat_inc(); }
+  eigen::Vector<double> get_lon_scat() const { return data_->get_lon_scat(); }
+  eigen::Vector<double> get_lat_scat() const { return data_->get_lat_scat(); }
 
   eigen::Index get_n_freqs() const { return data_->get_n_freqs(); }
   eigen::Index get_n_temps() const { return data_->get_n_temps(); }
@@ -367,6 +370,7 @@ class SingleScatteringData {
                 const SingleScatteringData &other) {
     data_->set_data(f_index, t_index, *other.data_);
   }
+
 
   // Interpolation functions
 
@@ -652,12 +656,15 @@ class SingleScatteringDataGridded : public SingleScatteringDataBase<Scalar>,
                                   dummy_grid_,
                                   forward_scattering_coeff) {}
 
+  ParticleType get_particle_type() const { return phase_matrix_.get_particle_type(); }
+  DataFormat get_data_format() const { return phase_matrix_.get_data_format(); }
+
   const eigen::Vector<double> &get_f_grid() const { return *f_grid_; }
   const eigen::Vector<double> &get_t_grid() const { return *t_grid_; }
-  const eigen::Vector<double> &get_lon_inc() const { return phase_matrix_.get_lon_inc(); }
-  const eigen::Vector<double> &get_lat_inc() const { return phase_matrix_.get_lat_inc(); }
-  const eigen::Vector<double> &get_lon_scat() const { return phase_matrix_.get_lon_scat(); }
-  const eigen::Vector<double> &get_lat_scat() const { return phase_matrix_.get_lat_scat(); }
+  eigen::Vector<double> get_lon_inc() const { return phase_matrix_.get_lon_inc(); }
+  eigen::Vector<double> get_lat_inc() const { return phase_matrix_.get_lat_inc(); }
+  eigen::Vector<double> get_lon_scat() const { return phase_matrix_.get_lon_scat(); }
+  eigen::Vector<double> get_lat_scat() const { return phase_matrix_.get_lat_scat(); }
 
   eigen::Index get_n_freqs() const { return phase_matrix_.get_n_freqs(); }
   eigen::Index get_n_temps() const { return phase_matrix_.get_n_temps(); }
@@ -1059,12 +1066,15 @@ class SingleScatteringDataSpectral : public SingleScatteringDataBase<Scalar>,
                                   sht_dummy_,
                                   forward_scattering_coeff} {}
 
+  ParticleType get_particle_type() const { return phase_matrix_.get_particle_type(); }
+  DataFormat get_data_format() const { return phase_matrix_.get_data_format(); }
+
   const eigen::Vector<double>& get_f_grid() const { return *f_grid_; }
   const eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
-  const eigen::Vector<double>& get_lon_inc() const { return phase_matrix_.get_lon_inc(); }
-  const eigen::Vector<double>& get_lat_inc() const { return phase_matrix_.get_lat_inc(); }
-  const eigen::Vector<double>& get_lon_scat() const { return phase_matrix_.get_lon_scat(); }
-  const eigen::Vector<double>& get_lat_scat() const { return phase_matrix_.get_lat_scat(); }
+  eigen::Vector<double> get_lon_inc() const { return phase_matrix_.get_lon_inc(); }
+  eigen::Vector<double> get_lat_inc() const { return phase_matrix_.get_lat_inc(); }
+  eigen::Vector<double> get_lon_scat() const { return phase_matrix_.get_lon_scat(); }
+  eigen::Vector<double> get_lat_scat() const { return phase_matrix_.get_lat_scat(); }
 
   eigen::Index get_n_freqs() const { return phase_matrix_.get_n_freqs(); }
   eigen::Index get_n_temps() const { return phase_matrix_.get_n_temps(); }

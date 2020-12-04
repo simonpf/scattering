@@ -1,11 +1,19 @@
+/** \file arts_ssdb.h
+ *
+ * Provides an interface to read single scattering data from the ARTS single
+ * scattering database.
+ *
+ * @author Simon Pfreundschuh, 2020
+ */
 #ifndef __SCATTERING_ARTS_SSDB__
 #define __SCATTERING_ARTS_SSDB__
 
-#include "netcdf.hpp"
 #include <regex>
 #include <set>
 #include <utility>
 #include <filesystem>
+
+#include "netcdf.hpp"
 
 #include <scattering/eigen.h>
 #include <scattering/utils/array.h>
@@ -18,44 +26,29 @@ namespace arts_ssdb {
 
 namespace detail {
 
+////////////////////////////////////////////////////////////////////////////////
+// Helper functions.
+////////////////////////////////////////////////////////////////////////////////
+
 /** Extract temperature and frequency from group name.
- * @group_name The name of one of the groups in an ASSDB particle file.
+ * @param group_name The name of one of the NetCDF groups in an ASSDB particle
+ * file.
  * @return Pair(temp, freq) containing the extracted temperatures and
- *     frequency.
+ * frequency.
  */
-std::pair<double, double> match_temp_and_freq(std::string group_name) {
-  std::regex group_regex(R"(Freq([0-9\.]*)GHz_T([0-9\.]*)K)");
-  std::smatch match;
-  bool matches = std::regex_match(group_name, match, group_regex);
-  if (matches) {
-    double freq = std::stod(match[1]);
-    double temp = std::stod(match[2]);
-    return std::make_pair(freq, temp);
-  }
-  throw std::runtime_error("Group name doesn't match expected pattern.");
-}
+std::pair<double, double> match_temp_and_freq(std::string group_name);
 
 /** Extract particle metadata from filename.
- * @param file_name The filename as string.
+ * @param filename The filename as string.
  * @return tuple (match, d_eq, d_max, m) containing
- *    - match: Flag indicating whether the filename matches the ASSDB pattern.
+ *    - match: Flag indicating whether the filename matches the ARTS SSDB
+ *      pattern.
  *    - d_eq: The volume-equivalent diameter
  *    - d_max: The maximum diameter.
  *    - m: The mass of the particle.
  */
 std::tuple<bool, double, double, double> match_particle_properties(
-    std::string file_name) {
-  std::regex file_regex(R"(Dmax([0-9]*)um_Dveq([0-9]*)um_Mass([-0-9\.e]*)kg\.nc)");
-  std::smatch match;
-  bool matches = std::regex_match(file_name, match, file_regex);
-  if (matches) {
-    double d_max = std::stod(match[1]) * 1e-6;
-    double d_eq = std::stod(match[2]) * 1e-6;
-    double m = std::stod(match[3]);
-    return std::make_tuple(true, d_eq, d_max, m);
-  }
-  return std::make_tuple(false, 0.0, 0.0, 0.0);
-}
+    std::string filename);
 
  /** Indirect sort w.r.t. equivalent diameter.
  *
@@ -65,179 +58,145 @@ std::tuple<bool, double, double, double> match_particle_properties(
  */
 void sort_by_d_eq(std::vector<double> &d_eq,
                   std::vector<double> &d_max,
-                  std::vector<double> &m) {
-    std::vector<size_t> indices{};
-    indices.resize(d_eq.size());
-    for (size_t i = 0; i < indices.size(); ++i) indices[i] = i;
-
-    auto compare_d_eq = [&d_eq](size_t i, size_t j) {return d_eq[i] < d_eq[j];};
-    std::sort(indices.begin(), indices.end(), compare_d_eq);
-
-    std::vector<double> copy = d_eq;
-    for (size_t i = 0; i < indices.size(); ++i) d_eq[i] = copy[indices[i]];
-    copy = d_max;
-    for (size_t i = 0; i < indices.size(); ++i) d_max[i] = copy[indices[i]];
-    copy = m;
-    for (size_t i = 0; i < indices.size(); ++i) m[i] = copy[indices[i]];
-}
+                  std::vector<double> &m);
 
 }
 
-enum class Format {Gridded, Spectral, FullySpectral};
-
 ////////////////////////////////////////////////////////////////////////////////
-// ScatteringData
+// Scattering data for given temperature and frequency.
 ////////////////////////////////////////////////////////////////////////////////
-
 // pxx :: export
-/** ASSD Scattering data.
+/** ARTS SSDB scattering data for given particle temperature and frequency.
  *
  * The scattering data for a given particle, temperature and frequency is
- * contained in a NetCDF group. This class provides an interface to these
+ * contained in a single NetCDF group. This class provides an interface to these
  * groups and provides access to the scattering data.
  */
 class ScatteringData {
   // pxx :: hide
-  void determine_format() {
-    format_ = Format::Gridded;
-    if (group_.has_variable("phaMat_data_real")) {
-      format_ = Format::Spectral;
-    }
-    if (group_.has_variable("extMat_data_real")) {
-      format_ = Format::FullySpectral;
-    }
-  }
-
+  // Determines format of scattering data. Called by constructor.
+  void determine_format();
   // pxx :: hide
+  /** Extract vector from NetCDF data.
+   * @param name Name of the variable containing the vector.
+   * @return eigen::Vector containing the data.
+   */
   template <typename Float>
-  eigen::Vector<Float> get_vector(std::string name) {
-    auto variable = group_.get_variable(name);
-    auto size = variable.size();
-    auto result = eigen::Vector<Float>{size};
-    variable.read(result.data());
-    return result;
-  }
+  eigen::Vector<Float> get_vector(std::string name);
 
  public:
+  /** Create ScatteringData object from NetCDF group.
+   *
+   * Extracts temperature and frequency of scattering data and
+   * determines the data format.
+   */
   ScatteringData(netcdf4::Group group) : group_(group) {
     temperature_ = group.get_variable("temperature").read<double>();
     frequency_ = group.get_variable("frequency").read<double>();
     determine_format();
   }
 
+  //
+  // Particle properties
+  //
+
+  /// The particle type described by the data.
+  ParticleType get_particle_type();
+  /// The format the scattering data is in.
+  DataFormat get_format() const { return format_; }
+  /// The frequency in GHz for which this data is valid.
   double get_frequency() { return frequency_; }
+  /// The temperature in K for which the data is valid.
   double get_temperature() { return temperature_; }
-
-  ParticleType get_particle_type() {
-    if (format_ == Format::Gridded) {
-      auto phase_matrix_shape = group_.get_variable("phaMat_data").shape();
-      if (phase_matrix_shape[0] == 6) {
-        return ParticleType::Random;
-      } else {
-        return ParticleType::AzimuthallyRandom;
-      }
-    } else if (format_ == Format::Spectral) {
-      auto phase_matrix_shape = group_.get_variable("phaMat_data_real").shape();
-      if (phase_matrix_shape[0] == 6) {
-        return ParticleType::Random;
-      } else {
-        return ParticleType::AzimuthallyRandom;
-      }
-    }
-    return ParticleType::AzimuthallyRandom;
-  }
-
-  Format get_format() const { return format_; }
-
-  Index get_l_max() {
-      auto phase_matrix_dimensions = group_.get_variable("phaMat_data_real").shape();
-      Index l_max = sht::SHT::calc_l_max(phase_matrix_dimensions[3]);
-      return l_max;
-  }
-
-  sht::SHT get_sht() {
-      auto phase_matrix_dimensions = group_.get_variable("phaMat_data_real").shape();
-      auto l_max = sht::SHT::calc_l_max(phase_matrix_dimensions[3]);
-      return sht::SHT(l_max, l_max, 2 * l_max + 2, 2 * l_max + 2);
-  }
-
+  /// The l_max value used in the SHT transformation of spectral data.
+  Index get_l_max();
+  /** Compatible SHT object.
+   * @return A spherical harmonics transform object that can be used to
+   * transform data in spectral format.
+   */
+  sht::SHT get_sht();
+  /// Length-1 vector containing the frequency corresponding to the scattering data.
   eigen::Vector<double> get_f_grid() {return eigen::Vector<double>::Constant(1, frequency_);}
+  /// Length-1 vector containing the temperature corresponding to the scattering data.
   eigen::Vector<double> get_t_grid() {return eigen::Vector<double>::Constant(1, temperature_);}
-  eigen::Vector<double> get_lon_inc() {
-    if (format_ == Format::Gridded) {
-      return get_vector<double>("aa_inc");
-    }
-    return get_vector<float>("aa_inc").cast<double>();
-  }
-  eigen::Vector<double> get_lat_inc() {
-    if (format_ == Format::Gridded) {
-      return get_vector<double>("za_inc");
-    }
-    return get_vector<float>("za_inc").cast<double>();
-  }
-
+  /// The lon. component of the incoming angle grid of the scattering data.
+  eigen::Vector<double> get_lon_inc();
+  /// The lat. component of the incoming angle grid of the scattering data.
+  eigen::Vector<double> get_lat_inc();
+  /// The lon. component of the scattering angle grid of the scattering data.
   eigen::Vector<double> get_lon_scat() { return get_vector<double>("aa_scat"); }
+  /// The lat. component of the scattering angle grid of the scattering data.
   eigen::Vector<double> get_lat_scat() { return get_vector<double>("za_scat"); }
 
-  eigen::Tensor<double, 7> get_phase_matrix_data_gridded() {
-    // Load data from file.
-    auto variable = group_.get_variable("phaMat_data");
-    auto dimensions = variable.get_shape_array<eigen::Index, 5>();
-    eigen::Tensor<double, 5> result{dimensions};
-    variable.read(result.data());
+  //
+  // Extracting data
+  //
 
-    // Reshape and shuffle data.
-    eigen::Tensor<double, 5> result_shuffled = eigen::cycle_dimensions(result);
-    eigen::Tensor<double, 7> result_reshaped = eigen::unsqueeze<0, 1>(result_shuffled);
-    return result_reshaped;
-  }
+  /** The phase matrix data in gridded format.
+   *
+   * Note that the axes corresponding to temperature and frequency are degenerate
+   * because the data is specific to one given frequency and temperature.
+   *
+   * @return Rank-7 tensor containing the phase matrix in gridded format. Axes
+   * correspond to frequency (1), temperature (2), incoming angle lon. (3) and
+   * lat. (4),  scattering angle lon. (5) and lat. (6) and the stokes components
+   * (7).
+   */
+  eigen::Tensor<double, 7> get_phase_matrix_data_gridded();
 
-  eigen::Tensor<std::complex<double>, 6> get_phase_matrix_data_spectral() {
-    // Read data from file.
-    auto variable_real = group_.get_variable("phaMat_data_real");
-    auto variable_imag = group_.get_variable("phaMat_data_imag");
-    auto dimensions = variable_real.get_shape_array<eigen::Index, 4>();
-    eigen::Tensor<float, 4> real{dimensions};
-    eigen::Tensor<float, 4> imag{dimensions};
-    variable_real.read(real.data());
-    variable_imag.read(imag.data());
-    eigen::Tensor<std::complex<double>, 4> result =
-        imag.cast<std::complex<double>>();
-    result = result * std::complex<double>(0.0, 1.0);
-    result += real;
+  /** The phase matrix data in spectral format.
+   *
+   * Note that the axes corresponding to temperature and frequency are degenerate
+   * because the data is specific to one given frequency and temperature.
+   *
+   * @return Rank-6 complex tensor containing the phase matrix in gridded format.
+   * Axes correspond to frequency (1), temperature (2), incoming angle lon. (3)
+   * and lat. (4),  SHT components (5) nd the stokes components (6).
+   */
+  eigen::Tensor<std::complex<double>, 6> get_phase_matrix_data_spectral();
 
-    // Reshape and shuffle data.
-    auto result_shuffled = eigen::cycle_dimensions(result);
-    auto result_reshaped = eigen::unsqueeze<0, 1>(result_shuffled);
-    return result_reshaped;
-  }
+  /** The extinction matrix data in gridded format.
+   *
+   * Note that the axes corresponding to temperature and frequency are degenerate
+   * because the data is specific to one given frequency and temperature.
+   *
+   * Note that axes corresponding to scattering angles are degenerate due to
+   * the extinction matrix not exhibiting any scattering-angle dependency.
+   *
+   * @return Rank-7 tensor containing the phase matrix in gridded format. Axes
+   * correspond to frequency (1), temperature (2), incoming angle lon. (3) and
+   * lat. (4),  scattering angle lon. (5) and lat. (6) and the stokes components
+   * (7).
+   */
+  eigen::Tensor<double, 7> get_extinction_matrix_data_gridded();
 
-  eigen::Tensor<double, 7> get_extinction_matrix_data_gridded() {
-    // Read data from file.
-    auto variable = group_.get_variable("extMat_data");
-    auto dimensions = variable.get_shape_array<eigen::Index, 3>();
-    eigen::Tensor<double, 3> result{dimensions};
-    variable.read(result.data());
+  /** The extinction matrix data in spectral format.
+   *
+   * Note that the axes corresponding to temperature and frequency are degenerate
+   * because the data is specific to one given frequency and temperature.
+   *
+   * Note that axes corresponding to scattering angles are degenerate due to
+   * the extinction matrix not exhibiting any scattering-angle dependency.
+   *
+   * @return Rank-6 complex tensor containing the phase matrix in gridded format.
+   * Axes correspond to frequency (1), temperature (2), incoming angle lon. (3)
+   * and lat. (4),  SHT components (5) nd the stokes components (6).
+   */
+  eigen::Tensor<std::complex<double>, 6> get_extinction_matrix_data_spectral();
 
-    // Reshape and shuffle data.
-    eigen::Tensor<double, 3> result_shuffled = eigen::cycle_dimensions(result);
-    eigen::Tensor<double, 7> result_reshaped = eigen::unsqueeze<0, 1, 4, 5>(result_shuffled);
-    return result_reshaped;
-  }
-
-  eigen::Tensor<std::complex<double>, 6> get_extinction_matrix_data_spectral() {
-    // Read data from file.
-    auto variable = group_.get_variable("extMat_data");
-    auto dimensions = variable.get_shape_array<eigen::Index, 3>();
-    eigen::Tensor<float, 3> result{dimensions};
-    variable.read(result.data());
-
-    // Reshape and shuffle data.
-    eigen::Tensor<float, 3> result_shuffled = eigen::cycle_dimensions(result);
-    eigen::Tensor<float, 6> result_reshaped = eigen::unsqueeze<0, 1, 4>(result_shuffled);
-    return result_reshaped.cast<std::complex<double>>();
-  }
-
+  /** The absorption vector in gridded format.
+   *
+   * Note that the axes corresponding to temperature and frequency are degenerate
+   * because the data is specific to one given frequency and temperature.
+   *
+   * Note that axes corresponding to scattering angles are degenerate due to
+   * the absorption vector not exhibiting any scattering-angle dependency.
+   *
+   * @return Rank-7 tensor containing the phase matrix in gridded format. Axes
+   * correspond to frequency (1), temperature (2), incoming angle lon. (3) and
+   * lat. (4),  scattering angle lon. (5) and lat. (6) and the stokes components
+   * (7).
+   */
   eigen::Tensor<double, 7> get_absorption_vector_data_gridded() {
     auto variable = group_.get_variable("absVec_data");
     auto dimensions = variable.get_shape_array<eigen::Index, 3>();
@@ -250,18 +209,33 @@ class ScatteringData {
     return result_reshaped;
   }
 
-  eigen::Tensor<std::complex<double>, 6> get_absorption_vector_data_spectral() {
-    auto variable = group_.get_variable("absVec_data");
-    auto dimensions = variable.get_shape_array<eigen::Index, 3>();
-    eigen::Tensor<float, 3> result{dimensions};
-    variable.read(result.data());
+  /** The absorption vector data in spectral format.
+   *
+   * Note that the axes corresponding to temperature and frequency are degenerate
+   * because the data is specific to one given frequency and temperature.
+   *
+   * Note that axes corresponding to scattering angles are degenerate due to
+   * the absorption vector not exhibiting any scattering-angle dependency.
+   *
+   * @return Rank-6 complex tensor containing the phase matrix in gridded format.
+   * Axes correspond to frequency (1), temperature (2), incoming angle lon. (3)
+   * and lat. (4),  SHT components (5) nd the stokes components (6).
+   */
+  eigen::Tensor<std::complex<double>, 6> get_absorption_vector_data_spectral();
 
-    // Reshape and shuffle data.
-    eigen::Tensor<float, 3> result_shuffled = eigen::cycle_dimensions(result);
-    eigen::Tensor<float, 6> result_reshaped = eigen::unsqueeze<0, 1, 4>(result_shuffled);
-    return result_reshaped.cast<std::complex<double>>();
-  }
-
+  /** The backward scattering coefficient in gridded format.
+   *
+   * Note that the axes corresponding to temperature and frequency are degenerate
+   * because the data is specific to one given frequency and temperature.
+   *
+   * Note that axes corresponding to scattering angles are degenerate due to
+   * the backward scattering coefficient  not exhibiting any scattering-angle dependency.
+   *
+   * @return Rank-7 tensor containing the phase matrix in gridded format. Axes
+   * correspond to frequency (1), temperature (2), incoming angle lon. (3) and
+   * lat. (4),  scattering angle lon. (5) and lat. (6) and the stokes components
+   * (7).
+   */
   eigen::Tensor<double, 7> get_backward_scattering_coeff_data_gridded() {
       auto phase_matrix = get_phase_matrix_data_gridded();
       auto dimensions = phase_matrix.dimensions();
@@ -272,128 +246,57 @@ class ScatteringData {
       return backward_scattering_coeff.reshape(dimensions);
   }
 
-  eigen::Tensor<std::complex<double>, 6> get_backward_scattering_coeff_data_spectral() {
-      auto phase_matrix = get_phase_matrix_data_spectral();
-      auto sht = get_sht();
-      auto data_spectral = ScatteringDataFieldSpectral(get_f_grid(),
-                                                       get_t_grid(),
-                                                       get_lon_inc(),
-                                                       get_lat_inc(),
-                                                       sht,
-                                                       get_phase_matrix_data_spectral());
-      auto data_gridded = data_spectral.to_gridded();
-      auto phase_matrix_gridded = data_gridded.get_data();
-      auto dimensions = phase_matrix_gridded.dimensions();
-      auto backward_scattering_coeff = phase_matrix_gridded.chip<4>(0).chip<4>(dimensions[5] - 1).chip<4>(0);
-      auto dimensions_output = phase_matrix.dimensions();
-      dimensions_output[4] = 1;
-      dimensions_output[5] = 1;
-      return backward_scattering_coeff.cast<std::complex<double>>().reshape(dimensions_output);
-  }
+  /** The backward scattering coefficient data in spectral format.
+   *
+   * Note that the axes corresponding to temperature and frequency are degenerate
+   * because the data is specific to one given frequency and temperature.
+   *
+   * Note that axes corresponding to scattering angles are degenerate due to
+   * the backward scattering coefficient not exhibiting any scattering-angle dependency.
+   *
+   * @return Rank-6 complex tensor containing the phase matrix in gridded format.
+   * Axes correspond to frequency (1), temperature (2), incoming angle lon. (3)
+   * and lat. (4),  SHT components (5) nd the stokes components (6).
+   */
+  eigen::Tensor<std::complex<double>, 6> get_backward_scattering_coeff_data_spectral();
 
-  eigen::Tensor<double, 7> get_forward_scattering_coeff_data_gridded() {
-      auto phase_matrix = get_phase_matrix_data_gridded();
-      auto dimensions = phase_matrix.dimensions();
-      auto backward_scattering_coeff = phase_matrix.chip<4>(0).chip<4>(0).chip<4>(0);
-      dimensions[4] = 1;
-      dimensions[5] = 1;
-      dimensions[6] = 1;
-      return backward_scattering_coeff.reshape(dimensions);
-  }
-eigen::Tensor<std::complex<double>, 6> get_forward_scattering_coeff_data_spectral() {
-      auto phase_matrix = get_phase_matrix_data_spectral();
-      auto sht = get_sht();
+  /** The forward scattering coefficient in gridded format.
+   *
+   * Note that the axes corresponding to temperature and frequency are degenerate
+   * because the data is specific to one given frequency and temperature.
+   *
+   * Note that axes corresponding to scattering angles are degenerate due to
+   * the forward scattering coefficient  not exhibiting any scattering-angle dependency.
+   *
+   * @return Rank-7 tensor containing the phase matrix in gridded format. Axes
+   * correspond to frequency (1), temperature (2), incoming angle lon. (3) and
+   * lat. (4),  scattering angle lon. (5) and lat. (6) and the stokes components
+   * (7).
+   */
+  eigen::Tensor<double, 7> get_forward_scattering_coeff_data_gridded();
 
-      auto data_spectral = ScatteringDataFieldSpectral(get_f_grid(),
-                                                       get_t_grid(),
-                                                       get_lon_inc(),
-                                                       get_lat_inc(),
-                                                       sht,
-                                                       get_phase_matrix_data_spectral());
-      auto data_gridded = data_spectral.to_gridded();
-      auto phase_matrix_gridded = data_gridded.get_data();
-      auto forward_scattering_coeff = phase_matrix_gridded.chip<4>(0).chip<4>(0).chip<4>(0);
-      auto dimensions_output = phase_matrix.dimensions();
-      dimensions_output[4] = 1;
-      dimensions_output[5] = 1;
-      return forward_scattering_coeff.cast<std::complex<double>>().reshape(dimensions_output);
-  }
+  /** The forward scattering coefficient data in spectral format.
+   *
+   * Note that the axes corresponding to temperature and frequency are degenerate
+   * because the data is specific to one given frequency and temperature.
+   *
+   * Note that axes corresponding to scattering angles are degenerate due to
+   * the forward scattering coefficient not exhibiting any scattering-angle dependency.
+   *
+   * @return Rank-6 complex tensor containing the phase matrix in gridded format.
+   * Axes correspond to frequency (1), temperature (2), incoming angle lon. (3)
+   * and lat. (4),  SHT components (5) nd the stokes components (6).
+   */
+  eigen::Tensor<std::complex<double>, 6> get_forward_scattering_coeff_data_spectral();
 
-  operator SingleScatteringDataGridded<double>() {
-    assert(format_ == Format::Gridded);
-
-    auto f_grid = std::make_shared<eigen::Vector<double>>(get_f_grid());
-    auto t_grid = std::make_shared<eigen::Vector<double>>(get_t_grid());
-    auto lon_inc = std::make_shared<eigen::Vector<double>>(get_lon_inc());
-    auto lat_inc = std::make_shared<eigen::Vector<double>>(get_lat_inc());
-    auto lon_scat = std::make_shared<eigen::Vector<double>>(get_lon_scat());
-    auto lat_scat = std::make_shared<eigen::Vector<double>>(get_lat_scat());
-    auto phase_matrix =
-        std::make_shared<eigen::Tensor<double, 7>>(get_phase_matrix_data_gridded());
-    auto extinction_matrix = std::make_shared<eigen::Tensor<double, 7>>(
-        get_extinction_matrix_data_gridded());
-    auto absorption_vector = std::make_shared<eigen::Tensor<double, 7>>(
-        get_absorption_vector_data_gridded());
-    auto backward_scattering_coeff = std::make_shared<eigen::Tensor<double, 7>>(
-        get_backward_scattering_coeff_data_gridded());
-    auto forward_scattering_coeff = std::make_shared<eigen::Tensor<double, 7>>(
-        get_backward_scattering_coeff_data_gridded());
-    return SingleScatteringDataGridded<double>(f_grid,
-                                               t_grid,
-                                               lon_inc,
-                                               lat_inc,
-                                               lon_scat,
-                                               lat_scat,
-                                               phase_matrix,
-                                               extinction_matrix,
-                                               absorption_vector,
-                                               backward_scattering_coeff,
-                                               forward_scattering_coeff);
-  }
-
-  operator SingleScatteringDataSpectral<double>() {
-      assert(format_ == Format::Spectral);
-
-    auto f_grid = std::make_shared<eigen::Vector<double>>(get_f_grid());
-    auto t_grid = std::make_shared<eigen::Vector<double>>(get_t_grid());
-    auto lon_inc = std::make_shared<eigen::Vector<double>>(get_lon_inc());
-    auto lat_inc = std::make_shared<eigen::Vector<double>>(get_lat_inc());
-    auto sht = std::make_shared<sht::SHT>(get_sht());
-    auto phase_matrix =
-        std::make_shared<eigen::Tensor<std::complex<double>, 6>>(get_phase_matrix_data_spectral());
-    auto extinction_matrix = std::make_shared<eigen::Tensor<std::complex<double>, 6>>(
-        get_extinction_matrix_data_spectral());
-    auto absorption_vector = std::make_shared<eigen::Tensor<std::complex<double>, 6>>(
-        get_absorption_vector_data_spectral());
-    auto backward_scattering_coeff = std::make_shared<eigen::Tensor<std::complex<double>, 6>>(
-        get_backward_scattering_coeff_data_spectral());
-    auto forward_scattering_coeff = std::make_shared<eigen::Tensor<std::complex<double>, 6>>(
-        get_backward_scattering_coeff_data_spectral());
-    return SingleScatteringDataSpectral<double>(f_grid,
-                                                t_grid,
-                                                lon_inc,
-                                                lat_inc,
-                                                sht,
-                                                phase_matrix,
-                                                extinction_matrix,
-                                                absorption_vector,
-                                                backward_scattering_coeff,
-                                                forward_scattering_coeff);
-
-  }
-
-  operator SingleScatteringData() {
-    SingleScatteringDataImpl* data = nullptr;
-    if (format_ == Format::Gridded) {
-      data = new SingleScatteringDataGridded<double>(*this);
-    } else if (format_ == Format::Spectral) {
-      data = new SingleScatteringDataSpectral<double>(*this);
-    }
-    return SingleScatteringData(data);
-  }
+  /// Conversion to SingleScatteringData in gridded format.
+  operator SingleScatteringDataGridded<double>();
+  /// Conversion to SingleScatteringData in spectral format.
+  operator SingleScatteringDataSpectral<double>();
+  /// Conversion to SingleScatteringData in native data format.
 
  private:
-  Format format_;
+  DataFormat format_;
   double temperature_, frequency_;
   netcdf4::Group group_;
   };
@@ -401,139 +304,83 @@ eigen::Tensor<std::complex<double>, 6> get_forward_scattering_coeff_data_spectra
 ////////////////////////////////////////////////////////////////////////////////
 // ParticleFile
 ////////////////////////////////////////////////////////////////////////////////
-
 // pxx :: export
-/** ASSD Scattering data.
+/** ARTS SSDB data for a specific particle.
  *
- * The scattering data for a particle of given size is contained in a single
- * NetCDF file. This class provides an interface to these files and access
- * to the groups, which contain the scattering data for given temperatures
- * and frequencies.
+ * The scattering data for a particle a specific particle of given size is
+ * contained in a single NetCDF file. This class provides an interface to these
+ * files and access to the groups, which contain the scattering data for given
+ * temperatures and frequencies.
  */
-// pxx :: export
 class ParticleFile {
-  // pxx :: hide
-  void parse_temps_and_freqs() {
-    auto group_names = file_handle_.get_group_names();
-    std::set<double> freqs;
-    std::set<double> temps;
-    for (auto &name : group_names) {
-      auto freq_and_temp = detail::match_temp_and_freq(name);
-      freqs.insert(std::get<0>(freq_and_temp));
-      temps.insert(std::get<1>(freq_and_temp));
-      auto group = file_handle_.get_group(name).get_group("SingleScatteringData");
-      group_map_[freq_and_temp] = group;
-    }
-    freqs_.resize(freqs.size());
-    std::copy(freqs.begin(), freqs.end(), freqs_.begin());
-    temps_.resize(temps.size());
-    std::copy(temps.begin(), temps.end(), temps_.begin());
-    std::sort(freqs_.begin(), freqs_.end());
-    std::sort(temps_.begin(), temps_.end());
-  }
 
+  // pxx :: hide
+  /// Parses temperatures and frequencies of the data in the NetCDF file.
+  void parse_temps_and_freqs();
 
  public:
 
+  /// Iterator class providing access to scattering data for specific
+  /// frequencies and temperatures.
   class DataIterator;
 
-  ParticleFile(std::string path) : file_handle_(netcdf4::File::open(path)) {
-      auto properties = detail::match_particle_properties(path);
-      d_eq_ = std::get<1>(properties);
-      d_max_ = std::get<2>(properties);
-      mass_ = std::get<3>(properties);
-      parse_temps_and_freqs();
-  }
+  /** Create particle file object from ARTS SSBD NetCDF file.
+   * @param filename String containing the path to the file to read.
+   */
+  ParticleFile(std::string filename);
 
-  ParticleType get_particle_type() {
-    auto f = freqs_[0];
-    auto t = temps_[0];
-    return ScatteringData(group_map_[std::make_pair(f, t)]).get_particle_type();
-  }
+  /// The type of the particle, i.e. random or azimuthally-random orientation.
+  ParticleType get_particle_type();
 
+  /// The volume equivalent diameter of the particle in microns.
   double get_d_eq() {return d_eq_;}
+  /// The maximum diameter of the particle in microns.
   double get_d_max() {return d_max_;}
+  /// The mass of the particle in kilo grams.
   double get_mass() {return mass_;}
-
-  std::vector<double> get_frequencies() {
-      return freqs_;
-  }
-
+  /// The frequencies at which data is available.
+  const std::vector<double>& get_frequencies() {return freqs_;}
+  /// The frequencies at which data is available as Eigen vector.
   eigen::Vector<double> get_f_grid() {
       return eigen::VectorMap<double>(freqs_.data(), freqs_.size());
   }
-
-  std::vector<double> get_temperatures() {
-      return temps_;
-  }
-
+  /// The temperatures at which data is available.
+  std::vector<double> get_temperatures() {return temps_;}
+  /// The temperatures at which data is available as Eigen vector.
   eigen::Vector<double> get_t_grid() {
       return eigen::VectorMap<double>(temps_.data(), temps_.size());
   }
 
+  /// Iterator pointing to first frequency-temperature pair for which
+  /// for which data is available.
   DataIterator begin();
+  /// Iterator pointing to the end of the data in the file.
   DataIterator end();
 
-  ScatteringData get_scattering_data(size_t i, size_t j) {
-      double freq = freqs_[i];
-      double temp = temps_[j];
-      auto found = group_map_.find(std::make_pair(freq, temp));
-      return ScatteringData(found->second);
-  }
+  /** Return scattering data for given frequency and temperature indices.
+   * @param f_index The index of the frequency for which to return data.
+   * @param t_index The index of the temperature for which to return data.
+   */
+  ScatteringData get_scattering_data(size_t f_index, size_t t_index);
 
-
-  operator SingleScatteringData() {
-      auto f_grid = get_f_grid();
-      auto t_grid = get_t_grid();
-
-      auto first = ScatteringData(group_map_[std::make_pair(f_grid[0], t_grid[0])]);
-
-      SingleScatteringData result(nullptr);
-
-      if (first.get_format() == Format::Gridded) {
-          auto lon_inc = first.get_lon_inc();
-          auto lat_inc = first.get_lat_inc();
-          auto lon_scat = first.get_lon_scat();
-          auto lat_scat = first.get_lat_scat();
-
-          result = SingleScatteringData(f_grid,
-                                        t_grid,
-                                        lon_inc,
-                                        lat_inc,
-                                        lon_scat,
-                                        lat_scat,
-                                        first.get_particle_type());
-      } else {
-          auto lon_inc = first.get_lon_inc();
-          auto lat_inc = first.get_lat_inc();
-          auto l_max = first.get_l_max();
-          result = SingleScatteringData(f_grid,
-                                        t_grid,
-                                        lon_inc,
-                                        lat_inc,
-                                        l_max,
-                                        first.get_particle_type());
-      }
-      for (size_t i = 0; i < freqs_.size(); ++i) {
-          for (size_t j = 0; j < temps_.size(); ++j) {
-              auto data = get_scattering_data(i, j);
-              result.set_data(i, j, data);
-          }
-      }
-      return result;
-  }
-
+  /** Convert data to SingleScatteringData.
+   *
+   * Note: This will interpolate all data in the file to the angular grids of
+   * the data of the particle at lowest frequency and temperature.
+   */
+  operator SingleScatteringData();
+  /** Convert data to SingleScatteringData.
+   *
+   * Note: This will interpolate all data in the file to the angular grids of
+   * the data of the particle at lowest frequency and temperature.
+   */
   SingleScatteringData to_single_scattering_data() { return *this; }
-  Particle to_scattering_particle() {
-      auto properties = ParticleProperties{"",
-                                           "ARTS SSDB",
-                                           "",
-                                           mass_,
-                                           d_eq_,
-                                           d_max_,
-                                           0.0};
-      return Particle(properties, to_single_scattering_data());
-  }
+  /** Convert data to Particle.
+   *
+   * This function extracts the scattering data as SingleScatteringData object
+   * and sets the source of the particle data to ARTS SSDB.
+   */
+  Particle to_scattering_particle();
 
  private:
   double d_eq_, d_max_, mass_;
@@ -543,137 +390,75 @@ class ParticleFile {
   netcdf4::File file_handle_;
 };
 
+/// Iterator class for scattering data in ARTS SSDB file.
 class ParticleFile::DataIterator {
-public:
-DataIterator(const ParticleFile *file,
-             size_t f_index = 0,
-             size_t t_index = 0)
-    : file_(file),
-      f_index_(f_index),
-      t_index_(t_index) {}
+ public:
+  DataIterator(const ParticleFile *file,
+               size_t f_index = 0,
+               size_t t_index = 0);
+  bool operator==(const DataIterator &other) const;
+  { return (t_index_ == other.t_index_) && (f_index_ == other.f_index_); }
+  bool operator!=(const DataIterator &other) const { return !(*this == other); }
+  ScatteringData operator*();
 
-    DataIterator& operator++() {
-        t_index_++;
-        if (t_index_ >= file_->temps_.size()) {
-            f_index_ ++;
-            t_index_ = 0;
-        }
-        return *this;
-    }
+  /// The frequency corresponding to the data pointed to by the iterator.
+  double get_frequency() { return file_->freqs_[f_index_]; }
+  /// The temperature corresponding to the data pointed to by the iterator.
+  double get_temperature() { return file_->temps_[t_index_]; }
 
-    bool operator==(const DataIterator &other) const {return (t_index_ == other.t_index_) && (f_index_ == other.f_index_);}
-    bool operator!=(const DataIterator &other) const {return !(*this == other);}
-    ScatteringData operator*() {
-        auto f = file_->freqs_[f_index_];
-        auto t = file_->temps_[t_index_];
-        return file_->group_map_.find(std::make_pair(f, t))->second;
-    }
+  // iterator traits
+  using difference_type = size_t;
+  using value_type = ScatteringData;
+  using pointer = const ScatteringData *;
+  using reference = const ScatteringData &;
+  using iterator_category = std::forward_iterator_tag;
 
-    double get_frequency() {
-        return file_->freqs_[f_index_];
-    }
-
-    double get_temperature() {
-        return file_->temps_[t_index_];
-    }
-
-    // iterator traits
-    using difference_type = size_t;
-    using value_type = ScatteringData;
-    using pointer = const ScatteringData*;
-    using reference = const ScatteringData&;
-    using iterator_category = std::forward_iterator_tag;
-
-private:
-    const ParticleFile *file_ = nullptr;
-    size_t f_index_, t_index_;
+ private:
+  const ParticleFile *file_ = nullptr;
+  size_t f_index_, t_index_;
 };
 
-ParticleFile::DataIterator ParticleFile::begin() {
-    return DataIterator(this, 0, 0);
-}
-
-ParticleFile::DataIterator ParticleFile::end() {
-    return DataIterator(this, freqs_.size(), 0);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
-// Habit Folder
+// Habit folder
 ////////////////////////////////////////////////////////////////////////////////
-
 // pxx :: export
 /** A folder describing a particle habit.
  *
- * Habits in the database are represented by a folder containing NetCDF4 files
- * for each available particle size. This class parses such a folder and provides
- * access to each particle of the habit.
+ * Particle habits in the ARTS SSDB are represented by a folder containing NetCDF4
+ * files for each available particle size. This class parses such a folder and
+ * provides access to each particle of the habit.
  */
 class HabitFolder {
 
   // pxx :: hide
-  void parse_files() {
-    std::vector<double> d_eq_vec, d_max_vec, mass_vec;
-    auto it = std::filesystem::directory_iterator(base_path_);
-    for (auto &p : it) {
-      auto match = detail::match_particle_properties(p.path().filename());
-      if (std::get<0>(match)) {
-        double d_eq = std::get<1>(match);
-        double d_max = std::get<2>(match);
-        double mass = std::get<3>(match);
-        d_eq_vec.push_back(d_eq);
-        d_max_vec.push_back(d_max);
-        mass_vec.push_back(mass);
-        files_[d_eq] = base_path_ / p.path();
-      }
-    }
-    detail::sort_by_d_eq(d_eq_vec, d_max_vec, mass_vec);
-    d_eq_ = eigen::VectorMap<double>(d_eq_vec.data(), d_eq_vec.size());
-    d_max_ = eigen::VectorMap<double>(d_max_vec.data(), d_max_vec.size());
-    mass_ = eigen::VectorMap<double>(mass_vec.data(), mass_vec.size());
-  }
+  /// Parse files in folder.
+  void parse_files();
 
 public:
 
+  /// Iterator over particles in folder.
   class DataIterator;
 
-HabitFolder(std::string path) : base_path_(path) {
-      parse_files();
- }
+  /** Create particle HabitFolder object providing access to scattering data.
+   * @param path String containing the path to the data to load.
+   */
+  HabitFolder(std::string path) : base_path_(path) { parse_files(); }
 
-  eigen::Vector<double> get_d_eq() {
-      return d_eq_;
-  }
+  /// Return vector of equivalent diameters of the particles in the habit.
+  eigen::Vector<double> get_d_eq() {return d_eq_;}
+  /// Return vector of maximum diameters of the particles in the habit.
+  eigen::Vector<double> get_d_max() {return d_max_;}
+  /// Return vector of masses of the particles in the habit.
+  eigen::Vector<double> get_mass() {return mass_;}
 
-  eigen::Vector<double> get_d_max() {
-      return d_max_;
-  }
-
-  eigen::Vector<double> get_mass() {
-      return mass_;
-  }
-
+  /// Iterator pointing to the particle with the smallest mass.
   DataIterator begin();
+  /// Iterator pointing to the end of the data.
   DataIterator end();
 
-  operator ParticleHabit() {
-    std::vector<Particle> particles;
-    particles.reserve(files_.size());
-
-    ParticleProperties properties{};
-    properties.description = "";
-    properties.source = "ARTS SSDB";
-    properties.refractive_index = "";
-
-    for (size_t i = 0; i < d_eq_.size(); ++i) {
-        properties.d_eq = d_eq_[i];
-        properties.d_max = d_max_[i];
-        properties.d_eq = mass_[i];
-        properties.d_aero = 0.0;
-        particles.push_back(Particle(properties, ParticleFile(files_[d_eq_[i]])));
-    }
-    return ParticleHabit(particles);
-  }
-
+  /// Convert to ParticleHabit object containing the scattering data.
+  operator ParticleHabit();
+  /// Convert to ParticleHabit object containing the scattering data.
   ParticleHabit to_particle_habit() { return *this; }
 
  private:
@@ -697,9 +482,11 @@ DataIterator(const HabitFolder *folder, size_t index = 0)
         double d_eq = folder_->d_eq_[index_];
         return ParticleFile(folder_->files_.find(d_eq)->second);
     }
-
+    /// Return volume-equivalent diameter of particle the iterator points to.
     double get_d_eq() {return folder_->d_eq_[index_];}
+    /// Return maximum diamater of the particle the iterator points to.
     double get_d_max() {return folder_->d_max_[index_];}
+    /// Return mass of the particle the iterator points to.
     double get_mass() {return folder_->mass_[index_];}
 
     // iterator traits
@@ -713,14 +500,6 @@ private:
     const HabitFolder *folder_ = nullptr;
     size_t index_;
 };
-
-HabitFolder::DataIterator HabitFolder::begin() {
-    return DataIterator(this, 0);
-}
-
-HabitFolder::DataIterator HabitFolder::end() {
-    return DataIterator(this, d_eq_.size());
-}
 
 }  // namespace arts_ssdb
 }
