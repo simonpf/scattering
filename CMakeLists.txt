@@ -46,7 +46,6 @@ add_subdirectory(python)
 
 include (CMakePackageConfigHelpers)
 
-
 add_library (scattering_export INTERFACE)
 target_include_directories(
   scattering_export
@@ -76,6 +75,9 @@ configure_package_config_file(
   NO_CHECK_REQUIRED_COMPONENTS_MACRO #
 )
 
+message(WARNING ${netcdfhpp_DIR})
 export (TARGETS scattering_export NAMESPACE scattering:: FILE scatteringTargets.cmake)
 export (PACKAGE scattering)
 install (EXPORT scattering NAMESPACE scattering:: DESTINATION ${PROJECT_BINARY_DIR})
+
+message(WARNING SCATTERING)

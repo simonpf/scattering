@@ -74,11 +74,11 @@ class Particle {
   //
 
   /// The name of the particle, if available. Empty string otherwise.
-  string get_name() const { return properties_.name; }
+  std::string get_name() const { return properties_.name; }
   /// The source of the particle data, if available. Empty string otherwise.
-  string get_source() const { return properties_.source; }
+  std::string get_source() const { return properties_.source; }
   /// The refractive index of the particle data, if available. Empty string otherwise.
-  string get_refractive_index() const { return properties_.refractive_index; }
+  std::string get_refractive_index() const { return properties_.refractive_index; }
   ParticleType get_particle_type() const { return data_.get_particle_type(); }
   DataFormat get_data_format() const { return data_.get_data_format(); }
 
@@ -104,13 +104,13 @@ class Particle {
   /// The temperature grid over which the data is defined.
   const eigen::Vector<double>& get_t_grid() { return data_.get_t_grid(); }
   /// Longitudinal component of the incoming angle.
-  const eigen::Vector<double>& get_lon_inc() { return data_.get_lon_inc(); }
+  eigen::Vector<double> get_lon_inc() { return data_.get_lon_inc(); }
   /// Latitudinal component of the incoming angle.
-  const eigen::Vector<double>& get_lat_inc() { return data_.get_lat_inc(); }
+  eigen::Vector<double> get_lat_inc() { return data_.get_lat_inc(); }
   /// Longitudinal component of the scattering (outgoing) angle.
-  const eigen::Vector<double>& get_lon_scat() { return data_.get_lon_scat(); }
+  eigen::Vector<double> get_lon_scat() { return data_.get_lon_scat(); }
   /// Latitudinal component of the scattering (outgoing) angle.
-  const eigen::Vector<double>& get_lat_scat() { return data_.get_lat_scat(); }
+  eigen::Vector<double> get_lat_scat() { return data_.get_lat_scat(); }
 
   //////////////////////////////////////////////////////////////////////////////
   // Manipulation of scattering data

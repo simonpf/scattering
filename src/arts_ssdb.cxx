@@ -4,6 +4,7 @@
  *
  * @author Simon Pfreundschuh, 2020
  */
+#include "netcdf.hpp"
 #include <scattering/arts_ssdb.h>
 
 namespace scattering {
@@ -111,6 +112,23 @@ Index ScatteringData::get_l_max() {
   return l_max;
 }
 
+Index ScatteringData::get_n_lon_inc() { return 1; }
+Index ScatteringData::get_n_lat_inc() {
+  auto variable = group_.get_variable("extMat_data");
+  auto dimensions = variable.get_shape_array<eigen::Index, 3>();
+  return dimensions[1];
+}
+Index ScatteringData::get_n_lon_scat() {
+  auto variable = group_.get_variable("phaMat_data");
+  auto dimensions = variable.get_shape_array<eigen::Index, 5>();
+  return dimensions[2];
+}
+Index ScatteringData::get_n_lat_scat() {
+  auto variable = group_.get_variable("phaMat_data");
+  auto dimensions = variable.get_shape_array<eigen::Index, 5>();
+  return dimensions[4];
+}
+
 sht::SHT ScatteringData::get_sht() {
   auto phase_matrix_dimensions =
       group_.get_variable("phaMat_data_real").shape();
@@ -125,7 +143,7 @@ eigen::Vector<double> ScatteringData::get_lon_inc() {
   return get_vector<float>("aa_inc").cast<double>();
 }
 
-eigen::Vector<double> get_lat_inc() {
+eigen::Vector<double> ScatteringData::get_lat_inc() {
   if (format_ == DataFormat::Gridded) {
     return get_vector<double>("za_inc");
   }
@@ -292,7 +310,7 @@ ScatteringData::get_forward_scattering_coeff_data_spectral() {
       dimensions_output);
 }
 
-operator ScatteringData::SingleScatteringDataGridded<double>() {
+ScatteringData::operator SingleScatteringDataGridded<double>() {
   assert(format_ == DataFormat::Gridded);
 
   auto f_grid = std::make_shared<eigen::Vector<double>>(get_f_grid());
@@ -324,7 +342,7 @@ operator ScatteringData::SingleScatteringDataGridded<double>() {
                                              forward_scattering_coeff);
 }
 
-operator ScatteringData::SingleScatteringDataSpectral<double>() {
+ScatteringData::operator SingleScatteringDataSpectral<double>() {
   assert(format_ == DataFormat::Spectral);
 
   auto f_grid = std::make_shared<eigen::Vector<double>>(get_f_grid());
@@ -358,7 +376,7 @@ operator ScatteringData::SingleScatteringDataSpectral<double>() {
                                               forward_scattering_coeff);
 }
 
-operator ScatteringData::SingleScatteringData() {
+ScatteringData::operator SingleScatteringData() {
   SingleScatteringDataImpl *data = nullptr;
   if (format_ == DataFormat::Gridded) {
     data = new SingleScatteringDataGridded<double>(*this);
@@ -391,6 +409,80 @@ void ParticleFile::parse_temps_and_freqs() {
   std::sort(temps_.begin(), temps_.end());
 }
 
+std::array<eigen::Vector<double>, 4> ParticleFile::get_angular_grids_gridded() {
+  std::array<eigen::Vector<double>, 4> result{};
+
+  Index n_lon_inc_max = 0;
+  Index n_lat_inc_max = 0;
+  Index n_lon_scat_max = 0;
+  Index n_lat_scat_max = 0;
+
+  for (size_t i = 0; i < freqs_.size(); ++i) {
+    for (size_t j = 0; j < temps_.size(); ++j) {
+      auto data = get_scattering_data(i, j);
+
+      Index n_lon_inc = data.get_n_lon_inc();
+      if (n_lon_inc > n_lon_inc_max) {
+        result[0] = data.get_lon_inc();
+        n_lon_inc_max = n_lon_inc;
+      }
+
+      Index n_lat_inc = data.get_n_lat_inc();
+      if (n_lat_inc > n_lat_inc_max) {
+        result[1] = data.get_lat_inc();
+        n_lat_inc_max = n_lat_inc;
+      }
+
+      Index n_lon_scat = data.get_n_lon_scat();
+      if (n_lon_scat > n_lon_scat_max) {
+        result[2] = data.get_lon_scat();
+        n_lon_scat_max = n_lon_scat;
+      }
+
+      Index n_lat_scat = data.get_n_lat_scat();
+      if (n_lat_scat > n_lat_scat_max) {
+        result[3] = data.get_lat_scat();
+        n_lat_scat_max = n_lat_scat;
+      }
+    }
+  }
+  return result;
+}
+
+std::tuple<eigen::Vector<double>, eigen::Vector<double>, Index>
+ParticleFile::get_angular_grids_spectral() {
+  std::tuple<eigen::Vector<double>, eigen::Vector<double>, Index> result{};
+
+  Index n_lon_inc_max = 0;
+  Index n_lat_inc_max = 0;
+  Index l_max_max = 0;
+
+  for (size_t i = 0; i < freqs_.size(); ++i) {
+    for (size_t j = 0; j < temps_.size(); ++j) {
+      auto data = get_scattering_data(i, j);
+
+      Index n_lon_inc = data.get_n_lon_inc();
+      if (n_lon_inc > n_lon_inc_max) {
+          std::get<0>(result) = data.get_lon_inc();
+        n_lon_inc_max = n_lon_inc;
+      }
+
+      Index n_lat_inc = data.get_n_lat_inc();
+      if (n_lat_inc > n_lat_inc_max) {
+          std::get<1>(result) = data.get_lat_inc();
+        n_lat_inc_max = n_lat_inc;
+      }
+
+      Index l_max = data.get_l_max();
+      if (l_max > l_max_max) {
+        l_max_max = l_max;
+        std::get<2>(result) = l_max;
+      }
+    }
+  }
+  return result;
+}
+
 ParticleFile::ParticleFile(std::string filename)
     : file_handle_(netcdf4::File::open(filename)) {
   auto properties = detail::match_particle_properties(filename);
@@ -414,7 +506,7 @@ ScatteringData ParticleFile::get_scattering_data(size_t f_index,
   return ScatteringData(found->second);
 }
 
-operator ParticleFile::SingleScatteringData() {
+ParticleFile::operator SingleScatteringData() {
   auto f_grid = get_f_grid();
   auto t_grid = get_t_grid();
 
@@ -423,10 +515,11 @@ operator ParticleFile::SingleScatteringData() {
   SingleScatteringData result(nullptr);
 
   if (first.get_format() == DataFormat::Gridded) {
-    auto lon_inc = first.get_lon_inc();
-    auto lat_inc = first.get_lat_inc();
-    auto lon_scat = first.get_lon_scat();
-    auto lat_scat = first.get_lat_scat();
+    auto grids = get_angular_grids_gridded();
+    auto lon_inc = grids[0];
+    auto lat_inc = grids[1];
+    auto lon_scat = grids[2];
+    auto lat_scat = grids[3];
 
     result = SingleScatteringData(f_grid,
                                   t_grid,
@@ -436,9 +529,11 @@ operator ParticleFile::SingleScatteringData() {
                                   lat_scat,
                                   first.get_particle_type());
   } else {
-    auto lon_inc = first.get_lon_inc();
-    auto lat_inc = first.get_lat_inc();
-    auto l_max = first.get_l_max();
+    eigen::Vector<double> lon_inc;
+    eigen::Vector<double> lat_inc;
+    Index l_max;
+
+    std::tie(lon_inc, lat_inc, l_max) = get_angular_grids_spectral();
     result = SingleScatteringData(f_grid,
                                   t_grid,
                                   lon_inc,
@@ -469,12 +564,12 @@ ParticleFile::DataIterator ParticleFile::end() {
   return DataIterator(this, freqs_.size(), 0);
 }
 
-DataIterator::DataIterator(const ParticleFile *file,
-                           size_t f_index = 0,
-                           size_t t_index = 0)
+ParticleFile::DataIterator::DataIterator(const ParticleFile *file,
+                                         size_t f_index,
+                                         size_t t_index)
     : file_(file), f_index_(f_index), t_index_(t_index) {}
 
-DataIterator &operator++() {
+ParticleFile::DataIterator &ParticleFile::DataIterator::operator++() {
   t_index_++;
   if (t_index_ >= file_->temps_.size()) {
     f_index_++;
@@ -483,7 +578,7 @@ DataIterator &operator++() {
   return *this;
 }
 
-ScatteringData DataIterator::operator*() {
+ScatteringData ParticleFile::DataIterator::operator*() {
   auto f = file_->freqs_[f_index_];
   auto t = file_->temps_[t_index_];
   return file_->group_map_.find(std::make_pair(f, t))->second;
@@ -514,7 +609,7 @@ void HabitFolder::parse_files() {
   mass_ = eigen::VectorMap<double>(mass_vec.data(), mass_vec.size());
 }
 
-operator HabitFolder::ParticleHabit() {
+HabitFolder::operator ParticleHabit() {
   std::vector<Particle> particles;
   particles.reserve(files_.size());
 
@@ -523,7 +618,7 @@ operator HabitFolder::ParticleHabit() {
   properties.source = "ARTS SSDB";
   properties.refractive_index = "";
 
-  for (size_t i = 0; i < d_eq_.size(); ++i) {
+  for (Index i = 0; i < d_eq_.size(); ++i) {
     properties.d_eq = d_eq_[i];
     properties.d_max = d_max_[i];
     properties.d_eq = mass_[i];

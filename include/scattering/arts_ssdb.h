@@ -110,6 +110,15 @@ class ScatteringData {
   double get_temperature() { return temperature_; }
   /// The l_max value used in the SHT transformation of spectral data.
   Index get_l_max();
+  /// Size of the lon. grid of incoming angles.
+  Index get_n_lon_inc();
+  /// Size of the lat. grid of incoming angles.
+  Index get_n_lat_inc();
+  /// Size of the lon. grid of scattering angles.
+  Index get_n_lon_scat();
+  /// Size of the lat. grid of scattering angles.
+  Index get_n_lat_scat();
+
   /** Compatible SHT object.
    * @return A spherical harmonics transform object that can be used to
    * transform data in spectral format.
@@ -197,17 +206,7 @@ class ScatteringData {
    * lat. (4),  scattering angle lon. (5) and lat. (6) and the stokes components
    * (7).
    */
-  eigen::Tensor<double, 7> get_absorption_vector_data_gridded() {
-    auto variable = group_.get_variable("absVec_data");
-    auto dimensions = variable.get_shape_array<eigen::Index, 3>();
-    eigen::Tensor<double, 3> result{dimensions};
-    variable.read(result.data());
-
-    // Reshape and shuffle data.
-    eigen::Tensor<double, 3> result_shuffled = eigen::cycle_dimensions(result);
-    eigen::Tensor<double, 7> result_reshaped = eigen::unsqueeze<0, 1, 4, 5>(result_shuffled);
-    return result_reshaped;
-  }
+  eigen::Tensor<double, 7> get_absorption_vector_data_gridded();
 
   /** The absorption vector data in spectral format.
    *
@@ -236,15 +235,7 @@ class ScatteringData {
    * lat. (4),  scattering angle lon. (5) and lat. (6) and the stokes components
    * (7).
    */
-  eigen::Tensor<double, 7> get_backward_scattering_coeff_data_gridded() {
-      auto phase_matrix = get_phase_matrix_data_gridded();
-      auto dimensions = phase_matrix.dimensions();
-      auto backward_scattering_coeff = phase_matrix.chip<4>(0).chip<4>(dimensions[5] - 1).chip<4>(0);
-      dimensions[4] = 1;
-      dimensions[5] = 1;
-      dimensions[6] = 1;
-      return backward_scattering_coeff.reshape(dimensions);
-  }
+  eigen::Tensor<double, 7> get_backward_scattering_coeff_data_gridded();
 
   /** The backward scattering coefficient data in spectral format.
    *
@@ -294,6 +285,7 @@ class ScatteringData {
   /// Conversion to SingleScatteringData in spectral format.
   operator SingleScatteringDataSpectral<double>();
   /// Conversion to SingleScatteringData in native data format.
+  operator SingleScatteringData();
 
  private:
   DataFormat format_;
@@ -314,9 +306,16 @@ class ScatteringData {
  */
 class ParticleFile {
 
+
   // pxx :: hide
   /// Parses temperatures and frequencies of the data in the NetCDF file.
   void parse_temps_and_freqs();
+  // pxx :: hide
+  /// Determine angular grids with the highest resolution.
+  std::array<eigen::Vector<double>, 4> get_angular_grids_gridded();
+  // pxx :: hide
+  /// Determine angular grids with the highest resolution.
+  std::tuple<eigen::Vector<double>, eigen::Vector<double>, Index> get_angular_grids_spectral();
 
  public:
 
@@ -396,9 +395,10 @@ class ParticleFile::DataIterator {
   DataIterator(const ParticleFile *file,
                size_t f_index = 0,
                size_t t_index = 0);
-  bool operator==(const DataIterator &other) const;
+  bool operator==(const DataIterator &other) const
   { return (t_index_ == other.t_index_) && (f_index_ == other.f_index_); }
   bool operator!=(const DataIterator &other) const { return !(*this == other); }
+  DataIterator& operator++();
   ScatteringData operator*();
 
   /// The frequency corresponding to the data pointed to by the iterator.

@@ -21,7 +21,9 @@ namespace scattering {
 
 using eigen::Index;
 
+// pxx :: export
 enum class DataFormat { Gridded, Spectral, FullySpectral };
+// pxx :: export
 enum class ParticleType { Random, AzimuthallyRandom, General };
 
 // pxx :: hide
@@ -847,7 +849,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   DataFormat get_data_format() const { return DataFormat::Spectral; }
 
   const eigen::Vector<double>& get_f_grid() const { return *f_grid_; }
-  eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
+  const eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
   eigen::Vector<double> get_lon_inc() const { return *lon_inc_; }
   eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
   eigen::Vector<double> get_lon_scat() const {
@@ -1364,7 +1366,7 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
   eigen::Vector<double> get_lon_scat() {
     return sht_scat_->get_longitude_grid();
   }
-  const eigen::Vector<double>& get_lat_scat() {
+  eigen::Vector<double> get_lat_scat() {
     return sht_scat_->get_latitude_grid();
   }
   Index get_n_lon_inc() const { return sht_inc_->get_n_longitudes(); }
