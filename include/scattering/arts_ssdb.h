@@ -11,7 +11,6 @@
 #include <regex>
 #include <set>
 #include <utility>
-#include <filesystem>
 
 #include "netcdf.hpp"
 
@@ -379,7 +378,7 @@ class ParticleFile {
    * This function extracts the scattering data as SingleScatteringData object
    * and sets the source of the particle data to ARTS SSDB.
    */
-  Particle to_scattering_particle();
+  Particle to_particle();
 
  private:
   double d_eq_, d_max_, mass_;
@@ -444,6 +443,8 @@ public:
    */
   HabitFolder(std::string path) : base_path_(path) { parse_files(); }
 
+  /// Number of particle in habit.
+  size_t get_n_particles() {return d_eq_.size();}
   /// Return vector of equivalent diameters of the particles in the habit.
   eigen::Vector<double> get_d_eq() {return d_eq_;}
   /// Return vector of maximum diameters of the particles in the habit.
@@ -462,11 +463,11 @@ public:
   ParticleHabit to_particle_habit() { return *this; }
 
  private:
-  std::filesystem::path base_path_;
+  std::string base_path_;
   eigen::Vector<double> d_eq_;
   eigen::Vector<double> d_max_;
   eigen::Vector<double> mass_;
-    std::map<double, std::filesystem::path> files_;
+  std::map<double, std::string> files_;
 };
 
 class HabitFolder::DataIterator {
