@@ -550,7 +550,7 @@ ParticleFile::operator SingleScatteringData() {
   return result;
 }
 
-Particle ParticleFile::to_scattering_particle() {
+Particle ParticleFile::to_particle() {
   auto properties =
       ParticleProperties{"", "ARTS SSDB", "", mass_, d_eq_, d_max_, 0.0};
   return Particle(properties, to_single_scattering_data());
@@ -600,7 +600,7 @@ void HabitFolder::parse_files() {
       d_eq_vec.push_back(d_eq);
       d_max_vec.push_back(d_max);
       mass_vec.push_back(mass);
-      files_[d_eq] = base_path_ / p.path();
+      files_[d_eq] = base_path_ + "/" + p.path();
     }
   }
   detail::sort_by_d_eq(d_eq_vec, d_max_vec, mass_vec);
