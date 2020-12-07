@@ -21,8 +21,10 @@ namespace scattering {
 
 using eigen::Index;
 
+// pxx :: export
 enum class DataFormat { Gridded, Spectral, FullySpectral };
-enum class DataType { Spherical, TotallyRandom, AzimuthallyRandom, General };
+// pxx :: export
+enum class ParticleType { Random, AzimuthallyRandom, General };
 
 // pxx :: hide
 template <typename Scalar>
@@ -45,24 +47,20 @@ public:
    * Determines the type of scattering data for a given phase matrix
    * tensor.
    */
-  static DataType determine_type(Index n_lon_inc,
+  static ParticleType determine_type(Index n_lon_inc,
                                  Index n_lat_inc,
                                  Index n_lon_scat,
-                                 Index n_lat_scat) {
-    if ((n_lon_inc == 1) && (n_lat_inc == 1) && (n_lon_scat == 1) &&
-        (n_lat_scat == 1)) {
-      return DataType::Spherical;
-    }
+                                 Index /*n_lat_scat*/) {
     if ((n_lon_inc == 1) && (n_lat_inc == 1) && (n_lon_scat == 1)) {
-      return DataType::TotallyRandom;
+      return ParticleType::Random;
     }
     if (n_lon_inc == 1) {
-      return DataType::AzimuthallyRandom;
+      return ParticleType::AzimuthallyRandom;
     }
-    return DataType::General;
+    return ParticleType::General;
   }
 
-  DataType get_data_type() const { return type_; }
+  ParticleType get_particle_type() const { return type_; }
   Index get_n_freqs() const { return n_freqs_; }
   Index get_n_temps() const { return n_temps_; }
 
@@ -88,7 +86,7 @@ public:
   Index n_lat_inc_;
   Index n_lon_scat_;
   Index n_lat_scat_;
-  DataType type_;
+  ParticleType type_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -111,7 +109,7 @@ public:
 template <typename Scalar_>
 class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
  public:
-  using ScatteringDataFieldBase::get_data_type;
+  using ScatteringDataFieldBase::get_particle_type;
   using ScatteringDataFieldBase::n_freqs_;
   using ScatteringDataFieldBase::n_lat_inc_;
   using ScatteringDataFieldBase::n_lat_scat_;
@@ -269,12 +267,14 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   /// Shallow copy of the ScatteringDataField.
   ScatteringDataFieldGridded(const ScatteringDataFieldGridded &) = default;
 
+  DataFormat get_data_format() const { return DataFormat::Gridded; }
+
   const eigen::Vector<double> &get_f_grid() const { return *f_grid_; }
   const eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
-  const eigen::Vector<double>& get_lon_inc() const { return *lon_inc_; }
-  const eigen::Vector<double>& get_lat_inc() const { return *lat_inc_; }
-  const eigen::Vector<double>& get_lon_scat() const { return *lon_scat_; }
-  const eigen::Vector<double>& get_lat_scat() const { return *lat_scat_; }
+  eigen::Vector<double> get_lon_inc() const { return *lon_inc_; }
+  eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
+  eigen::Vector<double> get_lon_scat() const { return *lon_scat_; }
+  eigen::Vector<double> get_lat_scat() const { return *lat_scat_; }
   Index get_n_lon_inc() const { return lon_inc_->size(); }
   Index get_n_lat_inc() const { return lat_inc_->size(); }
   Index get_n_lon_scat() const { return lon_scat_->size(); }
@@ -697,7 +697,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
 template <typename Scalar_>
 class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
  public:
-  using ScatteringDataFieldBase::get_data_type;
+  using ScatteringDataFieldBase::get_particle_type;
   using ScatteringDataFieldBase::n_freqs_;
   using ScatteringDataFieldBase::n_lat_inc_;
   using ScatteringDataFieldBase::n_lat_scat_;
@@ -846,11 +846,13 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
                                        data_new);
   }
 
+  DataFormat get_data_format() const { return DataFormat::Spectral; }
+
   const eigen::Vector<double>& get_f_grid() const { return *f_grid_; }
   const eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
-  const eigen::Vector<double>& get_lon_inc() const { return *lon_inc_; }
-  const eigen::Vector<double>& get_lat_inc() const { return *lat_inc_; }
-  const eigen::Vector<double>& get_lon_scat() const {
+  eigen::Vector<double> get_lon_inc() const { return *lon_inc_; }
+  eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
+  eigen::Vector<double> get_lon_scat() const {
     return sht_scat_->get_longitude_grid();
   }
   eigen::Vector<double> get_lat_scat() const {
@@ -1224,7 +1226,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
 template <typename Scalar>
 class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
  public:
-  using ScatteringDataFieldBase::get_data_type;
+  using ScatteringDataFieldBase::get_particle_type;
   using ScatteringDataFieldBase::n_freqs_;
   using ScatteringDataFieldBase::n_lat_inc_;
   using ScatteringDataFieldBase::n_lat_scat_;
@@ -1355,11 +1357,13 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
                                             data_new);
   }
 
+  DataFormat get_data_format() const { return DataFormat::FullySpectral; }
+
   const eigen::Vector<double>& get_f_grid() { return *f_grid_; }
   const eigen::Vector<double>& get_t_grid() { return *t_grid_; }
-  const eigen::Vector<double>& get_lon_inc() { return sht_inc_->get_longitude_grid(); }
-  const eigen::Vector<double>& get_lat_inc() { return sht_inc_->get_latitude_grid(); }
-  const eigen::Vector<double>& get_lon_scat() {
+  eigen::Vector<double> get_lon_inc() { return sht_inc_->get_longitude_grid(); }
+  eigen::Vector<double> get_lat_inc() { return sht_inc_->get_latitude_grid(); }
+  eigen::Vector<double> get_lon_scat() {
     return sht_scat_->get_longitude_grid();
   }
   eigen::Vector<double> get_lat_scat() {

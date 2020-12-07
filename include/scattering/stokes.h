@@ -365,7 +365,7 @@ template <typename Base>
   using Scalar = typename Base::Scalar;
 
   using Base::copy;
-  using Base::get_data_type;
+  using Base::get_particle_type;
 
   /// Perfect forwarding constructor.
   template <typename... Args>
@@ -374,8 +374,8 @@ template <typename Base>
   /// Determine stokes dimension of data.
   eigen::Index get_stokes_dim() const {
     auto n_coeffs = Base::get_n_coeffs();
-    auto type = Base::get_data_type();
-    if (type == DataType::TotallyRandom) {
+    auto type = Base::get_particle_type();
+    if (type == ParticleType::Random) {
       if (n_coeffs == 6) {
         return 4;
       } else if (n_coeffs == 4) {
@@ -393,7 +393,7 @@ template <typename Base>
       auto stokes_dim = get_stokes_dim();
       auto dimensions_new = data_->dimensions();
 
-    if (get_data_type() == DataType::TotallyRandom) {
+    if (get_particle_type() == ParticleType::Random) {
       if (stokes_dim_out == 1) {
         dimensions_new[coeff_dim] = 1;
       } else if (stokes_dim_out == 2) {
@@ -590,8 +590,8 @@ class ExtinctionMatrix : public Base {
   /// Determine stokes dimension of data.
   eigen::Index get_stokes_dim() const {
     auto n_coeffs = Base::get_n_coeffs();
-    auto type = Base::get_data_type();
-    if (type == DataType::TotallyRandom) {
+    auto type = Base::get_particle_type();
+    if (type == ParticleType::Random) {
       return 4;
     } else {
       if (n_coeffs >= 3) {
@@ -604,11 +604,11 @@ class ExtinctionMatrix : public Base {
     }
   }
 
-  DataType get_data_type() const {
+  ParticleType get_particle_type() const {
     if (data_->dimension(coeff_dim) == 1) {
-      return DataType::TotallyRandom;
+      return ParticleType::Random;
     } else {
-      return DataType::AzimuthallyRandom;
+      return ParticleType::AzimuthallyRandom;
     }
   }
 
@@ -617,7 +617,7 @@ class ExtinctionMatrix : public Base {
     auto stokes_dim = std::min(n, get_stokes_dim());
     auto dimensions_new = data_->dimensions();
 
-    if (get_data_type() == DataType::TotallyRandom) {
+    if (get_particle_type() == ParticleType::Random) {
       return;
     } else {
       if (stokes_dim == 1) {
@@ -646,8 +646,8 @@ class ExtinctionMatrix : public Base {
       auto new_data = eigen::Tensor<Coefficient, rank>(dimensions);
       new_data.setZero();
 
-      auto type = get_data_type();
-      if (type == DataType::TotallyRandom) {
+      auto type = get_particle_type();
+      if (type == ParticleType::Random) {
           new_data.template chip<rank - 1>(0) = data_->template chip<rank-1>(0);
           if (stokes_dim >= 2) {
               new_data.template chip<rank - 1>(stokes_dim + 1) = data_->template chip<rank-1>(0);
@@ -726,19 +726,19 @@ class AbsorptionVector : public Base {
   template <typename... Args>
   AbsorptionVector(Args... args) : Base(std::forward<Args>(args)...) {}
 
-  DataType get_data_type() const {
+  ParticleType get_particle_type() const {
     if (data_->dimension(coeff_dim) == 1) {
-      return DataType::TotallyRandom;
+      return ParticleType::Random;
     } else {
-      return DataType::AzimuthallyRandom;
+      return ParticleType::AzimuthallyRandom;
     }
   }
 
   /// Determine stokes dimension of data.
   eigen::Index get_stokes_dim() const {
     auto n_coeffs = Base::get_n_coeffs();
-    auto type = Base::get_data_type();
-    if (type == DataType::TotallyRandom) {
+    auto type = Base::get_particle_type();
+    if (type == ParticleType::Random) {
       return 4;
     } else {
       if (n_coeffs >= 3) {
@@ -756,7 +756,7 @@ class AbsorptionVector : public Base {
     auto stokes_dim = std::min(n, get_stokes_dim());
     auto dimensions_new = data_->dimensions();
 
-    if (get_data_type() == DataType::TotallyRandom) {
+    if (get_particle_type() == ParticleType::Random) {
       return;
     } else {
       if (stokes_dim == 1) {
@@ -782,8 +782,8 @@ class AbsorptionVector : public Base {
       new_data.setZero();
 
       new_data.template chip<rank - 1>(0) = data_->template chip<rank-1>(0);
-      auto type = get_data_type();
-      if ((type == DataType::AzimuthallyRandom) && (stokes_dim > 1)) {
+      auto type = get_particle_type();
+      if ((type == ParticleType::AzimuthallyRandom) && (stokes_dim > 1)) {
           new_data.template chip<rank - 1>(1) = data_->template chip<rank-1>(1);
       }
       return new_data;

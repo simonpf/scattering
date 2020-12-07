@@ -2,7 +2,6 @@ get_target_property(Eigen3_INCLUDE_DIRS Eigen3::Eigen INTERFACE_INCLUDE_DIRECTOR
 set(Eigen3_INCLUDE_DIRS ${Eigen3_INCLUDE_DIRS} ${Eigen3_INCLUDE_DIRS}/unsupported)
 get_target_property(netcdfhpp_INCLUDE_DIRS netcdfhpp::headers INTERFACE_INCLUDE_DIRECTORIES)
 include_directories(${netcdfhpp_INCLUDE_DIRS} ${Eigen3_INCLUDE_DIRS})
-message(WARNING ${netcdfhpp_INCLUDE_DIRS})
 
 #
 # SHT

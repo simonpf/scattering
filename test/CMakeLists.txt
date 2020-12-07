@@ -1,5 +1,5 @@
-set(SHTNS_LIBRARY CACHE "NODOC" INTERNAL)
-set(SCATLIB_TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+set(SHTNS_LIBRARY CACHE FILEPATH INTERNAL)
+set(SCATTERING_TEST_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 configure_file(utils.py utils.py @ONLY)
 configure_file(reference/__init__.py reference/__init__.py COPYONLY)
