@@ -26,7 +26,7 @@ struct Precision {
 
 template <>
 struct Precision<float> {
-  static constexpr float value = 1e-6;
+  static constexpr float value = static_cast<float>(1e-6);
 };
 
 template <>
@@ -204,7 +204,7 @@ class FejerQuadrature {
                                   FFTW_ESTIMATE);
       // Calculate DFT input.
       for (int i = 0; i < n / 2 + 1; ++i) {
-          Scalar x = (M_PI * i) / n;
+          Scalar x = (M_PI * i) / static_cast<Scalar>(n);
           coeffs[i] = std::complex<double>(cos(x), sin(x));
           coeffs[i] *= 2.0 / (1.0 - 4.0 * i * i);
       }

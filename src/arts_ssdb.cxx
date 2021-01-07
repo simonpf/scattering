@@ -6,6 +6,7 @@
  */
 #include "netcdf.hpp"
 #include <scattering/arts_ssdb.h>
+#include <filesystem>
 
 namespace scattering {
 
@@ -30,10 +31,11 @@ std::pair<double, double> match_temp_and_freq(std::string group_name) {
 }
 
 std::tuple<bool, double, double, double> match_particle_properties(
-    std::string filename) {
+    std::filesystem::path path) {
   std::regex file_regex(
       R"(Dmax([0-9]*)um_Dveq([0-9]*)um_Mass([-0-9\.e]*)kg\.nc)");
   std::smatch match;
+  std::string filename = path.filename();
   bool matches = std::regex_match(filename, match, file_regex);
   if (matches) {
     double d_max = std::stod(match[1]) * 1e-6;
@@ -42,6 +44,20 @@ std::tuple<bool, double, double, double> match_particle_properties(
     return std::make_tuple(true, d_eq, d_max, m);
   }
   return std::make_tuple(false, 0.0, 0.0, 0.0);
+}
+
+std::string match_habit_name(std::filesystem::path path) {
+  std::string result = "";
+  std::regex folder_regex(R"(([\w]*)_Id([\d]*))");
+  std::smatch match;
+  for (auto it = path.begin(); it != path.end(); ++it) {
+    std::string folder = *it;
+    bool matches = std::regex_match(folder, match, folder_regex);
+    if (matches) {
+      result = match[1];
+    }
+  }
+  return result;
 }
 
 void sort_by_d_eq(std::vector<double> &d_eq,
@@ -486,6 +502,7 @@ ParticleFile::get_angular_grids_spectral() {
 ParticleFile::ParticleFile(std::string filename)
     : file_handle_(netcdf4::File::open(filename)) {
   auto properties = detail::match_particle_properties(filename);
+  habit_name_ = detail::match_habit_name(filename);
   d_eq_ = std::get<1>(properties);
   d_max_ = std::get<2>(properties);
   mass_ = std::get<3>(properties);
@@ -552,7 +569,7 @@ ParticleFile::operator SingleScatteringData() {
 
 Particle ParticleFile::to_particle() {
   auto properties =
-      ParticleProperties{"", "ARTS SSDB", "", mass_, d_eq_, d_max_, 0.0};
+      ParticleProperties{habit_name_, "ARTS SSDB", "", mass_, d_eq_, d_max_, 0.0};
   return Particle(properties, to_single_scattering_data());
 }
 
@@ -592,7 +609,7 @@ void HabitFolder::parse_files() {
   std::vector<double> d_eq_vec, d_max_vec, mass_vec;
   auto it = std::filesystem::directory_iterator(base_path_);
   for (auto &p : it) {
-    auto match = detail::match_particle_properties(p.path().filename());
+    auto match = detail::match_particle_properties(p.path());
     if (std::get<0>(match)) {
       double d_eq = std::get<1>(match);
       double d_max = std::get<2>(match);
@@ -600,7 +617,7 @@ void HabitFolder::parse_files() {
       d_eq_vec.push_back(d_eq);
       d_max_vec.push_back(d_max);
       mass_vec.push_back(mass);
-      files_[d_eq] = base_path_ + "/" + p.path();
+      files_[d_eq] = base_path_ / p.path();
     }
   }
   detail::sort_by_d_eq(d_eq_vec, d_max_vec, mass_vec);

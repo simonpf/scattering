@@ -1,7 +1,20 @@
 /** \file scattering_data.h
  *
- * Represents scalar data that is defined on the product
- * space of two solid angles.
+ * This files contains three classes used to represent scattering data fields in
+ * three different formats. These classes are used as the basic container to
+ * hold scattering data. The scattering data itself is typically multi-dimensional
+ * (depending on the stokes dimension) and in general depends on frequency,
+ * temperature and incoming and scattering angles.
+ *
+ * The scattering data field classes differ in how the dependency w.r.t. to the
+ * incoming and scattering angles is represented. The ScatteringDataGridded
+ * class represents the angle-dependencies using two-dimensional grids over the
+ * longitudinal and latitudinal components of incoming and scattering angles.
+ *
+ * The ScatteringDataFieldSpectral represent the scattering-angle dpendency
+ * using spherical harmonics, whereas the ScatteringDataFieldFullySpectral
+ * also uses a spherical-harmonics transform to encode the dependency on
+ * incoming angle.
  *
  * @author Simon Pfreundschuh, 2020
  */
@@ -22,9 +35,9 @@ namespace scattering {
 using eigen::Index;
 
 // pxx :: export
-enum class DataFormat { Gridded, Spectral, FullySpectral };
+enum class DataFormat {Gridded = 0, Spectral = 1, FullySpectral = 2 };
 // pxx :: export
-enum class ParticleType { Random, AzimuthallyRandom, General };
+enum class ParticleType { Random = 0, AzimuthallyRandom = 1, General = 2 };
 
 // pxx :: hide
 template <typename Scalar>
@@ -38,31 +51,22 @@ class ScatteringDataFieldFullySpectral;
  *
  * Holds information on the size of the angular grids and the
  * the type of scattering data.
+ *
  */
 class ScatteringDataFieldBase {
-
-public:
-  /** Determine scattering data type
-   *
-   * Determines the type of scattering data for a given phase matrix
-   * tensor.
-   */
-  static ParticleType determine_type(Index n_lon_inc,
-                                 Index n_lat_inc,
-                                 Index n_lon_scat,
-                                 Index /*n_lat_scat*/) {
-    if ((n_lon_inc == 1) && (n_lat_inc == 1) && (n_lon_scat == 1)) {
-      return ParticleType::Random;
-    }
-    if (n_lon_inc == 1) {
-      return ParticleType::AzimuthallyRandom;
-    }
-    return ParticleType::General;
-  }
-
-  ParticleType get_particle_type() const { return type_; }
+ public:
+  /// Size of the frequency grid.
   Index get_n_freqs() const { return n_freqs_; }
+  /// Size of the temperature grid.
   Index get_n_temps() const { return n_temps_; }
+  /// Size of incoming longitude  angle grid.
+  Index get_n_lon_inc() const { return n_lon_inc_; }
+  /// Size of incoming latitude  angle grid.
+  Index get_n_lat_inc() const { return n_lat_inc_; }
+  /// Size of scattering longitude  angle grid.
+  Index get_n_lon_scat() const { return n_lon_scat_; }
+  /// Size of scattering latitude  angle grid.
+  Index get_n_lat_scat() const { return n_lat_scat_; }
 
  protected:
   ScatteringDataFieldBase(Index n_freqs,
@@ -76,8 +80,7 @@ public:
         n_lon_inc_(n_lon_inc),
         n_lat_inc_(n_lat_inc),
         n_lon_scat_(n_lon_scat),
-        n_lat_scat_(n_lat_scat),
-        type_(determine_type(n_lon_inc, n_lat_inc, n_lon_scat, n_lat_scat)) {}
+        n_lat_scat_(n_lat_scat) {}
 
  protected:
   Index n_freqs_;
@@ -105,18 +108,22 @@ public:
  *     4: Incoming zenith angle
  *     5: Scattering azimuth angle
  *     6: Scattering zenith angle
+ *     7: Stokes-dimension of scattering data.
  */
 template <typename Scalar_>
 class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
  public:
-  using ScatteringDataFieldBase::get_particle_type;
+
   using ScatteringDataFieldBase::n_freqs_;
   using ScatteringDataFieldBase::n_lat_inc_;
   using ScatteringDataFieldBase::n_lat_scat_;
   using ScatteringDataFieldBase::n_lon_inc_;
   using ScatteringDataFieldBase::n_lon_scat_;
   using ScatteringDataFieldBase::n_temps_;
-  using ScatteringDataFieldBase::type_;
+  using ScatteringDataFieldBase::get_n_lon_inc;
+  using ScatteringDataFieldBase::get_n_lat_inc;
+  using ScatteringDataFieldBase::get_n_lon_scat;
+  using ScatteringDataFieldBase::get_n_lat_scat;
 
   using Scalar = Scalar_;
   using Coefficient = Scalar;
@@ -267,23 +274,33 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   /// Shallow copy of the ScatteringDataField.
   ScatteringDataFieldGridded(const ScatteringDataFieldGridded &) = default;
 
+  /// Enum representing the data format.
   DataFormat get_data_format() const { return DataFormat::Gridded; }
 
-  const eigen::Vector<double> &get_f_grid() const { return *f_grid_; }
-  const eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
-  eigen::Vector<double> get_lon_inc() const { return *lon_inc_; }
-  eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
-  eigen::Vector<double> get_lon_scat() const { return *lon_scat_; }
-  eigen::Vector<double> get_lat_scat() const { return *lat_scat_; }
-  Index get_n_lon_inc() const { return lon_inc_->size(); }
-  Index get_n_lat_inc() const { return lat_inc_->size(); }
-  Index get_n_lon_scat() const { return lon_scat_->size(); }
-  Index get_n_lat_scat() const { return lat_scat_->size(); }
+  /// The number of scattering-data coefficients.
   Index get_n_coeffs() const { return data_->dimension(6); }
-
+  /// Largest SHT parameters satisfying shtns aliasing requirements for
+  /// scattering angle.
   std::array<Index, 4> get_sht_scat_params() const {
-    return sht::SHT::get_params(n_lon_scat_, n_lat_scat_);
+      return sht::SHT::get_params(n_lon_scat_, n_lat_scat_);
   }
+  /// Largest SHT parameters satisfying shtns aliasing requirements for
+  /// incoming angle.
+  std::array<Index, 4> get_sht_inc_params() const {
+      return sht::SHT::get_params(n_lon_scat_, n_lat_scat_);
+  }
+  /// The frequency grid.
+  const eigen::Vector<double> &get_f_grid() const { return *f_grid_; }
+  /// The temperature grid.
+  const eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
+  /// The incoming-angle longitude grid.
+  eigen::Vector<double> get_lon_inc() const { return *lon_inc_; }
+  /// The incoming-angle latitude grid.
+  eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
+  //// The scattering-angle longitude grid.
+  eigen::Vector<double> get_lon_scat() const { return *lon_scat_; }
+  //// The scattering-angle latitude grid.
+  eigen::Vector<double> get_lat_scat() const { return *lat_scat_; }
 
   /// Deep copy of the scattering data.
   ScatteringDataFieldGridded copy() const {
@@ -334,7 +351,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   }
 
   // pxx :: hide
-  /** Interpolate data along frequency dimension.
+  /** Linear interpolation along frequency dimension.
    * @param frequencies The frequency grid to which to interpolate the data
    * @return New scattering data field with the given frequencies as
    * frequency grid.
@@ -356,13 +373,18 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
                                       data_new);
   }
 
+  /** Linear interpolation along frequency dimension.
+   * @param frequencies The frequency grid to which to interpolate the data
+   * @return New scattering data field with the given frequencies as
+   * frequency grid.
+   */
   ScatteringDataFieldGridded interpolate_frequency(
       const Vector &frequencies) const {
     return interpolate_frequency(std::make_shared<Vector>(frequencies));
   }
 
   // pxx :: hide
-  /** Interpolate data along temperature dimension.
+  /** Linear interpolation along temperature dimension.
    * @param temperature The temperature grid to which to interpolate the data
    * @return New scattering data field with the given temperatures as
    * temperature grid.
@@ -385,6 +407,11 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
                                       data_new);
   }
 
+  /** Linear interpolation along temperature dimension.
+   * @param temperature The temperature grid to which to interpolate the data
+   * @return New scattering data field with the given temperatures as
+   * temperature grid.
+   */
   ScatteringDataFieldGridded interpolate_temperature(
       const Vector &temperatures,
       bool extrapolate=false) const {
@@ -392,6 +419,17 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   }
 
   // pxx :: hide
+  /** Linear interpolation along angles.
+   * @param lon_inc_new The incoming-angle longitude grid to which to interpolate
+   * the data.
+   * @param lat_inc_new The incoming-angle latitude grid to which to interpolate
+   * the data.
+   * @param lon_scat_new The scattering-angle longitude grid to which to interpolate
+   * the data.
+   * @param lat_scat_new The scattering-angle longitude grid to which to interpolate
+   * the data.
+   * @return New scattering data field with the data interpolated
+   */
   ScatteringDataFieldGridded interpolate_angles(VectorPtr lon_inc_new,
                                                 VectorPtr lat_inc_new,
                                                 VectorPtr lon_scat_new,
@@ -412,13 +450,13 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   }
 
   /** Interpolate angular grids.
-   * @param lon_inc_new The incoming azimuth angle grid to which to interpolate
+   * @param lon_inc_new The incoming-angle longitude grid to which to interpolate
    * the data
-   * @param lat_inc_new The incoming zenith angle grid to which to interpolate
-   * the data
-   * @param lon_scat_new The scattering zenith angle grid to which to
+   * @param lat_inc_new The incoming-angle latitude angle grid to which to
    * interpolate the data
-   * @param lat_scat_new The scattering azimuth angle grid to which to
+   * @param lon_scat_new The scattering-angle longitude grid to which to
+   * interpolate the data.
+   * @param lat_scat_new The scattering-angle latitude grid to which to
    * interpolate the data
    * @return New scattering data field with the given angles as angular grids.
    */
@@ -433,12 +471,20 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   }
 
   // pxx :: hide
+  /** Downsample scattering angles by averaging.
+   *
+   * @param lon_scat_new The scattering-angle longitude grid to which to
+   * downsample the data.
+   * @param lat_scat_new The scattering-angle latitude grid to which to
+   * interpolate the data
+   * @return New scattering data field with the given scattering angles.
+   */
   ScatteringDataFieldGridded downsample_scattering_angles(VectorPtr lon_scat_new,
                                                           VectorPtr lat_scat_new) const {
       auto data_downsampled = downsample_dimension<4>(*data_, *lon_scat_, *lon_scat_new, 0.0, 2.0 * M_PI);
-      using Regridder = RegularRegridder<Scalar, 5>;
-      Regridder regridder({*lat_scat_}, {*lat_scat_new});
-      data_downsampled = regridder.regrid(data_downsampled);
+      Vector colatitudes = -lat_scat_->array().cos();
+      Vector colatitudes_new = -lat_scat_new->array().cos();
+      data_downsampled = downsample_dimension<5>(data_downsampled, colatitudes, colatitudes_new, -1.0, 1.0);
       return ScatteringDataFieldGridded(f_grid_,
                                         t_grid_,
                                         lon_inc_,
@@ -448,19 +494,13 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
                                         std::make_shared<DataTensor>(data_downsampled));
   }
 
-  /** Reduce angular resolution of scattering data by downsampling.
+  /** Downsample scattering angles by averaging.
    *
-   * This regrids the data to the given angular grids but in a way that
-   * ensures that the integral over each respective dimension is conserved.
-   *
-   * @param lon_inc_new Pointer to new incoming longitude grid or nullptr if
-   * this dimension should be left unchanged.
-   * @param lat_inc_new Pointer to new incoming latitude grid or nullptr if
-   * this dimension should be left unchanged.
-   * @param lon_scat_new Pointer to new scattering longitude grid or nullptr if
-   * this dimension should be left unchanged.
-   * @param lat_scat_new Pointer to new scattering latitude grid or nullptr if
-   * this dimension should be left unchanged.
+   * @param lon_scat_new The scattering-angle longitude grid to which to
+   * downsample the data.
+   * @param lat_scat_new The scattering-angle latitude grid to which to
+   * interpolate the data
+   * @return New scattering data field with the given scattering angles.
    */
   ScatteringDataFieldGridded downsample_scattering_angles(Vector lon_scat_new,
                                                           Vector lat_scat_new) const {
@@ -468,16 +508,16 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
                                         std::make_shared<Vector>(lat_scat_new));
   }
 
+  // pxx :: hide
   /** Regrid data to new grids.
    * @param f_grid The frequency grid.
    * @param t_grid The temperature grid.
-   * @lon_inc The incoming azimuth angle
-   * @lat_inc The incoming zenith angle
-   * @lon_scat The scattering zenith angle
-   * @lat_scat The scattering azimuth angle
+   * @lon_inc The incoming-angle longitude grid.
+   * @lat_inc The incoming-angle latitude grid.
+   * @lon_scat The scattering-angle longitude grid.
+   * @lat_scat The scattering-angle latitude grid.
    * @return A new ScatteringDataFieldGridded with the given grids.
    */
-  // pxx :: hide
   ScatteringDataFieldGridded regrid(VectorPtr f_grid,
                                     VectorPtr t_grid,
                                     VectorPtr lon_inc,
@@ -565,6 +605,15 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
     return *this;
   }
 
+  /** Addition of scattering data.
+   *
+   * Creates a new scattering data object with the same grids as the
+   * left-hand operand containing the sum of the scattering data in both
+   * operands.
+   *
+   * @param other The right-hand summand.
+   * @return The sum of the two scatttering data objects.
+   */
   ScatteringDataFieldGridded operator+(
       const ScatteringDataFieldGridded &other) const {
     auto result = copy();
@@ -572,7 +621,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
     return result;
   }
 
-  /** In-place scaling scattering data.
+  /** In-place scaling of scattering data.
    *
    * @param c The scaling factor.
    * @return Reference to this object.
@@ -691,13 +740,19 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
 // pxx :: instance(["double"])
 /** Scattering data in spectral format.
  *
- * Represents scattering data where the scattering-angle dependency is
- * represented using SH-coefficients.
+ * Uses a spherical-harmonics expansion to represent the scattering-angle
+ * dependency. The data tensor is therefore complex with the axes corresponding
+ * to the following quantities:
+ * 1. Frequency
+ * 2. Temperature
+ * 3. Incoming-angle longitude
+ * 4. Incoming-angle latitude
+ * 5. Scattering-angle SH coefficients.
+ * 6. Stokes dimension of scattering data.
  */
 template <typename Scalar_>
 class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
  public:
-  using ScatteringDataFieldBase::get_particle_type;
   using ScatteringDataFieldBase::n_freqs_;
   using ScatteringDataFieldBase::n_lat_inc_;
   using ScatteringDataFieldBase::n_lat_scat_;
@@ -705,6 +760,10 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   using ScatteringDataFieldBase::n_lon_scat_;
   using ScatteringDataFieldBase::n_temps_;
   using ScatteringDataFieldBase::type_;
+  using ScatteringDataFieldBase::get_n_lon_inc;
+  using ScatteringDataFieldBase::get_n_lat_inc;
+  using ScatteringDataFieldBase::get_n_lon_scat;
+  using ScatteringDataFieldBase::get_n_lat_scat;
 
   using Scalar = Scalar_;
   using Coefficient = std::complex<Scalar>;
@@ -730,7 +789,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   static constexpr Index rank = 6;
 
   // pxx :: hide
-  /** Create scattering data field.
+  /** Create spectral scattering data field.
    * @param f_grid The frequency grid.
    * @param t_grid The temperature grid.
    * @param lon_inc The longitude grid for the incoming angles.
@@ -762,7 +821,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
         lat_inc_map_(lat_inc->data(), n_lat_inc_),
         data_(data) {}
 
-  /** Create scattering data field.
+  /** Create spectral scattering data field.
    * @param f_grid The frequency grid.
    * @param t_grid The temperature grid.
    * @param lon_inc The longitude grid for the incoming angles.
@@ -846,27 +905,47 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
                                        data_new);
   }
 
-  DataFormat get_data_format() const { return DataFormat::Spectral; }
+  /// Enum representing the data format.
+  constexpr DataFormat get_data_format() const { return DataFormat::Spectral; }
 
+  /// The number of scattering-data coefficients.
+  Index get_n_coeffs() const { return data_->dimension(5); }
+  /// The frequency grid.
+  /// Parameters of SHT transformation used to transform
+  /// scattering angle.
+  std::array<Index, 4> get_sht_scat_params() const {
+      return {sht_scat_->get_l_max(),
+              sht_scat_->get_m_max(),
+              sht_scat_->get_n_longitudes(),
+              sht_scat_->get_n_latitudes()};
+  }
+  /// Largest SHT parameters satisfying shtns aliasing requirements for
+  /// incoming angle.
+  std::array<Index, 4> get_sht_inc_params() const {
+      return sht::SHT::get_params(n_lon_scat_, n_lat_scat_);
+  }
   const eigen::Vector<double>& get_f_grid() const { return *f_grid_; }
+  /// The temperature grid.
   const eigen::Vector<double>& get_t_grid() const { return *t_grid_; }
+  /// The incoming-angle longitude grid.
   eigen::Vector<double> get_lon_inc() const { return *lon_inc_; }
+  /// The incoming-angle latitude grid.
   eigen::Vector<double> get_lat_inc() const { return *lat_inc_; }
+  /// The scattering-angle longitude grid.
   eigen::Vector<double> get_lon_scat() const {
     return sht_scat_->get_longitude_grid();
   }
+  /// The scattering-angle latitude grid.
   eigen::Vector<double> get_lat_scat() const {
     return sht_scat_->get_latitude_grid();
   }
-  Index get_n_lon_inc() const { return lon_inc_->size(); }
-  Index get_n_lat_inc() const { return lat_inc_->size(); }
-  Index get_n_lon_scat() const { return sht_scat_->get_n_longitudes(); }
-  Index get_n_lat_scat() const { return sht_scat_->get_n_latitudes(); }
-  Index get_n_coeffs() const { return data_->dimension(5); }
 
-  std::array<Index, 4> get_sht_inc_params() const {
-    return sht::SHT::get_params(n_lon_inc_, n_lat_inc_);
-  }
+  /// The SHT object used to transform the data along the scattering
+  /// angle.
+  sht::SHT &get_sht_scat() const { return *sht_scat_; }
+
+  /// The raw scattering data.
+  const DataTensor &get_data() const { return *data_; }
 
   /** Set scattering data for given frequency and temperature index.
    *
@@ -931,6 +1010,11 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
                                        data_new);
   }
 
+  /** Interpolate data along frequency dimension.
+   * @param frequencies The frequencies to which to interpolate the data.
+   * @return New ScatteringDataFieldSpectral with the data interpolated
+   * to the given frequencies.
+   */
   ScatteringDataFieldSpectral interpolate_frequency(
       const Vector &frequencies) const {
     return interpolate_frequency(std::make_shared<Vector>(frequencies));
@@ -959,6 +1043,11 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
                                        data_new);
   }
 
+  /** Interpolate data along temperature dimension.
+   * @param temperatures The temperatures to which to interpolate the data.
+   * @return New ScatteringDataFieldSpectral with the data interpolated
+   * to the given temperatures.
+   */
   ScatteringDataFieldSpectral interpolate_temperature(
       const Vector &temperatures,
       bool extrapolate=false) const {
@@ -968,9 +1057,10 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
 
   // pxx :: hide
   /** Interpolate data along incoming angles.
-   * @param temperatures The temperatures to which to interpolate the data.
+   * @param lon_inc_new The incoming-angle longitudes to which to interpolate the data.
+   * @param lat_inc_new The incoming-angle latitudes to which to interpolate the data.
    * @return New ScatteringDataFieldSpectral with the data interpolated
-   * to the given temperatures.
+   * to the given incoming angles.
    */
   ScatteringDataFieldSpectral interpolate_angles(VectorPtr lon_inc_new,
                                                  VectorPtr lat_inc_new) const {
@@ -989,6 +1079,12 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
                                        data_new);
   }
 
+  /** Interpolate data along incoming angles.
+   * @param lon_inc_new The incoming-angle longitudes to which to interpolate the data.
+   * @param lat_inc_new The incoming-angle latitudes to which to interpolate the data.
+   * @return New ScatteringDataFieldSpectral with the data interpolated
+   * to the given incoming angles.
+   */
   ScatteringDataFieldSpectral interpolate_angles(Vector lon_inc_new,
                                                  Vector lat_inc_new) const {
     return interpolate_angles(std::make_shared<Vector>(lon_inc_new),
@@ -1134,6 +1230,12 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
       data_ = data_new;
   }
 
+  /** Convert data to SHT representation with other parameters.
+   *
+   * @param sht_other SHT object representing SHT-representation to convert to.
+   * @returns A new ScatteringDataFieldSpectral object containg the scattering
+   * data of this object in the requested representation.
+   */
   ScatteringDataFieldSpectral to_spectral(ShtPtr sht_other) const {
     auto new_dimensions = data_->dimensions();
     new_dimensions[4] = sht_other->get_n_spectral_coeffs();
@@ -1149,12 +1251,30 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
     return result;
   }
 
+  /** Convert data to SHT representation with other parameters.
+   *
+   * @param l_max The l_max parameter of the SHT-representation to convert to.
+   * @param m_max The m_max parameter of the SHT-representation to convert to.
+   * @returns A new ScatteringDataFieldSpectral object containg the scattering
+   * data of this object in the requested representation.
+   */
   ScatteringDataFieldSpectral to_spectral(Index l_max, Index m_max) const {
     auto n_lat = sht_scat_->get_n_latitudes();
     auto n_lon = sht_scat_->get_n_longitudes();
     return to_spectral(std::make_shared<sht::SHT>(l_max, m_max, n_lon, n_lat));
   }
 
+  /** Convert data to SHT representation with other parameters.
+   *
+   * @param l_max The l_max parameter of the SHT-representation to convert to.
+   * @param m_max The m_max parameter of the SHT-representation to convert to.
+   * @param n_lon Size of the scattering-angle longitude grid of the new
+   * representation.
+   * @param n_lat Size of the scattering-angle latitude of the new
+   * representation.
+   * @returns A new ScatteringDataFieldSpectral object containg the scattering
+   * data of this object in the requested representation.
+   */
   ScatteringDataFieldSpectral to_spectral(Index l_max,
                                           Index m_max,
                                           Index n_lon,
@@ -1162,10 +1282,22 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
       return to_spectral(std::make_shared<sht::SHT>(l_max, m_max, n_lon, n_lat));
   }
 
+  /** Convert data to SHT representation with other parameters.
+   *
+   * @param l_max The l_max parameter of the SHT-representation to convert to.
+   * @returns A new ScatteringDataFieldSpectral object containg the scattering
+   * data of this object in the requested representation.
+   */
   ScatteringDataFieldSpectral to_spectral(Index l_max) const {
     return to_spectral(l_max, l_max);
   }
 
+  /** Convert data gridded representation.
+   *
+   * @returns A new ScatteringDataFieldSpectral object containg the scattering
+   * data converted to gridded representation using the native scattering-angle
+   * latitude * and longitude grids of the SHT transformation.
+   */
   ScatteringDataFieldGridded<Scalar> to_gridded() const;
 
   ScatteringDataFieldGridded<Scalar> to_gridded(Index n_lon,
@@ -1177,7 +1309,23 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
       return to_spectral(sht).to_gridded();
   }
 
+  /** Convert data to fully-spectral representation.
+   *
+   * @param sht SHT object to use to perform the incoming-angle transform.
+   * @returns Representation of this scattering data converted to fully-spectral
+   * format.
+   */
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(ShtPtr sht) const;
+
+  /** Convert data to fully-spectral representation.
+   *
+   * @param l_max The l_max parameter to use for the SHT transform of the incoming-angle
+   * grid.
+   * @param m_max The m_max parameter to use for the SHT transform of the incoming-angle
+   * grid.
+   * @returns Representation of this scattering data converted to fully-spectral
+   * format.
+   */
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral(
       Index l_max,
       Index m_max) const {
@@ -1185,14 +1333,20 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
         std::make_shared<sht::SHT>(l_max, m_max, n_lon_inc_, n_lat_inc_);
     return to_fully_spectral(sht);
   }
+
+  /** Convert data to fully-spectral representation.
+   *
+   * Automatically determines the largest l_max and m_max values that satisfy
+   * the shtns aliasing requirements and uses the to transform the data
+   * to fully-spectral format.
+   *
+   * @returns Representation of this scattering data converted to fully-spectral
+   * format.
+   */
   ScatteringDataFieldFullySpectral<Scalar> to_fully_spectral() {
     auto sht_params = get_sht_inc_params();
     return to_fully_spectral(std::get<0>(sht_params), std::get<1>(sht_params));
   }
-
-  const DataTensor &get_data() const { return *data_; }
-
-  sht::SHT &get_sht_scat() const { return *sht_scat_; }
 
  protected:
 
@@ -1223,10 +1377,20 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
  * the scattering angles is represented using SHs.
  *
  */
+/** Scattering data in fully-spectral format.
+ *
+ * Uses spherical-harmonics expansion to represent the scattering- as well
+ * as the incoming-angle dependency. The data tensor is therefore complex with
+ * the axes corresponding to the following quantities:
+ * 1. Frequency
+ * 2. Temperature
+ * 3. Incoming-angle SH coefficients.
+ * 4. Scattering-angle SH coefficients.
+ * 5. Stokes dimension of scattering data.
+ */
 template <typename Scalar>
 class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
  public:
-  using ScatteringDataFieldBase::get_particle_type;
   using ScatteringDataFieldBase::n_freqs_;
   using ScatteringDataFieldBase::n_lat_inc_;
   using ScatteringDataFieldBase::n_lat_scat_;
@@ -1234,6 +1398,10 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
   using ScatteringDataFieldBase::n_lon_scat_;
   using ScatteringDataFieldBase::n_temps_;
   using ScatteringDataFieldBase::type_;
+  using ScatteringDataFieldBase::get_n_lon_inc;
+  using ScatteringDataFieldBase::get_n_lat_inc;
+  using ScatteringDataFieldBase::get_n_lon_scat;
+  using ScatteringDataFieldBase::get_n_lat_scat;
 
   using Vector = eigen::Vector<Scalar>;
   using VectorMap = eigen::VectorMap<Scalar>;
@@ -1357,23 +1525,51 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
                                             data_new);
   }
 
-  DataFormat get_data_format() const { return DataFormat::FullySpectral; }
+  /// Return enum identifying the data format.
+  constexpr DataFormat get_data_format() const { return DataFormat::FullySpectral; }
 
+  /// The number of scattering-data coefficients.
+  Index get_n_coeffs() const { return data_->dimension(4); }
+  /// Parameters of SHT transformation used to transform
+  /// scattering angle.
+  std::array<Index, 4> get_sht_inc_params() const {
+      return {sht_inc_->get_l_max(),
+              sht_inc_->get_m_max(),
+              sht_inc_->get_n_longitudes(),
+              sht_inc_->get_n_latitudes()};
+  }
+  /// The frequency grid.
+  /// Parameters of SHT transformation used to transform
+  /// scattering angle.
+  std::array<Index, 4> get_sht_scat_params() const {
+      return {sht_scat_->get_l_max(),
+              sht_scat_->get_m_max(),
+              sht_scat_->get_n_longitudes(),
+              sht_scat_->get_n_latitudes()};
+  }
+  /// The frequency grid.
   const eigen::Vector<double>& get_f_grid() { return *f_grid_; }
+  /// The temperature grid.
   const eigen::Vector<double>& get_t_grid() { return *t_grid_; }
+  /// The incoming-angle longitude grid.
   eigen::Vector<double> get_lon_inc() { return sht_inc_->get_longitude_grid(); }
+  /// The incoming-angle latitude grid.
   eigen::Vector<double> get_lat_inc() { return sht_inc_->get_latitude_grid(); }
+  /// The scattering-angle longitude grid.
   eigen::Vector<double> get_lon_scat() {
     return sht_scat_->get_longitude_grid();
   }
+  /// The scattering-angle latitude grid.
   eigen::Vector<double> get_lat_scat() {
     return sht_scat_->get_latitude_grid();
   }
-  Index get_n_lon_inc() const { return sht_inc_->get_n_longitudes(); }
-  Index get_n_lat_inc() const { return sht_inc_->get_n_latitudes(); }
-  Index get_n_lon_scat() const { return sht_scat_->get_n_longitudes(); }
-  Index get_n_lat_scat() const { return sht_scat_->get_n_latitudes(); }
-  Index get_n_coeffs() const { return data_->dimension(4); }
+
+  /// The SHT object representing the SHT transform used to transform
+  /// the data along the incoming angles.
+  sht::SHT &get_sht_inc() const { return *sht_inc_; }
+  /// The SHT object representing the SHT transform used to transform
+  /// the data along the scattering angles.
+  sht::SHT &get_sht_scat() const { return *sht_scat_; }
 
   /** Set scattering data for given frequency and temperature index.
    *
@@ -1412,7 +1608,7 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
   }
 
   // pxx :: hide
-  /** Interpolate data along frequency dimension.
+  /** Linear interpolation along frequency dimension.
    * @param frequencies The frequencies to which to interpolate the data.
    * @return New ScatteringDataFieldFullySpectral with the data interpolated
    * to the given frequencies.
@@ -1432,13 +1628,18 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
                                             data_new);
   }
 
+  /** Linear interpolation along frequency dimension.
+   * @param frequencies The frequencies to which to interpolate the data.
+   * @return New ScatteringDataFieldFullySpectral with the data interpolated
+   * to the given frequencies.
+   */
   ScatteringDataFieldFullySpectral interpolate_frequency(
       const Vector &frequencies) const {
     return interpolate_frequency(std::make_shared<Vector>(frequencies));
   }
 
   // pxx :: hide
-  /** Interpolate data along temperature dimension.
+  /** Linear interpolation along temperature dimension.
    * @param temperatures The temperatures to which to interpolate the data.
    * @return New ScatteringDataFieldFullySpectral with the data interpolated
    * to the given temperatures.
@@ -1460,6 +1661,12 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
                                             data_new);
   }
 
+  // pxx :: hide
+  /** Linear interpolation along temperature dimension.
+   * @param temperatures The temperatures to which to interpolate the data.
+   * @return New ScatteringDataFieldFullySpectral with the data interpolated
+   * to the given temperatures.
+   */
   ScatteringDataFieldFullySpectral interpolate_temperature(
       const Vector &temperatures,
       bool extrapolate=false) const {
@@ -1467,7 +1674,7 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
                                      extrapolate);
   }
 
-  /** Regrid data to new grids.
+  /** Regrid data to new frequency and temperature grids.
    * @param f_grid The frequency grid.
    * @param t_grid The temperature grid.
    * @return A new ScatteringDataFieldFullySpectral with the given grids.
@@ -1571,11 +1778,16 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
       data_ = data_new;
   }
 
-  sht::SHT &get_sht_scat() const { return *sht_scat_; }
-  sht::SHT &get_sht_inc() const { return *sht_inc_; }
-
+  /// Convert to spectral scattering data format using native SHT parameters.
   ScatteringDataFieldSpectral<Scalar> to_spectral() const;
 
+  /** Change SHT representation of incoming angles.
+   *
+   * @param sht_other SHT-object representing the transformation to which
+   * to convert the data.
+   * @return Scattering data field in fully-spectral format but with different
+   * transformation parameters.
+   */
   ScatteringDataFieldSpectral<Scalar> to_spectral(ShtPtr sht_other) const {
     auto new_dimensions = data_->dimensions();
     new_dimensions[3] = sht_other->get_n_spectral_coeffs();
@@ -1590,6 +1802,15 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
     return result.to_spectral();
   }
 
+  /** Change SHT representation of incoming angles.
+   *
+   * @param l_max The l_max parameter of the SHT transform to use to transform
+   * the incoming angles.
+   * @param m_max The m_max parameter of the SHT transform to use to transform
+   * the incoming angles.
+   * @return Scattering data field in fully-spectral format but with different
+   * transformation parameters.
+   */
   ScatteringDataFieldSpectral<Scalar> to_spectral(Index l_max,
                                                   Index m_max) const {
     auto n_lat = sht_scat_->get_n_latitudes();
@@ -1598,6 +1819,19 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
     return to_spectral(sht_other);
   }
 
+  /** Change SHT representation of incoming angles.
+   *
+   * @param l_max The l_max parameter of the SHT transform to use to transform
+   * the incoming angles.
+   * @param m_max The m_max parameter of the SHT transform to use to transform
+   * the incoming angles.
+   * @param n_lon The size of the longitude-angle grid to use for the new
+   * SHT transform.
+   * @param n_lat The size of the latitude-angle grid to use for the new
+   * SHT transform.
+   * @return Scattering data field in fully-spectral format but with different
+   * transformation parameters.
+   */
   ScatteringDataFieldSpectral<Scalar> to_spectral(Index l_max,
                                                   Index m_max,
                                                   Index n_lon,

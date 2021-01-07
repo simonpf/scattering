@@ -112,10 +112,10 @@ class TestScatteringDataFieldRandom:
         dt = self.data.t_grid[-1] - self.data.t_grid[0]
         temperatures = self.data.t_grid[0] + dt * np.random.rand(10)
         reference = self.data.interpolate_temperature(temperatures)
-        gridded = self.data.scattering_data.interpolate_temperature(temperatures)
-        spectral = self.data.scattering_data_spectral.interpolate_temperature(temperatures)
-        spectral_2 = self.data.scattering_data_spectral_2.interpolate_temperature(temperatures)
-        fully_spectral = self.data.scattering_data_fully_spectral.interpolate_temperature(temperatures)
+        gridded = self.data.scattering_data.interpolate_temperature(temperatures, False)
+        spectral = self.data.scattering_data_spectral.interpolate_temperature(temperatures, False)
+        spectral_2 = self.data.scattering_data_spectral_2.interpolate_temperature(temperatures, False)
+        fully_spectral = self.data.scattering_data_fully_spectral.interpolate_temperature(temperatures, False)
 
         assert np.all(np.isclose(reference, gridded.get_data()))
         assert np.all(np.isclose(reference, spectral.to_gridded().get_data()))
@@ -241,15 +241,15 @@ class TestScatteringDataFieldRandom:
         for i, f in enumerate(self.data.f_grid):
             for j, t in enumerate(self.data.t_grid):
                 d = self.data.scattering_data.interpolate_frequency([f])
-                d = d.interpolate_temperature([t])
+                d = d.interpolate_temperature([t], False)
                 result_gridded.set_data(i, j, d)
 
                 d = self.data.scattering_data_spectral.interpolate_frequency([f])
-                d = d.interpolate_temperature([t])
+                d = d.interpolate_temperature([t], False)
                 result_spectral.set_data(i, j, d)
 
                 d = self.data.scattering_data_fully_spectral.interpolate_frequency([f])
-                d = d.interpolate_temperature([t])
+                d = d.interpolate_temperature([t], False)
                 result_fully_spectral.set_data(i, j, d)
 
 

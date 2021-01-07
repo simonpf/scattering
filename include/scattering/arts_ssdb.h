@@ -11,6 +11,7 @@
 #include <regex>
 #include <set>
 #include <utility>
+#include <filesystem>
 
 #include "netcdf.hpp"
 
@@ -38,7 +39,8 @@ namespace detail {
 std::pair<double, double> match_temp_and_freq(std::string group_name);
 
 /** Extract particle metadata from filename.
- * @param filename The filename as string.
+ * @param std::filesystem::path Path obejct pointing to the NetCDF4 file to
+ * read.
  * @return tuple (match, d_eq, d_max, m) containing
  *    - match: Flag indicating whether the filename matches the ARTS SSDB
  *      pattern.
@@ -47,7 +49,19 @@ std::pair<double, double> match_temp_and_freq(std::string group_name);
  *    - m: The mass of the particle.
  */
 std::tuple<bool, double, double, double> match_particle_properties(
-    std::string filename);
+    std::filesystem::path path);
+
+/** Try to extract habit name from file path..
+ *
+ * Searches for the closest parent folder whose name matches the
+ * pattern <habit_name>_Id<id> and returns the matching habit name.
+ *
+ * @param std::filesystem::path Path obejct pointing to the NetCDF4 file to
+ * read.
+ * @return The extracted habit
+ */
+std::string match_habit_name(
+    std::filesystem::path path);
 
  /** Indirect sort w.r.t. equivalent diameter.
  *
@@ -330,6 +344,13 @@ class ParticleFile {
   /// The type of the particle, i.e. random or azimuthally-random orientation.
   ParticleType get_particle_type();
 
+  /** The habit name.
+   *
+   * In the ARTS SSDB particle habits have names and IDs. If the name
+   * has been successfully extracted from the file path this function
+   * will return the matched name. Otherwise the empty string is returned.
+   */
+  std::string get_habit_name() { return habit_name_; }
   /// The volume equivalent diameter of the particle in microns.
   double get_d_eq() {return d_eq_;}
   /// The maximum diameter of the particle in microns.
@@ -381,6 +402,7 @@ class ParticleFile {
   Particle to_particle();
 
  private:
+  std::string habit_name_;
   double d_eq_, d_max_, mass_;
   std::vector<double> freqs_;
   std::vector<double> temps_;
@@ -443,6 +465,12 @@ public:
    */
   HabitFolder(std::string path) : base_path_(path) { parse_files(); }
 
+  /** The habit name.
+   *
+   * If the name * has been successfully extracted from the file path
+   * this function will return the matched name. Otherwise the empty string is returned.
+   */
+  std::string get_habit_name() { return habit_name_; }
   /// Number of particle in habit.
   size_t get_n_particles() {return d_eq_.size();}
   /// Return vector of equivalent diameters of the particles in the habit.
@@ -463,7 +491,8 @@ public:
   ParticleHabit to_particle_habit() { return *this; }
 
  private:
-  std::string base_path_;
+  std::string habit_name_;
+  std::filesystem::path base_path_;
   eigen::Vector<double> d_eq_;
   eigen::Vector<double> d_max_;
   eigen::Vector<double> mass_;

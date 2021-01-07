@@ -365,16 +365,25 @@ template <typename Base>
   using Scalar = typename Base::Scalar;
 
   using Base::copy;
-  using Base::get_particle_type;
 
   /// Perfect forwarding constructor.
   template <typename... Args>
   PhaseMatrix(Args... args) : Base(std::forward<Args>(args)...) {}
 
+  ParticleType get_particle_type() const {
+      if (n_lon_inc_ > 1) {
+          return ParticleType::General;
+      }
+      if ((n_lon_inc_ > 1) || (n_lat_inc_ > 1) || (n_lon_scat_ > 1)) {
+          return ParticleType::AzimuthallyRandom;
+      }
+      return ParticleType::Random;
+  }
+
   /// Determine stokes dimension of data.
   eigen::Index get_stokes_dim() const {
     auto n_coeffs = Base::get_n_coeffs();
-    auto type = Base::get_particle_type();
+    auto type = get_particle_type();
     if (type == ParticleType::Random) {
       if (n_coeffs == 6) {
         return 4;
@@ -590,7 +599,7 @@ class ExtinctionMatrix : public Base {
   /// Determine stokes dimension of data.
   eigen::Index get_stokes_dim() const {
     auto n_coeffs = Base::get_n_coeffs();
-    auto type = Base::get_particle_type();
+    auto type = get_particle_type();
     if (type == ParticleType::Random) {
       return 4;
     } else {
@@ -737,7 +746,7 @@ class AbsorptionVector : public Base {
   /// Determine stokes dimension of data.
   eigen::Index get_stokes_dim() const {
     auto n_coeffs = Base::get_n_coeffs();
-    auto type = Base::get_particle_type();
+    auto type = get_particle_type();
     if (type == ParticleType::Random) {
       return 4;
     } else {

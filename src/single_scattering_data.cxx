@@ -135,6 +135,32 @@ SingleScatteringData::SingleScatteringData(
                 std::make_shared<eigen::Tensor<std::complex<double>, 6>>(backward_scattering_coeff),
                 std::make_shared<eigen::Tensor<std::complex<double>, 6>>(forward_scattering_coeff))) {}
 
+
+SingleScatteringData::SingleScatteringData(
+    eigen::Vector<double> f_grid,
+    eigen::Vector<double> t_grid,
+    eigen::Vector<double> lon_inc,
+    eigen::Vector<double> lat_inc,
+    eigen::Tensor<std::complex<double>, 6> phase_matrix,
+    eigen::Tensor<std::complex<double>, 6> extinction_matrix,
+    eigen::Tensor<std::complex<double>, 6> absorption_vector,
+    eigen::Tensor<std::complex<double>, 6> backward_scattering_coeff,
+    eigen::Tensor<std::complex<double>, 6> forward_scattering_coeff)
+    : data_(new SingleScatteringDataSpectral<double>(
+                std::make_shared<eigen::Vector<double>>(f_grid),
+                std::make_shared<eigen::Vector<double>>(t_grid),
+                std::make_shared<eigen::Vector<double>>(lon_inc),
+                std::make_shared<eigen::Vector<double>>(lat_inc),
+                std::make_shared<sht::SHT>(
+                    sht::SHT(sht::SHT::calc_l_max(phase_matrix.dimension(4)))
+                    ),
+                std::make_shared<eigen::Tensor<std::complex<double>, 6>>(phase_matrix),
+                std::make_shared<eigen::Tensor<std::complex<double>, 6>>(extinction_matrix),
+                std::make_shared<eigen::Tensor<std::complex<double>, 6>>(absorption_vector),
+                std::make_shared<eigen::Tensor<std::complex<double>, 6>>(backward_scattering_coeff),
+                std::make_shared<eigen::Tensor<std::complex<double>, 6>>(forward_scattering_coeff))) {}
+
+
 SingleScatteringData::SingleScatteringData(
     scattering::eigen::Vector<double> f_grid,
     scattering::eigen::Vector<double> t_grid,

@@ -116,7 +116,7 @@ class SHT {
    * @return l_max value yielding the given number of spectral coeffs.
    */
   static Index calc_l_max(Index n_spectral_coeffs) {
-    return static_cast<Index>(sqrt(2.0 * n_spectral_coeffs + 0.25) - 1.5);
+    return static_cast<Index>(sqrt(2.0 * static_cast<double>(n_spectral_coeffs) + 0.25) - 1.5);
   }
 
   static std::array<Index, 4> get_params(Index n_lon, Index n_lat);
@@ -130,6 +130,27 @@ class SHT {
    * @param n_lat The number of co-latitude grid points.
    */
   SHT(Index l_max, Index m_max, Index n_lon, Index n_lat);
+
+  /**
+   * Create a spherical harmonics transformation object.
+   *
+   * The values for n_lon and n_lat are set to 2 * l_max + 2 and
+   * 2 * m_max + 2, respectively.
+   *
+   * @param l_max The maximum degree of the SHT.
+   * @param m_max The maximum order of the SHT.
+   */
+  SHT(Index l_max, Index m_max);
+
+  /**
+   * Create a spherical harmonics transformation object.
+   *
+   * Create spherical harmonics transformation object with l_max == m_max
+   * and values for n_lon and n_lat set to 2 * l_max + 2 and
+   * 2 * m_max + 2, respectively.
+   * @param l_max The maximum degree of the SHT.
+   */
+  SHT(Index l_max);
 
   /** Return latitude grid used by SHTns.
    * @return Eigen vector containing the latitude grid in radians.

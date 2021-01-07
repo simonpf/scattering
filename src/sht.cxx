@@ -127,7 +127,7 @@ std::array<Index, 4> SHT::get_params(Index n_lon, Index n_lat) {
   Index l_max = (n_lat > 2) ? (n_lat / 2) - 1 : 0;
   Index m_max = (n_lon > 2) ? (n_lon / 2) - 1 : 0;
   m_max = std::min(l_max, m_max);
-  return {l_max, m_max, n_lat, n_lon};
+  return {l_max, m_max, n_lon, n_lat};
 }
 
 SHT::SHT(Index l_max, Index m_max, Index n_lon, Index n_lat)
@@ -149,6 +149,15 @@ SHT::SHT(Index l_max, Index m_max, Index n_lon, Index n_lat)
     cmplx_spatial_coeffs_ = sht::FFTWArray<std::complex<double>>(n_lon * n_lat);
   }
 }
+
+SHT::SHT(Index l_max, Index m_max)
+    : SHT(l_max,
+          m_max,
+          (m_max > 0) ? 2 * m_max + 2 : 1,
+          (l_max > 0) ? 2 * l_max + 2 : 1) {}
+
+SHT::SHT(Index l_max)
+    : SHT(l_max, l_max) {}
 
 SHT::Vector SHT::get_latitude_grid() {
   if (is_trivial_) {

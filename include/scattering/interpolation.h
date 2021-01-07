@@ -459,6 +459,7 @@ class RegularGridInterpolator {
     return results;
   }
 
+  // pxx :: hide
   /** Interpolate tensor using precomputed weights.
    * @param t The tensor to interpolate.
    * @param interp_weights The interpolation weights precomuted using the
@@ -466,7 +467,6 @@ class RegularGridInterpolator {
    * @param positions Eigen matrix containing the positions at which to
    * interpolate t.
    */
-  // pxx :: hide
   template <typename ResultContainer>
   void interpolate(ResultContainer results,
                    const Tensor& t,

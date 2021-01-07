@@ -19,5 +19,5 @@ add_library(
   arts_ssdb.cxx)
 
 add_dependencies(scattering libshtns)
-target_link_libraries(scattering ${SHTNS_LIBRARY} fftw3)
+target_link_libraries(scattering ${SHTNS_LIBRARY} fftw3 ${NETCDF_LIBRARIES})
 set_property(TARGET scattering PROPERTY POSITION_INDEPENDENT_CODE ON)
