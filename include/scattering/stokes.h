@@ -55,15 +55,38 @@ auto f44(const VectorType &v) {
 // Calculation of rotation coefficients.
 ////////////////////////////////////////////////////////////////////////////////
 
+/** Calculate scattering angle from incoming and outgoing directions.
+ * @param lon_inc The incoming-angle longitude component.
+ * @param lat_inc The incoming-angle latitude component.
+ * @param lon_scat The outgoing (scattering) angle longitude component.
+ * @param lat_scat The outgoing (scattering) angle longitude component..
+ * @return The angle between the incoming and outgoing directions.
+ */
 template <typename Scalar>
 Scalar scattering_angle(Scalar lon_inc,
                         Scalar lat_inc,
                         Scalar lon_scat,
                         Scalar lat_scat) {
-    return math::save_acos(cos(lat_scat) * cos(lat_inc) +
-                      sin(lat_scat) * sin(lat_inc) * cos(lon_scat - lon_inc));
+    Scalar cos_theta = cos(lat_inc) * cos(lat_scat) +
+        sin(lat_inc) * sin(lat_scat) * cos(lon_scat - lon_inc);
+    return math::save_acos(cos_theta);
 }
 
+/** Calculates the rotation coefficients for scattering matrix.
+ *
+ * This method calculates the rotation coefficients that are required to
+ * transform a phase function of a randomly-oriented particle to the scattering
+ * matrix, which describes its scattering behavior w.r.t. to the reference
+ * frame. This equation calculates the angle Theta and the coefficients C_1,
+ * C_2, S_1, S_2 as defined in equation (4.16) of
+ * "Scattering, Absorption, and Emission of Light by Small Particles."
+ *
+ * @param lon_inc The longitude component of the incoming angle.
+ * @param lat_inc The latitude component of the incoming angle.
+ * @param lon_scat The longitude component of the scattering angle.
+ * @param lat_scat The latitude component of the scattering angle.
+ *
+ */
 template <typename Scalar>
 std::array<Scalar, 5> rotation_coefficients(Scalar lon_inc,
                                             Scalar lat_inc,
@@ -72,20 +95,47 @@ std::array<Scalar, 5> rotation_coefficients(Scalar lon_inc,
   Scalar cos_theta = cos(lat_inc) * cos(lat_scat) +
                      sin(lat_inc) * sin(lat_scat) * cos(lon_scat - lon_inc);
   Scalar theta = math::save_acos(cos_theta);
+  if ((math::small(abs(lon_scat - lon_inc))) ||
+      (math::equal(abs(lon_scat - lon_inc), 2.0 * M_PI))) {
+    theta = abs(lat_inc - lat_scat);
+  } else if ((math::equal(lon_scat - lon_inc, 2.0 * M_PI))) {
+    theta = lat_scat + lat_inc;
+    if (theta > M_PI) {
+      theta = 2.0 * M_PI - theta;
+    }
+  }
 
   Scalar sigma_1, sigma_2;
 
-  if (math::small(lat_inc) || math::equal(lat_inc, M_PI)) {
-    sigma_1 = lon_scat - lon_inc;
-    sigma_2 = 0.0;
-  } else if (math::small(lat_scat) || math::equal(lat_scat, M_PI)) {
-    sigma_1 = 0.0;
-    sigma_2 = lon_scat - lon_inc;
+  //if (math::small(lat_inc) || math::equal(lat_inc, M_PI)) {
+  //  sigma_1 = lon_scat - lon_inc;
+  //  sigma_2 = 0.0;
+  //} else if (math::small(lat_scat) || math::equal(lat_scat, M_PI)) {
+  //  sigma_1 = 0.0;
+  //  sigma_2 = lon_scat - lon_inc;
+  //} else {
+  //  sigma_1 = math::save_acos((cos(lat_scat) - cos(lat_inc) * cos_theta) /
+  //                       (sin(lat_inc) * sin(theta)));
+  //  sigma_2 = math::save_acos((cos(lat_inc) - cos(lat_scat) * cos_theta) /
+  //                       (sin(lat_scat) * sin(theta)));
+  //}
+  if (math::small(lat_inc)) {
+      sigma_1 = lon_scat - lon_inc;
+      sigma_2 = 0.0;
+  } else if (math::equal(lat_inc, M_PI)) {
+      sigma_1 = lon_scat - lon_inc;
+      sigma_2 = M_PI;
+  } else if (math::small(lat_scat)) {
+      sigma_1 = 0.0;
+      sigma_2 = M_PI + lon_scat - lon_inc;
+  } else if (math::equal(lat_scat, M_PI)) {
+      sigma_1 = M_PI;
+      sigma_2 = lon_scat - lon_inc;
   } else {
-    sigma_1 = math::save_acos((cos(lat_scat) - cos(lat_inc) * cos_theta) /
-                         (sin(lat_inc) * sin(theta)));
-    sigma_2 = math::save_acos((cos(lat_inc) - cos(lat_scat) * cos_theta) /
-                         (sin(lat_scat) * sin(theta)));
+      sigma_1 = math::save_acos((cos(lat_scat) - cos(lat_inc) * cos_theta) /
+                                (sin(lat_inc) * sin(theta)));
+      sigma_2 = math::save_acos((cos(lat_inc) - cos(lat_scat) * cos_theta) /
+                                (sin(lat_scat) * sin(theta)));
   }
 
   Scalar c_1 = cos(2.0 * sigma_1);
@@ -436,9 +486,9 @@ template <typename Base>
     auto n_lon_scat = lon_scat_new->size();
     auto n_lat_scat = lat_scat_new->size();
 
-    auto scat_ang_new = Vector(n_lat_inc * n_lon_scat * n_lon_scat);
+    auto scat_ang_new = Vector(n_lat_inc * n_lon_scat * n_lat_scat);
     eigen::MatrixFixedRows<Scalar, 4> rotation_coeffs{
-        n_lat_inc * n_lon_scat * n_lon_scat,
+        n_lat_inc * n_lon_scat * n_lat_scat,
         4};
 
     Index index = 0;
@@ -481,7 +531,7 @@ template <typename Base>
                                            1,
                                            n_lat_inc,
                                            n_lon_scat,
-                                           n_lon_scat,
+                                           n_lat_scat,
                                            stokes_dim * stokes_dim};
     auto data_new = std::make_shared<DataTensor>(dimensions_new);
 

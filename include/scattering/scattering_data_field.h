@@ -477,14 +477,25 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
    * downsample the data.
    * @param lat_scat_new The scattering-angle latitude grid to which to
    * interpolate the data
+   * @param Whether or not to apply downsampling also to latitude angles
+   * or only to longitude angles.
    * @return New scattering data field with the given scattering angles.
    */
   ScatteringDataFieldGridded downsample_scattering_angles(VectorPtr lon_scat_new,
-                                                          VectorPtr lat_scat_new) const {
+                                                          VectorPtr lat_scat_new,
+                                                          bool interpolate_latitudes=true) const {
       auto data_downsampled = downsample_dimension<4>(*data_, *lon_scat_, *lon_scat_new, 0.0, 2.0 * M_PI);
       Vector colatitudes = -lat_scat_->array().cos();
       Vector colatitudes_new = -lat_scat_new->array().cos();
-      data_downsampled = downsample_dimension<5>(data_downsampled, colatitudes, colatitudes_new, -1.0, 1.0);
+
+      if (interpolate_latitudes) {
+          using Regridder = RegularRegridder<Scalar, 5>;
+          Regridder regridder({*lat_scat_}, {*lat_scat_new}, false);
+          data_downsampled = regridder.regrid(data_downsampled);
+      } else {
+          data_downsampled = downsample_dimension<5>(data_downsampled, colatitudes, colatitudes_new, -1.0, 1.0);
+      }
+
       return ScatteringDataFieldGridded(f_grid_,
                                         t_grid_,
                                         lon_inc_,
@@ -506,6 +517,25 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
                                                           Vector lat_scat_new) const {
     return downsample_scattering_angles(std::make_shared<Vector>(lon_scat_new),
                                         std::make_shared<Vector>(lat_scat_new));
+  }
+
+  // pxx :: hide
+  /** Downsample scattering longitudes angles by averaging.
+   *
+   * @param lon_scat_new The scattering-angle longitude grid to which to
+   * downsample the data.
+   * @return New scattering data field with the data along the longitude-component
+   * of the scattering angle downsampled to the given grid.
+   */
+  ScatteringDataFieldGridded downsample_lon_scat(VectorPtr lon_scat_new) const {
+      auto data_downsampled = downsample_dimension<4>(*data_, *lon_scat_, *lon_scat_new, 0.0, 2.0 * M_PI);
+      return ScatteringDataFieldGridded(f_grid_,
+                                        t_grid_,
+                                        lon_inc_,
+                                        lat_inc_,
+                                        lon_scat_new,
+                                        lat_scat_,
+                                        std::make_shared<DataTensor>(data_downsampled));
   }
 
   // pxx :: hide

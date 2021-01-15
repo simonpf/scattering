@@ -604,6 +604,8 @@ class SingleScatteringData {
    *
    * @param lon_scat The scattering-angle longitude grid to downsample the data to.
    * @param lat_scat The scattering-angle latitude grid to downsample the data to.
+   * @return New SingleScatteringData object with the phase matrix data downsampled
+   * along scattering angles.
    */
   SingleScatteringData downsample_scattering_angles(eigen::Vector<double> lon_scat,
                                                     eigen::Vector<double> lat_scat) const {
@@ -620,6 +622,30 @@ class SingleScatteringData {
     auto result =
         data_->downsample_scattering_angles(lon_scat, lat_scat);
     return SingleScatteringData(std::move(result));
+  }
+
+  // pxx :: hide
+  SingleScatteringData downsample_lon_scat(
+      std::shared_ptr<eigen::Vector<double>> lon_scat) const {
+      auto result =
+          data_->downsample_lon_scat(lon_scat);
+      return SingleScatteringData(std::move(result));
+  }
+
+  /** Downsample scattering longitude angles by averaging.
+   *
+   * This function downsamples the angular resolution of longitude components
+   * of the scattering angle but keeps the angular integral constant by averaging
+   * over the original data.
+   *
+   * @param lon_scat The scattering-angle longitude grid to downsample the data to.
+   * @return New SingleScatteringData object with the phase matrix data downsampled
+   * along the longitude component of the scattering angles.
+   */
+  SingleScatteringData downsample_scattering_angles(eigen::Vector<double> lon_scat) const {
+      auto result = data_->downsample_lon_scat(
+          std::make_shared<eigen::Vector<double>>(lon_scat));
+      return SingleScatteringData(std::move(result));
   }
 
   /// Regrid scattering data to shnts conform grids.

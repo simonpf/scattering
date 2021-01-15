@@ -193,8 +193,7 @@ public:
      */
     SingleScatteringData calculate_bulk_properties(
         double temperature,
-        eigen::ConstVectorRef<double> pnd,
-        double phase_function_norm) {
+        eigen::ConstVectorRef<double> pnd) {
         assert(static_cast<size_t>(pnd.size()) == particles_.size());
 
       auto temperature_vector = std::make_shared<eigen::Vector<double>>(1);
@@ -206,7 +205,7 @@ public:
         auto data = particles_[i].interpolate_temperature(temperature);
         result += data * pnd[i];
       }
-      result.normalize(phase_function_norm);
+      result.normalize(1.0);
       return result;
     }
 

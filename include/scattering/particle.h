@@ -157,24 +157,24 @@ class Particle {
    * @return New particle with the scattering data interpolated to the
    * given temperature.
    */
-  SingleScatteringData interpolate_temperature(
-      double temperature) const {
-      auto t_grid = data_.get_t_grid();
-      auto n_temps = data_.get_n_temps();
-      if (n_temps == 1) {
-          return data_;
-      }
+  SingleScatteringData interpolate_temperature(double temperature) const {
+    auto t_grid = data_.get_t_grid();
+    auto n_temps = data_.get_n_temps();
+    if (n_temps == 1) {
+        return data_.copy();
+    }
 
-      auto l = t_grid[0];
-      auto r = t_grid[1];
-      auto lower_limit = l - 0.5 * (r - l);
-      r = t_grid[n_temps - 1];
-      l = t_grid[n_temps - 2];
-      auto upper_limit = r + 0.5 * (r - l);
+    auto l = t_grid[0];
+    auto r = t_grid[1];
+    auto lower_limit = l - 0.5 * (r - l);
+    r = t_grid[n_temps - 1];
+    l = t_grid[n_temps - 2];
+    auto upper_limit = r + 0.5 * (r - l);
 
-      auto temperature_vector = std::make_shared<eigen::Vector<double>>(1);
-      (*temperature_vector)[0] = std::min(std::max(temperature, lower_limit), upper_limit);
-      return data_.interpolate_temperature(temperature_vector, true);
+    auto temperature_vector = std::make_shared<eigen::Vector<double>>(1);
+    (*temperature_vector)[0] =
+        std::min(std::max(temperature, lower_limit), upper_limit);
+    return data_.interpolate_temperature(temperature_vector, true);
   }
 
   // pxx :: hide
