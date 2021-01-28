@@ -27,7 +27,7 @@ def test_gauss_legendre_quadrature():
 
 def test_double_gauss_quadrature():
     n = np.random.randint(10, 100)
-    q = GaussLegendreQuadrature(2 * n)
+    q = DoubleGaussQuadrature(2 * n)
     nodes = q.get_nodes()
     weights = q.get_weights()
     nodes_ref, weights_ref = roots_legendre(n)

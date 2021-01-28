@@ -133,71 +133,22 @@ class GaussLegendreQuadrature {
 template <typename Scalar>
 class DoubleGaussQuadrature {
  private:
-  /** Find Gauss-Legendre nodes and weights.
-   *
-   * Uses the Newton root finding algorithm to find the roots of the
-   * Legendre polynomial of degree n. Legendre functions are evaluated
-   * using a recursion relation.
-   */
-  // pxx :: hide
-  void calculate_nodes_and_weights() {
-
-    const long int n = degree_;
-    const long int n_half_nodes = (n + 1) / 2;
-    const long int n_max_iter = 10;
-    Scalar x, x_old, p_l, p_l_1, p_l_2, dp_dx;
-    Scalar precision = detail::Precision<Scalar>::value;
-
-    for (int i = 1; i <= n_half_nodes; ++i) {
-      p_l = M_PI;
-      p_l_1 = 2 * n;
-      //
-      // Initial guess.
-      //
-      x = cos(M_PI * (i - 0.25) / (n + 0.5));
-
-      //
-      // Evaluate Legendre Polynomial and its derivative at node.
-      //
-      for (int j = 0; j < n_max_iter; ++j) {
-        p_l = x;
-        p_l_1 = 1.0;
-        for (int l = 2; l <= n; ++l) {
-          // Legendre recurrence relation
-          p_l_2 = p_l_1;
-          p_l_1 = p_l;
-          p_l = ((2.0 * l - 1.0) * x * p_l_1 - (l - 1.0) * p_l_2) / l;
-        }
-        dp_dx = (1.0 - x * x) / (n * (p_l_1 - x * p_l));
-        x_old = x;
-
-        //
-        // Perform Newton step.
-        //
-        x -= p_l * dp_dx;
-        auto dx = std::abs(x - x_old);
-        auto threshold = 0.5 * (x + x_old);
-        if (dx < threshold) {
-          break;
-        }
-      }
-      nodes_[n + i - 1] = 0.5 * (1.0 - x);
-      weights_[n + i - 1] = 2.0 * dp_dx * dp_dx / ((1.0 - x) * (1.0 + x));
-      nodes_[2 * n - i] = 0.5 * (1.0 + x);
-      weights_[2 * n - i] = weights_[n + i - 1];
-
-      nodes_[i - 1] = 0.5 * (1.0 - x);
-      weights_[i - 1] = 2.0 * dp_dx * dp_dx / ((1.0 - x) * (1.0 + x));
-      nodes_[n - i] = 0.5 * (1.0 + x);
-      weights_[n - i] = weights_[n + i - 1];
-    }
-  }
 
  public:
   DoubleGaussQuadrature() {}
   DoubleGaussQuadrature(int degree)
       : degree_(degree), nodes_(degree), weights_(degree) {
-    calculate_nodes_and_weights();
+      assert(degree % 2 == 0);
+      auto gq = GaussLegendreQuadrature<Scalar>(degree / 2);
+      auto nodes = gq.get_nodes();
+      auto weights = gq.get_weights();
+
+      for (size_t i = 0; i < degree / 2; ++i) {
+          nodes_[i] = -0.5 + nodes[i] / 2.0;
+          nodes_[degree / 2 + i] = 0.5 + nodes[i] / 2.0;
+          weights_[i] = 0.5 * weights[i];
+          weights_[degree / 2 + i] = 0.5 *  weights[i];
+      }
   }
 
   const eigen::Vector<Scalar>& get_nodes() const { return nodes_; }
