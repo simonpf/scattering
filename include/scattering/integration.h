@@ -43,8 +43,8 @@ struct Precision<long double> {
 // pxx :: instance(["double"])
 /** Gauss-Legendre Quadarature
  *
- * This class implements a Gauss-Legendre for the integration of
- * functions of the interval [-1, 1].
+ * This class implements a Gauss-Legendre quadrature for the integration
+ * of functions over the interval [-1, 1].
  */
 template <typename Scalar>
 class GaussLegendreQuadrature {
@@ -218,7 +218,7 @@ class LobattoQuadrature {
     }
     nodes_[0] = 1.0;
     weights_[0] = 2.0 * (n * (n - 1));
-    nodes_[n - 1] = nodes_[0];
+    nodes_[n - 1] = - nodes_[0];
     weights_[n - 1] = weights_[0];
   }
 
@@ -243,49 +243,53 @@ class LobattoQuadrature {
 
 // pxx :: export
 // pxx :: instance(["double"])
-/// Trapezoidal integration on regular grid.
+/** Clenshaw-Curtis quadrature
+ *
+ * This class implements the Clenshaw-Curtis quadrature rule, which uses
+ * the points
+ *  $x_i = arccos(2 * \pi * i / N)$ for $i = 0,\dots, N$.
+ *  as integration nodes.
+ */
 template <typename Scalar>
 class ClenshawCurtisQuadrature {
  private:
-
   // pxx :: hide
   void calculate_nodes_and_weights() {
+    long int n = degree_ - 1;
+    fftw_plan ifft;
+    double* weights = reinterpret_cast<double*>(
+        fftw_malloc(2 * (n / 2 + 1) * sizeof(double)));
+    std::complex<double>* coeffs =
+        reinterpret_cast<std::complex<double>*>(weights);
 
-      long int n = degree_ - 1;
-      fftw_plan ifft;
-      double *weights = reinterpret_cast<double*>(fftw_malloc(2 * (n / 2 + 1) * sizeof(double)));
-      std::complex<double> *coeffs = reinterpret_cast<std::complex<double>*>(weights);
+    ifft = fftw_plan_dft_c2r_1d(n,
+                                reinterpret_cast<double(*)[2]>(coeffs),
+                                weights,
+                                FFTW_ESTIMATE);
+    // Calculate DFT input.
+    for (int i = 0; i < n / 2 + 1; ++i) {
+      coeffs[i] = 2.0 / (1.0 - 4.0 * i * i);
+    }
+    fftw_execute_dft_c2r(ifft, reinterpret_cast<double(*)[2]>(coeffs), weights);
 
-      ifft = fftw_plan_dft_c2r_1d(n,
-                                  reinterpret_cast<double (*)[2]>(coeffs),
-                                  weights,
-                                  FFTW_ESTIMATE);
-      // Calculate DFT input.
-      for (int i = 0; i < n / 2 + 1; ++i) {
-          coeffs[i] = 2.0 / (1.0 - 4.0 * i * i);
-      }
-      fftw_execute_dft_c2r(ifft,
-                           reinterpret_cast<double (*)[2]>(coeffs),
-                           weights);
+    weights[0] *= 0.5;
+    for (int i = 0; i < n; ++i) {
+      weights_[i] = weights[i] / n;
+    }
+    weights_[n] = weights[0];
+    fftw_destroy_plan(ifft);
+    fftw_free(weights);
 
-      weights[0] *= 0.5;
-      for (int i = 0; i < n; ++i) {
-          weights_[i] = weights[i] / n;
-      }
-      weights_[n] = weights[0];
-      fftw_destroy_plan(ifft);
-      fftw_free(weights);
-
-      // Calculate nodes.
-      for (long int i = 0; i < n; i++) {
-          nodes_[i] = cos((M_PI * i) / (n - 1));
-      }
+    // Calculate nodes.
+    for (long int i = 0; i <= n; i++) {
+      nodes_[i] = -cos((M_PI * i) / n);
+    }
   }
 
  public:
   ClenshawCurtisQuadrature() {}
   ClenshawCurtisQuadrature(int degree)
-    : degree_(degree), nodes_(degree), weights_(degree) {
+      : degree_(degree), nodes_(degree), weights_(degree) {
     calculate_nodes_and_weights();
   }
 
@@ -303,7 +307,13 @@ class ClenshawCurtisQuadrature {
 
 // pxx :: export
 // pxx :: instance(["double"])
-/// Trapezoidal integration on regular grid.
+/** Fejer quadrature.
+ *
+ * This class implements the Fejer quadrature, which is similar to the
+ * Clenshaw-Curtis quadrature but uses the points
+ *  $x_i = arccos(2 * \pi * (i + 0.5) / N)$ for $i = 0,\dots, N-1$.
+ * as integration nodes.
+ */
 template <typename Scalar>
 class FejerQuadrature {
  private:
@@ -338,7 +348,7 @@ class FejerQuadrature {
 
       // Calculate nodes.
       for (long int i = 0; i < n; i++) {
-          nodes_[i] = cos(M_PI * (static_cast<double>(i) + 0.5) / static_cast<double>(n));
+          nodes_[i] = -cos(M_PI * (static_cast<double>(i) + 0.5) / static_cast<double>(n));
       }
   }
 
