@@ -9,6 +9,8 @@
 #include "fftw3.h"
 #include "eigen.h"
 
+#include "scattering/utils/math.h"
+
 #ifndef __SCATTERING_INTEGRATION__
 #define __SCATTERING_INTEGRATION__
 
@@ -34,6 +36,17 @@ struct Precision<long double> {
   static constexpr long double value = 1e-19;
 };
 }  // namespace detail
+
+
+/// Enum class to represent different quadrature classes.
+enum class QuadratureType {
+  Trapezoidal,
+  GaussLegendre,
+  DoubleGauss,
+  Lobatto,
+  ClenshawCurtis,
+  Fejer
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Gauss-Legendre Quadrature
@@ -91,9 +104,8 @@ class GaussLegendreQuadrature {
         // Perform Newton step.
         //
         x -= p_l * dp_dx;
-        auto dx = std::abs(x - x_old);
-        auto threshold = 0.5 * (x + x_old);
-        if (dx < threshold) {
+        auto dx = x - x_old;
+        if (math::small(std::abs(dx * (x + x_old)))) {
           break;
         }
       }
@@ -110,6 +122,8 @@ class GaussLegendreQuadrature {
       : degree_(degree), nodes_(degree), weights_(degree) {
     calculate_nodes_and_weights();
   }
+
+  static constexpr QuadratureType type = QuadratureType::GaussLegendre;
 
   const eigen::Vector<Scalar>& get_nodes() const { return nodes_; }
   const eigen::Vector<Scalar>& get_weights() const { return weights_; }
@@ -151,6 +165,8 @@ class DoubleGaussQuadrature {
       }
   }
 
+  static constexpr QuadratureType type = QuadratureType::DoubleGauss;
+
   const eigen::Vector<Scalar>& get_nodes() const { return nodes_; }
   const eigen::Vector<Scalar>& get_weights() const { return weights_; }
 
@@ -161,16 +177,22 @@ class DoubleGaussQuadrature {
 
 // pxx :: export
 // pxx :: instance(["double"])
+/** Nodes and weights of the Lobatto quadrature.
+ *
+ * This class calculates the weights and nodes of a Lobatto quadrature. The
+ * Lobatto quadrature includes the endpoints [-1, 1] of the integration interval
+ * and the internal nodes are derived from Legendre polynomials.
+ *
+ * More information can be found here: https://mathworld.wolfram.com/LobattoQuadrature.html
+ print(weights, weights_ref)
+ *
+ */
 template <typename Scalar>
 class LobattoQuadrature {
+
  private:
-  /** Find Gauss-Legendre nodes and weights.
-   *
-   * Uses the Newton root finding algorithm to find the roots of the
-   * Legendre polynomial of degree n. Legendre functions are evaluated
-   * using a recursion relation.
-   */
   // pxx :: hide
+  /// Calculate nodes and weights of the Lobatto quadrature.
   void calculate_nodes_and_weights() {
     const long int n = degree_;
     const long int n_half_nodes = (n + 1) / 2;
@@ -178,12 +200,15 @@ class LobattoQuadrature {
     Scalar x, x_old, p_l, p_l_1, p_l_2, dp_dx, d2p_dx;
     Scalar precision = detail::Precision<Scalar>::value;
 
-    for (int i = 1; i < n_half_nodes; ++i) {
+    const long int right = n_half_nodes - 1;
+    const long int left = ((n % 2) != 0) ? n_half_nodes - 1 : n_half_nodes - 2;
+
+    for (int i = 0; i < n_half_nodes - 1; ++i) {
 
       //
       // Initial guess.
       //
-      x = sin(M_PI * (i - 0.5) / (n - 0.5));
+      x = sin(M_PI * i / (n - 0.5));
 
       //
       // Evaluate Legendre Polynomial and its derivative at node.
@@ -197,27 +222,29 @@ class LobattoQuadrature {
           p_l_1 = p_l;
           p_l = ((2.0 * l - 1.0) * x * p_l_1 - (l - 1.0) * p_l_2) / l;
         }
-        dp_dx = ((1.0 - x * x)) / ((n - 1) * (p_l_1 - x * p_l));
-        d2p_dx = ((1.0 - x * x) / ((n - 1) * n * p_l - 2.0 * x * dp_dx));
+        dp_dx = (n - 1) * (x * p_l - p_l_1) / (x * x - 1.0);
+        d2p_dx = (2.0 * x * dp_dx - (n - 1) * n * p_l) / (1.0 - x * x);
+
         x_old = x;
 
         //
         // Perform Newton step.
         //
+        std::cout << dp_dx << std::endl;
         x -= dp_dx / d2p_dx;
-        auto dx = std::abs(x - x_old);
-        auto threshold = 0.5 * (x + x_old);
-        if (dx < threshold) {
+        auto dx = x - x_old;
+        if (math::small(std::abs(dx * (x + x_old)))) {
           break;
         }
       }
-      nodes_[i - 1] = x;
-      weights_[i - 1] = 2.0 * dp_dx * dp_dx / ((1.0 - x) * (1.0 + x));
-      nodes_[n - i] = -x;
-      weights_[n - i] = weights_[i - 1];
+      std::cout << degree_ << " :: " << right << " // " << left << " : " << i << std::endl;
+      nodes_[right + i] = x;
+      weights_[right + i] = 2.0 / (n * (n - 1) * p_l * p_l);
+      nodes_[left - i] = -x;
+      weights_[left - i] = weights_[right + i];
     }
-    nodes_[0] = 1.0;
-    weights_[0] = 2.0 * (n * (n - 1));
+    nodes_[0] = -1.0;
+    weights_[0] = 2.0 / (n * (n - 1));
     nodes_[n - 1] = - nodes_[0];
     weights_[n - 1] = weights_[0];
   }
@@ -228,6 +255,8 @@ class LobattoQuadrature {
       : degree_(degree), nodes_(degree), weights_(degree) {
     calculate_nodes_and_weights();
   }
+
+  static constexpr QuadratureType type = QuadratureType::Lobatto;
 
   const eigen::Vector<Scalar>& get_nodes() const { return nodes_; }
   const eigen::Vector<Scalar>& get_weights() const { return weights_; }
@@ -293,6 +322,8 @@ class ClenshawCurtisQuadrature {
     calculate_nodes_and_weights();
   }
 
+  static constexpr QuadratureType type = QuadratureType::ClenshawCurtis;
+
   const eigen::Vector<Scalar>& get_nodes() const { return nodes_; }
   const eigen::Vector<Scalar>& get_weights() const { return weights_; }
 
@@ -353,6 +384,9 @@ class FejerQuadrature {
   }
 
  public:
+
+  static constexpr QuadratureType type = QuadratureType::Fejer;
+
   FejerQuadrature() {}
   FejerQuadrature(int degree)
     : degree_(degree), nodes_(degree), weights_(degree) {
@@ -361,6 +395,7 @@ class FejerQuadrature {
 
   const eigen::Vector<Scalar>& get_nodes() const { return nodes_; }
   const eigen::Vector<Scalar>& get_weights() const { return weights_; }
+
 
   int degree_;
   eigen::Vector<Scalar> nodes_;
@@ -384,6 +419,111 @@ class QuadratureProvider {
 
  private:
   std::map<int, Quadrature<Scalar>> quadratures_;
+};
+
+/** Base class for latitude grids.
+ *
+ * This class defines the basic interface for latitude grids.
+ * It is used to store the co-latitude values of the grid points and,
+ * in addition to that, the integration weights of the corresponding
+ * quadrature.
+ */
+template <typename Scalar>
+class LatitudeGrid {
+public:
+  virtual ~LatitudeGrid() {}
+
+  /// The latitude grid points in radians.
+  virtual const eigen::Vector<Scalar>& get_colatitudes() = 0;
+  /// The latitude grid points in radians.
+  virtual const eigen::Vector<Scalar>& get_latitudes() = 0;
+  /// The integration weights.
+  virtual const eigen::Vector<Scalar>& get_weights() = 0;
+
+  /// The type of quadrature.
+  virtual QuadratureType get_type() = 0;
+};
+
+// pxx :: instance(["double"])
+template <typename Scalar>
+class IrregularLatitudeGrid : public eigen::Vector<Scalar>, public LatitudeGrid<Scalar> {
+
+ public:
+  IrregularLatitudeGrid() {}
+  /** Create new latitude grid.
+   * @param latitudes Vector containing the latitude grid points in radians.
+   * @param weights The integration weight corresponding to each grid point.
+   */
+  IrregularLatitudeGrid(const eigen::Vector<Scalar>& latitudes)
+      : eigen::Vector<Scalar>(latitudes.cos()),
+        weights_(latitudes.size()),
+        latitudes_(std::make_unique(latitudes)),
+        type_(QuadratureType::Trapezoidal) {
+    weights_.setConstant(1.0);
+    auto n = eigen::Vector<Scalar>::size();
+    weights_[0] = 0.5;
+    weights_[n - 1] = 0.5;
+  }
+
+  /// The latitude grid points in radians.
+  const eigen::Vector<Scalar>& get_colatitudes() { return *this; }
+
+  /// The latitude grid points in radians.
+  const eigen::Vector<Scalar>& get_latitudes() { *latitudes_; }
+
+  /// The latitude grid points in radians.
+  const eigen::Vector<Scalar>& get_weights() { return weights_; }
+
+  /// The type of quadrature.
+  QuadratureType get_type() { return QuadratureType::Trapezoidal; }
+
+ protected:
+  eigen::Vector<Scalar>& weights_;
+  std::unique_ptr <eigen::Vector<Scalar>> latitudes_;
+  QuadratureType type_;
+};
+
+// pxx :: export
+// pxx :: instance("GaussLegendreLatitudeGrid", ["scattering::GaussLegendreQuadrature<double>", "double"])
+// pxx :: instance("DoubleGaussLatitudeGrid", ["scattering::DoubleGaussQuadrature<double>", "double"])
+// pxx :: instance("LobattoLatitudeGrid", ["scattering::LobattoQuadrature<double>", "double"])
+template <typename Quadrature, typename Scalar>
+class QuadratureLatitudeGrid : public eigen::Vector<Scalar>, public LatitudeGrid<Scalar>
+{
+public:
+  /** Create new quadrature latitude grid with given number of points.
+   *
+   * Creates a latitude grid using the nodes and weights of the given quadrature
+   * class as grid points.
+   *
+   * @tparam Quadrature The quadrature class to use to calculate the nodes and
+   * weights of the quadrature.
+   * @param degree The number of points of the quadrature.
+   */
+  QuadratureLatitudeGrid() : eigen::Vector<Scalar>() {}
+  QuadratureLatitudeGrid(size_t n_points) : quadrature_(n_points) {
+    eigen::Vector<Scalar>::operator=(quadrature_.get_nodes());
+    latitudes_ = std::make_unique<eigen::Vector<Scalar>>(Eigen::acos(quadrature_.get_nodes().array()));
+  }
+  QuadratureLatitudeGrid(size_t n_points, size_t /*n_cols*/)
+      : QuadratureLatitudeGrid(n_points) {}
+
+  /// The co-latitude grid points in radians.
+  const eigen::Vector<Scalar>& get_colatitudes() { return quadrature_.get_nodes(); }
+
+  /// The latitude grid points in radians.
+  const eigen::Vector<Scalar>& get_latitudes() { return *latitudes_; }
+
+  /// The integration weights.
+  const eigen::Vector<Scalar>& get_weights() { return quadrature_.get_weights(); }
+
+  /// The type of quadrature.
+  QuadratureType get_type() { return Quadrature::type; }
+
+ protected:
+  Quadrature quadrature_;
+  std::unique_ptr<eigen::Vector<Scalar>> latitudes_;
+
 };
 
 ////////////////////////////////////////////////////////////////////////////////

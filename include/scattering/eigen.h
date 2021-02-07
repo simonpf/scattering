@@ -12,6 +12,7 @@
 #include <memory>
 
 #include <Eigen/CXX11/Tensor>
+#include <Eigen/MatrixFunctions>
 #include <Eigen/Core>
 
 namespace scattering {
