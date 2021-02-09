@@ -131,7 +131,7 @@ public:
       auto lon_inc_ptr = std::make_shared<eigen::Vector<double>>(lon_inc);
       auto lat_inc_ptr = std::make_shared<eigen::Vector<double>>(lat_inc);
       auto lon_scat_ptr = std::make_shared<eigen::Vector<double>>(lon_scat);
-      auto lat_scat_ptr = std::make_shared<eigen::Vector<double>>(lat_scat);
+      auto lat_scat_ptr = std::make_shared<IrregularLatitudeGrid<double>>(lat_scat);
 
       std::vector<scattering::Particle> new_particles{};
       new_particles.reserve(particles_.size());
@@ -150,7 +150,7 @@ public:
                                Index stokes_dim) {
         auto lat_inc_ptr = std::make_shared<eigen::Vector<double>>(lat_inc);
         auto lon_scat_ptr = std::make_shared<eigen::Vector<double>>(lon_scat);
-        auto lat_scat_ptr = std::make_shared<eigen::Vector<double>>(lat_scat);
+        auto lat_scat_ptr = std::make_shared<IrregularLatitudeGrid<double>>(lat_scat);
         std::vector<scattering::Particle> new_particles{};
         new_particles.reserve(particles_.size());
         for (size_t i = 0; i < particles_.size(); ++i) {
@@ -173,7 +173,7 @@ public:
         std::vector<scattering::Particle> new_particles{};
         new_particles.reserve(particles_.size());
       auto lon_scat_ptr = std::make_shared<eigen::Vector<double>>(lon_scat);
-      auto lat_scat_ptr = std::make_shared<eigen::Vector<double>>(lat_scat);
+      auto lat_scat_ptr = std::make_shared<IrregularLatitudeGrid<double>>(lat_scat);
       for (size_t i = 0; i < particles_.size(); ++i) {
           new_particles.push_back(particles_[i].downsample_scattering_angles(lon_scat_ptr,
                                                                              lat_scat_ptr));

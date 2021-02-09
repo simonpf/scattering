@@ -480,7 +480,7 @@ template <typename Base>
 
   PhaseMatrix to_lab_frame(VectorPtr lat_inc_new,
                            VectorPtr lon_scat_new,
-                           VectorPtr lat_scat_new,
+                           std::shared_ptr<LatitudeGrid<Scalar>> lat_scat_new,
                            Index stokes_dim) const {
     auto n_lat_inc = lat_inc_new->size();
     auto n_lon_scat = lon_scat_new->size();
@@ -575,7 +575,7 @@ template <typename Base>
                            Index stokes_dim) const {
     return to_lab_frame(std::make_shared<Vector>(lat_inc),
                         std::make_shared<Vector>(lon_scat),
-                        std::make_shared<Vector>(lat_scat),
+                        std::make_shared<IrregularLatitudeGrid<Scalar>>(lat_scat),
                         stokes_dim);
   }
 
@@ -588,7 +588,7 @@ template <typename Base>
       auto lon_scat_new =
           std::make_shared<Vector>(sht::SHT::get_longitude_grid(n_lon_scat));
       auto lat_scat_new =
-          std::make_shared<Vector>(sht::SHT::get_latitude_grid(n_lon_scat));
+          std::make_shared<sht::SHT::LatGrid>(sht::SHT::get_latitude_grid(n_lon_scat));
       auto lat_inc_new =
           std::make_shared<Vector>(sht::SHT::get_latitude_grid(n_lat_inc));
       return to_lab_frame(lat_inc_new, lon_scat_new, lat_scat_new, stokes_dim);

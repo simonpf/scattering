@@ -130,6 +130,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   using Vector = eigen::Vector<Scalar>;
   using VectorMap = eigen::VectorMap<Scalar>;
   using VectorPtr = std::shared_ptr<const eigen::Vector<Scalar>>;
+  using LatitudeGridPtr = std::shared_ptr<const LatitudeGrid<Scalar>>;
   using ConstVectorMap = eigen::ConstVectorMap<Scalar>;
   using Matrix = eigen::Matrix<Scalar>;
   using MatrixMap = eigen::MatrixMap<Scalar>;
@@ -165,7 +166,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
                              VectorPtr lon_inc,
                              VectorPtr lat_inc,
                              VectorPtr lon_scat,
-                             VectorPtr lat_scat,
+                             LatitudeGridPtr lat_scat,
                              DataTensorPtr data)
       : ScatteringDataFieldBase(f_grid->size(),
                                 t_grid->size(),
@@ -214,7 +215,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
         lon_inc_(std::make_shared<Vector>(lon_inc)),
         lat_inc_(std::make_shared<Vector>(lat_inc)),
         lon_scat_(std::make_shared<Vector>(lon_scat)),
-        lat_scat_(std::make_shared<Vector>(lat_scat)),
+        lat_scat_(std::make_shared<IrregularLatitudeGrid<Scalar>>(lat_scat)),
         f_grid_map_(f_grid_->data(), n_freqs_),
         t_grid_map_(t_grid_->data(), n_temps_),
         lon_inc_map_(lon_inc_->data(), n_lon_inc_),
@@ -257,7 +258,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
         lon_inc_(std::make_shared<Vector>(lon_inc)),
         lat_inc_(std::make_shared<Vector>(lat_inc)),
         lon_scat_(std::make_shared<Vector>(lon_scat)),
-        lat_scat_(std::make_shared<Vector>(lat_scat)),
+        lat_scat_(std::make_shared<IrregularLatitudeGrid<Scalar>>(lat_scat)),
         f_grid_map_(f_grid_->data(), n_freqs_),
         t_grid_map_(t_grid_->data(), n_temps_),
         lon_inc_map_(lon_inc_->data(), n_lon_inc_),
@@ -433,7 +434,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   ScatteringDataFieldGridded interpolate_angles(VectorPtr lon_inc_new,
                                                 VectorPtr lat_inc_new,
                                                 VectorPtr lon_scat_new,
-                                                VectorPtr lat_scat_new) const {
+                                                LatitudeGridPtr lat_scat_new) const {
     using Regridder = RegularRegridder<Scalar, 2, 3, 4, 5>;
     Regridder regridder(
         {*lon_inc_, *lat_inc_, *lon_scat_, *lat_scat_},
@@ -467,7 +468,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
     return interpolate_angles(std::make_shared<const Vector>(lon_inc_new),
                               std::make_shared<const Vector>(lat_inc_new),
                               std::make_shared<const Vector>(lon_scat_new),
-                              std::make_shared<const Vector>(lat_scat_new));
+                              std::make_shared<const IrregularLatitudeGrid<Scalar>>(lat_scat_new));
   }
 
   // pxx :: hide
@@ -482,7 +483,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
    * @return New scattering data field with the given scattering angles.
    */
   ScatteringDataFieldGridded downsample_scattering_angles(VectorPtr lon_scat_new,
-                                                          VectorPtr lat_scat_new,
+                                                          LatitudeGridPtr lat_scat_new,
                                                           bool interpolate_latitudes=true) const {
       auto data_downsampled = downsample_dimension<4>(*data_, *lon_scat_, *lon_scat_new, 0.0, 2.0 * M_PI);
       Vector colatitudes = -lat_scat_->array().cos();
@@ -516,7 +517,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   ScatteringDataFieldGridded downsample_scattering_angles(Vector lon_scat_new,
                                                           Vector lat_scat_new) const {
     return downsample_scattering_angles(std::make_shared<Vector>(lon_scat_new),
-                                        std::make_shared<Vector>(lat_scat_new));
+                                        std::make_shared<IrregularLatitudeGrid<Scalar>>(lat_scat_new));
   }
 
   // pxx :: hide
@@ -553,7 +554,7 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
                                     VectorPtr lon_inc,
                                     VectorPtr lat_inc,
                                     VectorPtr lon_scat,
-                                    VectorPtr lat_scat) const {
+                                    LatitudeGridPtr lat_scat) const {
     using Regridder = RegularRegridder<Scalar, 0, 1, 2, 3, 4, 5>;
     Regridder regridder(
         {*f_grid_, *t_grid_, *lon_inc_, *lat_inc_, *lon_scat_, *lat_scat_},
@@ -581,11 +582,10 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
                                        n_lat_inc_,
                                        data_->dimension(6)};
     auto result = eigen::Tensor<Scalar, 5>(dimensions);
-    Vector colatitudes = -lat_scat_->array().cos();
     for (auto i = eigen::DimensionCounter<5>{dimensions}; i; ++i) {
       auto matrix = eigen::get_submatrix<4, 5>(*data_, i.coordinates);
       result.coeffRef(i.coordinates) =
-          integrate_angles<Scalar>(matrix, *lon_scat_, colatitudes);
+          integrate_angles<Scalar>(matrix, *lon_scat_, *lat_scat_);
     }
     return result;
   }
@@ -745,12 +745,13 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
   const DataTensor &get_data() const { return *data_; }
 
  protected:
+
   VectorPtr f_grid_;
   VectorPtr t_grid_;
   VectorPtr lon_inc_;
   VectorPtr lat_inc_;
   VectorPtr lon_scat_;
-  VectorPtr lat_scat_;
+  LatitudeGridPtr lat_scat_;
 
   ConstVectorMap f_grid_map_;
   ConstVectorMap t_grid_map_;
@@ -1943,7 +1944,7 @@ ScatteringDataFieldSpectral<Scalar>::to_gridded() const {
         sht_scat_->synthesize(eigen::get_subvector<4>(*data_, i.coordinates));
   }
   auto lon_scat_ = std::make_shared<Vector>(sht_scat_->get_longitude_grid());
-  auto lat_scat_ = std::make_shared<Vector>(sht_scat_->get_latitude_grid());
+  auto lat_scat_ = std::make_shared<sht::SHT::LatGrid>(sht_scat_->get_latitude_grid());
   return ScatteringDataFieldGridded<Scalar>(f_grid_,
                                             t_grid_,
                                             lon_inc_,
@@ -2001,7 +2002,7 @@ ScatteringDataFieldFullySpectral<Scalar>::to_spectral() const {
   }
 
   auto lon_inc_ = std::make_shared<Vector>(sht_inc_->get_longitude_grid());
-  auto lat_inc_ = std::make_shared<Vector>(sht_inc_->get_latitude_grid());
+  auto lat_inc_ = std::make_shared<sht::SHT::LatGrid>(sht_inc_->get_latitude_grid());
 
   return ScatteringDataFieldSpectral<Scalar>(f_grid_,
                                              t_grid_,

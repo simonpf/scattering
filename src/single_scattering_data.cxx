@@ -12,7 +12,7 @@ SingleScatteringData::SingleScatteringData(
     eigen::VectorPtr<double> lon_inc,
     eigen::VectorPtr<double> lat_inc,
     eigen::VectorPtr<double> lon_scat,
-    eigen::VectorPtr<double> lat_scat,
+    std::shared_ptr<LatitudeGrid<double>> lat_scat,
     eigen::TensorPtr<double, 7> phase_matrix,
     eigen::TensorPtr<double, 7> extinction_matrix,
     eigen::TensorPtr<double, 7> absorption_vector,
@@ -44,7 +44,7 @@ SingleScatteringData::SingleScatteringData(
           std::make_shared<eigen::Vector<double>>(lon_inc),
           std::make_shared<eigen::Vector<double>>(lat_inc),
           std::make_shared<eigen::Vector<double>>(lon_scat),
-          std::make_shared<eigen::Vector<double>>(lat_scat),
+          std::make_shared<IrregularLatitudeGrid<double>>(lat_scat),
           std::make_shared<eigen::Tensor<double, 7>>(
               std::array<Index, 7>{f_grid.size(),
                                    t_grid.size(),

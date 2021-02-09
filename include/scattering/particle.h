@@ -188,7 +188,7 @@ class Particle {
    */
   Particle downsample_scattering_angles(
       std::shared_ptr<eigen::Vector<double>> lon_scat,
-      std::shared_ptr<eigen::Vector<double>> lat_scat) const {
+      std::shared_ptr<LatitudeGrid<double>> lat_scat) const {
     auto data = data_.downsample_scattering_angles(lon_scat, lat_scat);
     return Particle(properties_, data);
   }
@@ -220,7 +220,7 @@ class Particle {
   Particle to_gridded(std::shared_ptr<eigen::Vector<double>> lon_inc,
                       std::shared_ptr<eigen::Vector<double>> lat_inc,
                       std::shared_ptr<eigen::Vector<double>> lon_scat,
-                      std::shared_ptr<eigen::Vector<double>> lat_scat) const {
+                      std::shared_ptr<LatitudeGrid<double>> lat_scat) const {
     auto gridded = data_.to_gridded().interpolate_angles(lon_inc,
                                                          lat_inc,
                                                          lon_scat,
@@ -243,7 +243,7 @@ class Particle {
    */
   Particle to_lab_frame(std::shared_ptr<eigen::Vector<double>> lat_inc_ptr,
                         std::shared_ptr<eigen::Vector<double>> lon_scat_ptr,
-                        std::shared_ptr<eigen::Vector<double>> lat_scat_ptr,
+                        std::shared_ptr<LatitudeGrid<double>> lat_scat_ptr,
                         Index stokes_dim) const {
     auto data =
         data_.to_lab_frame(lat_inc_ptr, lon_scat_ptr, lat_scat_ptr, stokes_dim);

@@ -2,7 +2,6 @@
 #define __SCATTERING_SHT__
 
 #include <fftw3.h>
-#include <scattering/eigen.h>
 #include <shtns.h>
 
 #include <complex>
@@ -11,6 +10,9 @@
 #include <memory>
 
 #include "Eigen/Dense"
+
+#include <scattering/eigen.h>
+#include <scattering/integration.h>
 
 using GridCoeffs = scattering::eigen::Matrix<double>;
 using GridCoeffsRef = scattering::eigen::ConstMatrixRef<double>;
@@ -68,6 +70,7 @@ class ShtnsHandle {
 class SHT {
  public:
   using Vector = eigen::Vector<double>;
+  using LatGrid = QuadratureLatitudeGrid<FejerQuadrature<double>, double>;
   using IndexVector = eigen::Vector<Index>;
   using ConstVectorMap = eigen::ConstVectorMap<double>;
 
@@ -83,7 +86,7 @@ class SHT {
                                         const SHT &sht_scat_r,
                                         SpectralCoeffMatrixRef w);
 
-  static Vector get_latitude_grid(Index n_lat);
+  static LatGrid get_latitude_grid(Index n_lat);
   static Vector get_longitude_grid(Index n_lon);
 
   /** Calculates the number of spherical harmonics coefficients for a real
@@ -155,7 +158,7 @@ class SHT {
   /** Return latitude grid used by SHTns.
    * @return Eigen vector containing the latitude grid in radians.
    */
-  Vector get_latitude_grid();
+  LatGrid get_latitude_grid();
 
   /** Return co-latitude grid used by SHTns.
    * @return Eigen vector containing the co-latitude grid.

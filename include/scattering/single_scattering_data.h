@@ -80,7 +80,7 @@ class SingleScatteringData {
       scattering::eigen::VectorPtr<double> lon_inc,
       scattering::eigen::VectorPtr<double> lat_inc,
       scattering::eigen::VectorPtr<double> lon_scat,
-      scattering::eigen::VectorPtr<double> lat_scat,
+      std::shared_ptr<LatitudeGrid<double>> lat_scat,
       scattering::eigen::TensorPtr<double, 7> phase_matrix,
       scattering::eigen::TensorPtr<double, 7> extinction_matrix,
       scattering::eigen::TensorPtr<double, 7> absorption_vector,
@@ -124,7 +124,7 @@ class SingleScatteringData {
             std::make_shared<eigen::Vector<double>>(lon_inc),
             std::make_shared<eigen::Vector<double>>(lat_inc),
             std::make_shared<eigen::Vector<double>>(lon_scat),
-            std::make_shared<eigen::Vector<double>>(lat_scat),
+            std::make_shared<IrregularLatitudeGrid<double>>(lat_scat),
             std::make_shared<eigen::Tensor<double, 7>>(phase_matrix),
             std::make_shared<eigen::Tensor<double, 7>>(extinction_matrix),
             std::make_shared<eigen::Tensor<double, 7>>(absorption_vector),
@@ -581,7 +581,7 @@ class SingleScatteringData {
         std::make_shared<eigen::Vector<double>>(lon_inc),
         std::make_shared<eigen::Vector<double>>(lat_inc),
         std::make_shared<eigen::Vector<double>>(lon_scat),
-        std::make_shared<eigen::Vector<double>>(lat_scat));
+        std::make_shared<IrregularLatitudeGrid<double>>(lat_scat));
     return SingleScatteringData(std::move(result));
   }
 
@@ -589,7 +589,7 @@ class SingleScatteringData {
   SingleScatteringData interpolate_angles(std::shared_ptr<eigen::Vector<double>> lon_inc,
                                           std::shared_ptr<eigen::Vector<double>> lat_inc,
                                           std::shared_ptr<eigen::Vector<double>> lon_scat,
-                                          std::shared_ptr<eigen::Vector<double>> lat_scat) const {
+                                          std::shared_ptr<LatitudeGrid<double>> lat_scat) const {
       auto result = data_->interpolate_angles(lon_inc,
                                               lat_inc,
                                               lon_scat,
@@ -611,14 +611,15 @@ class SingleScatteringData {
                                                     eigen::Vector<double> lat_scat) const {
     auto result = data_->downsample_scattering_angles(
         std::make_shared<eigen::Vector<double>>(lon_scat),
-        std::make_shared<eigen::Vector<double>>(lat_scat));
+        std::make_shared<IrregularLatitudeGrid<double>>(lat_scat)
+        );
     return SingleScatteringData(std::move(result));
   }
 
   // pxx :: hide
   SingleScatteringData downsample_scattering_angles(
       std::shared_ptr<eigen::Vector<double>> lon_scat,
-      std::shared_ptr<eigen::Vector<double>> lat_scat) const {
+      std::shared_ptr<LatitudeGrid<double>> lat_scat) const {
     auto result =
         data_->downsample_scattering_angles(lon_scat, lat_scat);
     return SingleScatteringData(std::move(result));
@@ -715,7 +716,7 @@ class SingleScatteringData {
   // pxx :: hide
   SingleScatteringData to_lab_frame(std::shared_ptr<eigen::Vector<double>> lat_inc,
                                     std::shared_ptr<eigen::Vector<double>> lon_scat,
-                                    std::shared_ptr<eigen::Vector<double>> lat_scat,
+                                    std::shared_ptr<LatitudeGrid<double>> lat_scat,
                                     Index stokes_dim) const {
       return data_->to_lab_frame(lat_inc, lon_scat, lat_scat, stokes_dim);
   }

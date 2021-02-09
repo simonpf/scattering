@@ -100,12 +100,8 @@ SpectralCoeffMatrix SHT::add_coeffs(const SHT &sht_inc_l,
   return result;
 }
 
-SHT::Vector SHT::get_latitude_grid(Index n_lat) {
-  Vector result(n_lat);
-  for (Index i = 0; i < n_lat; ++i) {
-    result[i] = M_PI / n_lat * (i + 0.5);
-  }
-  return result;
+SHT::LatGrid SHT::get_latitude_grid(Index n_lat) {
+    return SHT::LatGrid(n_lat);
 }
 
 SHT::Vector SHT::get_longitude_grid(Index n_lon) {
@@ -159,12 +155,11 @@ SHT::SHT(Index l_max, Index m_max)
 SHT::SHT(Index l_max)
     : SHT(l_max, l_max) {}
 
-SHT::Vector SHT::get_latitude_grid() {
+  SHT::LatGrid SHT::get_latitude_grid() {
   if (is_trivial_) {
-    return Vector::Constant(1, M_PI / 2.0);
+    return SHT::LatGrid(1);
   }
-  auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
-  return ConstVectorMap(shtns->ct, n_lat_).array().acos();
+  return SHT::LatGrid(n_lat_);
 }
 
 SHT::Vector SHT::get_colatitude_grid() {

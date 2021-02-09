@@ -429,16 +429,20 @@ class QuadratureProvider {
  * quadrature.
  */
 template <typename Scalar>
-class LatitudeGrid {
-public:
+class LatitudeGrid : public eigen::Vector<Scalar> {
+ public:
+  LatitudeGrid() : eigen::Vector<Scalar>() {}
+  LatitudeGrid(const eigen::Vector<Scalar>& latitudes)
+      : eigen::Vector<Scalar>(latitudes) {}
+
   virtual ~LatitudeGrid() {}
 
   /// The latitude grid points in radians.
-  virtual const eigen::Vector<Scalar>& get_colatitudes() = 0;
+  virtual const eigen::Vector<Scalar>& get_colatitudes() const = 0;
   /// The latitude grid points in radians.
-  virtual const eigen::Vector<Scalar>& get_latitudes() = 0;
+  virtual const eigen::Vector<Scalar>& get_latitudes() const {return *this;}
   /// The integration weights.
-  virtual const eigen::Vector<Scalar>& get_weights() = 0;
+  virtual const eigen::Vector<Scalar>& get_weights() const = 0;
 
   /// The type of quadrature.
   virtual QuadratureType get_type() = 0;
@@ -446,40 +450,43 @@ public:
 
 // pxx :: instance(["double"])
 template <typename Scalar>
-class IrregularLatitudeGrid : public eigen::Vector<Scalar>, public LatitudeGrid<Scalar> {
+class IrregularLatitudeGrid : public LatitudeGrid<Scalar> {
 
  public:
+    using eigen::Vector<Scalar>::operator[];
   IrregularLatitudeGrid() {}
   /** Create new latitude grid.
    * @param latitudes Vector containing the latitude grid points in radians.
    * @param weights The integration weight corresponding to each grid point.
    */
   IrregularLatitudeGrid(const eigen::Vector<Scalar>& latitudes)
-      : eigen::Vector<Scalar>(latitudes.cos()),
+      : LatitudeGrid<Scalar>(latitudes),
         weights_(latitudes.size()),
-        latitudes_(std::make_unique(latitudes)),
+      colatitudes_(std::make_unique<eigen::Vector<Scalar>>(-Eigen::cos(latitudes.array()))),
         type_(QuadratureType::Trapezoidal) {
-    weights_.setConstant(1.0);
-    auto n = eigen::Vector<Scalar>::size();
-    weights_[0] = 0.5;
-    weights_[n - 1] = 0.5;
+    weights_.setConstant(0.0);
+    int n = eigen::Vector<Scalar>::size();
+    for (int i = 0; i < n - 1; ++i) {
+        auto dx = 0.5 * (this->operator[](i + 1) - this->operator[](i - 1));
+        weights_[i] += dx;
+        weights_[i + 1] += dx;
+    }
+    weights_[0] += this->operator[](0) + 1.0;
+    weights_[n - 1] += 1.0 - this->operator[](n - 1);
   }
 
   /// The latitude grid points in radians.
-  const eigen::Vector<Scalar>& get_colatitudes() { return *this; }
+  const eigen::Vector<Scalar>& get_colatitudes() const { return *colatitudes_; }
 
   /// The latitude grid points in radians.
-  const eigen::Vector<Scalar>& get_latitudes() { *latitudes_; }
-
-  /// The latitude grid points in radians.
-  const eigen::Vector<Scalar>& get_weights() { return weights_; }
+  const eigen::Vector<Scalar>& get_weights() const { return weights_; }
 
   /// The type of quadrature.
   QuadratureType get_type() { return QuadratureType::Trapezoidal; }
 
  protected:
-  eigen::Vector<Scalar>& weights_;
-  std::unique_ptr <eigen::Vector<Scalar>> latitudes_;
+  eigen::Vector<Scalar> weights_;
+  std::unique_ptr <eigen::Vector<Scalar>> colatitudes_;
   QuadratureType type_;
 };
 
@@ -488,7 +495,7 @@ class IrregularLatitudeGrid : public eigen::Vector<Scalar>, public LatitudeGrid<
 // pxx :: instance("DoubleGaussLatitudeGrid", ["scattering::DoubleGaussQuadrature<double>", "double"])
 // pxx :: instance("LobattoLatitudeGrid", ["scattering::LobattoQuadrature<double>", "double"])
 template <typename Quadrature, typename Scalar>
-class QuadratureLatitudeGrid : public eigen::Vector<Scalar>, public LatitudeGrid<Scalar>
+class QuadratureLatitudeGrid : public LatitudeGrid<Scalar>
 {
 public:
   /** Create new quadrature latitude grid with given number of points.
@@ -500,29 +507,28 @@ public:
    * weights of the quadrature.
    * @param degree The number of points of the quadrature.
    */
-  QuadratureLatitudeGrid() : eigen::Vector<Scalar>() {}
+  QuadratureLatitudeGrid() : LatitudeGrid<Scalar>() {}
   QuadratureLatitudeGrid(size_t n_points) : quadrature_(n_points) {
-    eigen::Vector<Scalar>::operator=(quadrature_.get_nodes());
-    latitudes_ = std::make_unique<eigen::Vector<Scalar>>(Eigen::acos(quadrature_.get_nodes().array()));
+    eigen::Vector<Scalar>::operator=(
+        Eigen::acos(quadrature_.get_nodes().array()));
   }
-  QuadratureLatitudeGrid(size_t n_points, size_t /*n_cols*/)
-      : QuadratureLatitudeGrid(n_points) {}
 
-  /// The co-latitude grid points in radians.
-  const eigen::Vector<Scalar>& get_colatitudes() { return quadrature_.get_nodes(); }
+ QuadratureLatitudeGrid(size_t n_points, size_t /*unused*/)
+     : QuadratureLatitudeGrid(n_points) {}
 
-  /// The latitude grid points in radians.
-  const eigen::Vector<Scalar>& get_latitudes() { return *latitudes_; }
+ /// The co-latitude grid points in radians.
+ const eigen::Vector<Scalar>& get_colatitudes() const {
+   return quadrature_.get_nodes();
+ }
 
   /// The integration weights.
-  const eigen::Vector<Scalar>& get_weights() { return quadrature_.get_weights(); }
+  const eigen::Vector<Scalar>& get_weights() const { return quadrature_.get_weights(); }
 
   /// The type of quadrature.
   QuadratureType get_type() { return Quadrature::type; }
 
  protected:
   Quadrature quadrature_;
-  std::unique_ptr<eigen::Vector<Scalar>> latitudes_;
 
 };
 
@@ -532,29 +538,27 @@ public:
 
 static QuadratureProvider<double, FejerQuadrature> quadratures = QuadratureProvider<double, FejerQuadrature>();
 
-template <typename Scalar, typename Quadrature>
+template <typename Scalar>
 Scalar integrate_latitudes(eigen::ConstVectorRef<Scalar> data,
-                           const Quadrature & quadrature) {
-  auto weights = quadrature.get_weights();
+                           const LatitudeGrid<Scalar>& grid) {
+  auto weights = grid.get_weights();
   return weights.dot(data);
 }
 
 template <typename Scalar>
 Scalar integrate_angles(eigen::ConstMatrixRef<Scalar> data,
                         eigen::ConstVectorRef<Scalar> longitudes,
-                        eigen::ConstVectorRef<Scalar> colatitudes) {
+                        const LatitudeGrid<Scalar>& latitude_grid) {
   Scalar result = 0.0;
   eigen::Index n = longitudes.size();
-  auto quadrature = quadratures.get_quadrature(colatitudes.size());
 
-
-  Scalar latitude_integral_first = integrate_latitudes<Scalar>(data.row(0), quadrature);
+  Scalar latitude_integral_first = integrate_latitudes<Scalar>(data.row(0), latitude_grid);
   Scalar latitude_integral_left = latitude_integral_first;
   Scalar latitude_integral_right = latitude_integral_first;
 
   for (eigen::Index i = 0; i < n - 1; ++i) {
     latitude_integral_right =
-        integrate_latitudes<Scalar>(data.row(i + 1), quadrature);
+        integrate_latitudes<Scalar>(data.row(i + 1), latitude_grid);
     Scalar dl = longitudes[i + 1] - longitudes[i];
     result += 0.5 * (latitude_integral_left + latitude_integral_right) * dl;
     latitude_integral_left = latitude_integral_right;

@@ -334,7 +334,7 @@ ScatteringData::operator SingleScatteringDataGridded<double>() {
   auto lon_inc = std::make_shared<eigen::Vector<double>>(get_lon_inc());
   auto lat_inc = std::make_shared<eigen::Vector<double>>(get_lat_inc());
   auto lon_scat = std::make_shared<eigen::Vector<double>>(get_lon_scat());
-  auto lat_scat = std::make_shared<eigen::Vector<double>>(get_lat_scat());
+  auto lat_scat = std::make_shared<IrregularLatitudeGrid<double>>(get_lat_scat());
   auto phase_matrix = std::make_shared<eigen::Tensor<double, 7>>(
       get_phase_matrix_data_gridded());
   auto extinction_matrix = std::make_shared<eigen::Tensor<double, 7>>(
