@@ -23,7 +23,7 @@ class TestRandomData():
         # First particle
         #
         path = os.path.join(RANDOM_DATA_PATH,
-                            "Dmax00191um_Dveq00101um_Mass5.00440e-10kg.nc")
+                            "Dmax00688um_Dveq00361um_Mass2.25360e-08kg.nc")
         self.particle_1 = self.particle_model.get_single_scattering_data(0)
         self.particle_1_ref = ParticleFile(path).to_single_scattering_data()
 
@@ -31,7 +31,7 @@ class TestRandomData():
         # Second particle
         #
         path = os.path.join(RANDOM_DATA_PATH,
-                            "Dmax01014um_Dveq00770um_Mass2.19345e-07kg.nc")
+                            "Dmax03369um_Dveq00771um_Mass2.19881e-07kg.nc")
         self.particle_2 = self.particle_model.get_single_scattering_data(1)
         self.particle_2_ref = ParticleFile(path).to_single_scattering_data()
 
@@ -41,9 +41,9 @@ class TestRandomData():
         data as well as the scattering data is the same as when the data
         is loaded directly.
         """
-        assert all(self.particle_model.get_d_eq() == [101 * 1e-6, 770 * 1e-6])
-        assert all(self.particle_model.get_d_max() == [191 * 1e-6, 1014 * 1e-6])
-        assert all(self.particle_model.get_mass() == [5.0044e-10, 2.19345e-7])
+        assert all(self.particle_model.get_d_eq() == [361 * 1e-6, 771 * 1e-6])
+        assert all(self.particle_model.get_d_max() == [688 * 1e-6, 3369 * 1e-6])
+        assert all(self.particle_model.get_mass() == [2.2536e-8, 2.19881e-7])
 
         assert np.all(np.isclose(self.particle_1.get_phase_matrix(),
                                  self.particle_1_ref.get_phase_matrix()))
@@ -57,9 +57,9 @@ class TestRandomData():
         """
         habit_folder = HabitFolder(RANDOM_DATA_PATH)
         particle_model = habit_folder.to_particle_habit()
-        assert all(particle_model.get_d_eq() == [101 * 1e-6, 770 * 1e-6])
-        assert all(particle_model.get_d_max() == [191 * 1e-6, 1014 * 1e-6])
-        assert all(particle_model.get_mass() == [5.0044e-10, 2.19345e-7])
+        assert all(self.particle_model.get_d_eq() == [361 * 1e-6, 771 * 1e-6])
+        assert all(self.particle_model.get_d_max() == [688 * 1e-6, 3369 * 1e-6])
+        assert all(self.particle_model.get_mass() == [2.2536e-8, 2.19881e-7])
 
         props_1 = self.particle_model.calculate_bulk_properties(230, [1e3, 1e3])
         phase_matrix = props_1.get_phase_matrix()
@@ -101,7 +101,7 @@ class TestAzimuthallyRandomData():
         # First particle
         #
         path = os.path.join(AZIMUTHALLY_RANDOM_DATA_PATH,
-                            "Dmax00191um_Dveq00101um_Mass5.00440e-10kg.nc")
+                            "Dmax00590um_Dveq00251um_Mass7.59425e-09kg.nc")
         self.particle_1 = self.particle_model.get_single_scattering_data(0)
         self.particle_1_ref = ParticleFile(path).to_single_scattering_data()
 
@@ -109,7 +109,7 @@ class TestAzimuthallyRandomData():
         # Second particle
         #
         path = os.path.join(AZIMUTHALLY_RANDOM_DATA_PATH,
-                            "Dmax01014um_Dveq00770um_Mass2.19345e-07kg.nc")
+                            "Dmax04151um_Dveq01257um_Mass9.53208e-07kg.nc")
         self.particle_2 = self.particle_model.get_single_scattering_data(1)
         self.particle_2_ref = ParticleFile(path).to_single_scattering_data()
 
@@ -119,9 +119,9 @@ class TestAzimuthallyRandomData():
         data as well as the scattering data is the same as when the data
         is loaded directly.
         """
-        assert all(self.particle_model.get_d_eq() == [101 * 1e-6, 770 * 1e-6])
-        assert all(self.particle_model.get_d_max() == [191 * 1e-6, 1014 * 1e-6])
-        assert all(self.particle_model.get_mass() == [5.0044e-10, 2.19345e-7])
+        assert all(self.particle_model.get_d_eq() == [251 * 1e-6, 1257 * 1e-6])
+        assert all(self.particle_model.get_d_max() == [590 * 1e-6, 4151 * 1e-6])
+        assert all(self.particle_model.get_mass() == [7.59425e-9, 9.53208e-7])
 
         assert np.all(np.isclose(self.particle_1.get_phase_matrix(),
                                  self.particle_1_ref.get_phase_matrix()))
@@ -135,9 +135,9 @@ class TestAzimuthallyRandomData():
         """
         habit_folder = HabitFolder(AZIMUTHALLY_RANDOM_DATA_PATH)
         particle_model = habit_folder.to_particle_habit()
-        assert all(particle_model.get_d_eq() == [101 * 1e-6, 770 * 1e-6])
-        assert all(particle_model.get_d_max() == [191 * 1e-6, 1014 * 1e-6])
-        assert all(particle_model.get_mass() == [5.0044e-10, 2.19345e-7])
+        assert all(self.particle_model.get_d_eq() == [251 * 1e-6, 1257 * 1e-6])
+        assert all(self.particle_model.get_d_max() == [590 * 1e-6, 4151 * 1e-6])
+        assert all(self.particle_model.get_mass() == [7.59425e-9, 9.53208e-7])
 
         props_1 = self.particle_model.calculate_bulk_properties(230, [1e3, 1e3])
         phase_matrix = props_1.get_phase_matrix()

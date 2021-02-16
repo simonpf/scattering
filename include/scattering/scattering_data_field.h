@@ -953,7 +953,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
   /// Largest SHT parameters satisfying shtns aliasing requirements for
   /// incoming angle.
   std::array<Index, 4> get_sht_inc_params() const {
-      return sht::SHT::get_params(n_lon_scat_, n_lat_scat_);
+      return sht::SHT::get_params(n_lon_inc_, n_lat_inc_);
   }
   const eigen::Vector<double>& get_f_grid() const { return *f_grid_; }
   /// The temperature grid.
@@ -1692,7 +1692,6 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
                                             data_new);
   }
 
-  // pxx :: hide
   /** Linear interpolation along temperature dimension.
    * @param temperatures The temperatures to which to interpolate the data.
    * @return New ScatteringDataFieldFullySpectral with the data interpolated

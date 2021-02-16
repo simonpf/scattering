@@ -198,7 +198,6 @@ class LobattoQuadrature {
     const long int n_half_nodes = (n + 1) / 2;
     const long int n_max_iter = 10;
     Scalar x, x_old, p_l, p_l_1, p_l_2, dp_dx, d2p_dx;
-    Scalar precision = detail::Precision<Scalar>::value;
 
     const long int right = n_half_nodes - 1;
     const long int left = ((n % 2) != 0) ? n_half_nodes - 1 : n_half_nodes - 2;
@@ -371,7 +370,7 @@ class FejerQuadrature {
                            reinterpret_cast<double (*)[2]>(coeffs),
                            weights);
       for (long int i = 0; i < n; ++i) {
-          weights_[i] = weights[i] / n;
+          weights_[n - i - 1] = weights[i] / n;
       }
 
       fftw_destroy_plan(ifft);
@@ -379,7 +378,7 @@ class FejerQuadrature {
 
       // Calculate nodes.
       for (long int i = 0; i < n; i++) {
-          nodes_[i] = -cos(M_PI * (static_cast<double>(i) + 0.5) / static_cast<double>(n));
+          nodes_[n - i - 1] = -cos(M_PI * (static_cast<double>(i) + 0.5) / static_cast<double>(n));
       }
   }
 
@@ -467,7 +466,7 @@ class IrregularLatitudeGrid : public LatitudeGrid<Scalar> {
     weights_.setConstant(0.0);
     int n = eigen::Vector<Scalar>::size();
     for (int i = 0; i < n - 1; ++i) {
-        auto dx = 0.5 * (this->operator[](i + 1) - this->operator[](i - 1));
+        auto dx = 0.5 * (this->operator[](i + 1) - this->operator[](i));
         weights_[i] += dx;
         weights_[i + 1] += dx;
     }

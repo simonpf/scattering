@@ -9,8 +9,8 @@ import scipy as sp
 import scipy.interpolate
 from reference import scattering_angles, expand_compact_format
 from scattering.single_scattering_data import (SingleScatteringData,
-                                            ParticleType,
-                                            SHT)
+                                               ParticleType,
+SHT)
 
 #Import test utils.
 try:
@@ -114,7 +114,7 @@ class TestSingleScatteringDataRandom:
             for t in self.t_grid:
                 data = self.particle.get_scattering_data(f, t)
                 sd_ref = particle_to_single_scattering_data_random(data, f, t)
-                sd = self.data.interpolate_frequency([f]).interpolate_temperature([t])
+                sd = self.data.interpolate_frequency([f]).interpolate_temperature([t], False)
 
                 assert np.all(np.isclose(sd_ref.get_phase_matrix_data(),
                                          sd.get_phase_matrix_data()))
@@ -137,8 +137,8 @@ class TestSingleScatteringDataRandom:
 
         for f in self.f_grid:
             for t in self.t_grid:
-                sd = data_summed.interpolate_frequency([f]).interpolate_temperature([t])
-                sd_ref = data_scaled.interpolate_frequency([f]).interpolate_temperature([t])
+                sd = data_summed.interpolate_frequency([f]).interpolate_temperature([t], False)
+                sd_ref = data_scaled.interpolate_frequency([f]).interpolate_temperature([t], False)
 
                 assert np.all(np.isclose(sd_ref.get_phase_matrix_data(),
                                          sd.get_phase_matrix_data()))
@@ -199,22 +199,21 @@ class TestSingleScatteringDataRandom:
         copy = self.data.copy()
         copy.set_stokes_dim(2)
         converted_2_copy = copy.to_lab_frame(16, 16, 2)
-        return converted_2.get_phase_matrix_data(), converted_2_copy.get_phase_matrix_data())
         assert np.all(np.isclose(converted_2.get_phase_matrix_data(),
                                  converted_2_copy.get_phase_matrix_data()))
 
         converted_3 = self.data.to_lab_frame(16, 16, 3)
+        converted_3_copy = copy.to_lab_frame(16, 16, 3)
         copy = self.data.copy()
         copy.set_stokes_dim(3)
         assert np.all(np.isclose(converted_3.get_phase_matrix_data(),
                                  converted_3_copy.get_phase_matrix_data()))
 
-        converted_3_copy = copy.to_lab_frame(16, 16, 3)
         converted_4 = self.data.to_lab_frame(16, 16, 4)
+        converted_4_copy = copy.to_lab_frame(16, 16, 4)
         assert np.all(np.isclose(converted_4.get_phase_matrix_data(),
                                  converted_4_copy.get_phase_matrix_data()))
 
-        print(converted_1.get_lon_scat())
 
         theta = scattering_angles(converted_4.get_lat_inc(),
                                   converted_4.get_lon_scat(),
@@ -398,7 +397,7 @@ class TestSingleScatteringDataAzimuthallyRandom:
                                                                                t)
                 sd_ref = sd_ref.to_spectral(32, 32, 66, 66)
                 sd_ref = sd_ref.to_gridded()
-                sd = self.data.interpolate_frequency([f]).interpolate_temperature([t])
+                sd = self.data.interpolate_frequency([f]).interpolate_temperature([t], False)
                 sd = sd.to_spectral(32, 32, 66, 66).to_gridded()
 
                 close = np.all(np.isclose(sd_ref.get_phase_matrix_data(),
@@ -426,8 +425,8 @@ class TestSingleScatteringDataAzimuthallyRandom:
 
         for f in self.f_grid:
             for t in self.t_grid:
-                sd = data_summed.interpolate_frequency([f]).interpolate_temperature([t])
-                sd_ref = data_scaled.interpolate_frequency([f]).interpolate_temperature([t])
+                sd = data_summed.interpolate_frequency([f]).interpolate_temperature([t], False)
+                sd_ref = data_scaled.interpolate_frequency([f]).interpolate_temperature([t], False)
                 sd_ref.get_phase_matrix_data()
                 sd.get_phase_matrix_data()
 
@@ -529,7 +528,3 @@ class TestSingleScatteringDataAzimuthallyRandom:
                                  extinction_matrix_data[..., 2]))
         assert np.all(np.isclose(extinction_matrix[..., 3, 2],
                                  -extinction_matrix_data[..., 2]))
-
-test = TestSingleScatteringDataRandom()
-test.setup_method()
-m1, m2 = test.test_conversion_to_laboratory_frame()

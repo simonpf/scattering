@@ -47,6 +47,11 @@ class ScatteringDataRandom(ScatteringDataBase):
                                                           self.lon_scat,
                                                           self.lat_scat,
                                                           self.data)
+        # Convert back and forth from spectral representation to
+        # make sure grids have correct quadrature.
+        lat_scat_1 = self.scattering_data.get_lat_scat()
+        self.scattering_data = self.scattering_data.to_spectral().to_gridded()
+        lat_scat_2 = self.scattering_data.get_lat_scat()
         self.scattering_data_spectral = self.scattering_data.to_spectral()
         self.sht_scat = self.scattering_data_spectral.get_sht_scat()
         l = self.sht_scat.get_l_max()
@@ -317,8 +322,14 @@ class TestScatteringDataFieldRandom:
         and compare to reference implementation using numpy.
         """
         dummy_grid = np.array([np.pi])
+        lon_inc = self.data.scattering_data.get_lon_inc()
+        lat_inc = self.data.scattering_data.get_lat_inc()
+        lon_scat = self.data.scattering_data.get_lon_scat()
+        lat_scat = self.data.scattering_data.get_lat_scat()
         data_downsampled_gridded = self.data.scattering_data.downsample_scattering_angles(dummy_grid,
-                                                                                          dummy_grid)
-        i_ref = self.data.scattering_data.integrate_scattering_angles()
+                                                                                          lat_scat)
+
+        scattering_data = self.data.scattering_data.interpolate_angles(lon_inc, lat_inc, lon_scat, lat_scat)
+        i_ref = scattering_data.integrate_scattering_angles()
         i_1 = data_downsampled_gridded.integrate_scattering_angles()
         assert np.all(np.isclose(i_ref, i_1))
