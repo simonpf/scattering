@@ -636,9 +636,9 @@ HabitFolder::operator ParticleHabit() {
   properties.refractive_index = "";
 
   for (Index i = 0; i < d_eq_.size(); ++i) {
+    properties.mass = mass_[i];
     properties.d_eq = d_eq_[i];
     properties.d_max = d_max_[i];
-    properties.d_eq = mass_[i];
     properties.d_aero = 0.0;
     particles.push_back(Particle(properties, ParticleFile(files_[d_eq_[i]])));
   }
