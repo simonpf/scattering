@@ -71,14 +71,18 @@ public:
    * @return A new particle habit with the data interpolated to the given
    * frequency grid.
    */
-  ParticleHabit interpolate_frequency(eigen::Vector<double> f_grid) {
-      auto f_grid_ptr = std::make_shared<eigen::Vector<double>>(f_grid);
+  ParticleHabit interpolate_frequency(eigen::VectorPtr<double> f_grid) {
       std::vector<scattering::Particle> new_data{};
       new_data.reserve(particles_.size());
       for (size_t i = 0; i < particles_.size(); ++i) {
-          new_data.push_back(particles_[i].interpolate_frequency(f_grid_ptr));
+          new_data.push_back(particles_[i].interpolate_frequency(f_grid));
       }
       return ParticleHabit(new_data);
+  }
+
+  ParticleHabit interpolate_frequency(eigen::Vector<double> f_grid) {
+      auto f_grid_ptr = std::make_shared<eigen::Vector<double>>(f_grid);
+      return interpolate_frequency(f_grid_ptr);
   }
 
   /** Regrid the data to SHTns-compatible grids.
@@ -124,6 +128,21 @@ public:
     }
 
 
+    ParticleHabit to_gridded(eigen::VectorPtr<double> lon_inc,
+                             eigen::VectorPtr<double> lat_inc,
+                             eigen::VectorPtr<double> lon_scat,
+                             LatitudeGridPtr<double> lat_scat) {
+      std::vector<scattering::Particle> new_particles{};
+      new_particles.reserve(particles_.size());
+      for (size_t i = 0; i < particles_.size(); ++i) {
+          new_particles.push_back(particles_[i].to_gridded(lon_inc,
+                                                           lat_inc,
+                                                           lon_scat,
+                                                           lat_scat));
+      }
+      return ParticleHabit(new_particles);
+    }
+
     ParticleHabit to_gridded(eigen::Vector<double> lon_inc,
                              eigen::Vector<double> lat_inc,
                              eigen::Vector<double> lon_scat,
@@ -132,16 +151,19 @@ public:
       auto lat_inc_ptr = std::make_shared<eigen::Vector<double>>(lat_inc);
       auto lon_scat_ptr = std::make_shared<eigen::Vector<double>>(lon_scat);
       auto lat_scat_ptr = std::make_shared<IrregularLatitudeGrid<double>>(lat_scat);
+      return to_gridded(lon_inc_ptr, lat_inc_ptr, lon_scat_ptr, lat_scat_ptr);
+    }
 
-      std::vector<scattering::Particle> new_particles{};
-      new_particles.reserve(particles_.size());
-      for (size_t i = 0; i < particles_.size(); ++i) {
-          new_particles.push_back(particles_[i].to_gridded(lon_inc_ptr,
-                                                           lat_inc_ptr,
-                                                           lon_scat_ptr,
-                                                           lat_scat_ptr));
-      }
-      return ParticleHabit(new_particles);
+    ParticleHabit to_lab_frame(eigen::VectorPtr<double> lat_inc,
+                               eigen::VectorPtr<double> lon_scat,
+                               LatitudeGridPtr<double> lat_scat,
+                               Index stokes_dim) {
+        std::vector<scattering::Particle> new_particles{};
+        new_particles.reserve(particles_.size());
+        for (size_t i = 0; i < particles_.size(); ++i) {
+            new_particles.push_back(particles_[i].to_lab_frame(lat_inc, lon_scat, lat_scat, stokes_dim));
+        }
+        return ParticleHabit(new_particles);
     }
 
     ParticleHabit to_lab_frame(eigen::Vector<double> lat_inc,
@@ -151,12 +173,7 @@ public:
         auto lat_inc_ptr = std::make_shared<eigen::Vector<double>>(lat_inc);
         auto lon_scat_ptr = std::make_shared<eigen::Vector<double>>(lon_scat);
         auto lat_scat_ptr = std::make_shared<IrregularLatitudeGrid<double>>(lat_scat);
-        std::vector<scattering::Particle> new_particles{};
-        new_particles.reserve(particles_.size());
-        for (size_t i = 0; i < particles_.size(); ++i) {
-            new_particles.push_back(particles_[i].to_lab_frame(lat_inc_ptr, lon_scat_ptr, lat_scat_ptr, stokes_dim));
-        }
-        return ParticleHabit(new_particles);
+        return to_lab_frame(lat_inc_ptr, lon_scat_ptr, lat_scat_ptr, stokes_dim);
     }
 
     ParticleHabit to_lab_frame(Index n_lat_inc, Index n_lon_scat, Index stokes_dim) const {
@@ -168,17 +185,22 @@ public:
       return ParticleHabit(new_particles);
     }
 
-    ParticleHabit downsample_scattering_angles(const eigen::Vector<double> &lon_scat,
-                                               const eigen::Vector<double> &lat_scat) const {
+    ParticleHabit downsample_scattering_angles(eigen::VectorPtr<double> lon_scat,
+                                               std::shared_ptr<LatitudeGrid<double>> lat_scat) const {
         std::vector<scattering::Particle> new_particles{};
         new_particles.reserve(particles_.size());
+        for (size_t i = 0; i < particles_.size(); ++i) {
+            new_particles.push_back(particles_[i].downsample_scattering_angles(lon_scat,
+                                                                               lat_scat));
+        }
+        return ParticleHabit(new_particles);
+    }
+
+    ParticleHabit downsample_scattering_angles(const eigen::Vector<double> &lon_scat,
+                                               const eigen::Vector<double> &lat_scat) const {
       auto lon_scat_ptr = std::make_shared<eigen::Vector<double>>(lon_scat);
       auto lat_scat_ptr = std::make_shared<IrregularLatitudeGrid<double>>(lat_scat);
-      for (size_t i = 0; i < particles_.size(); ++i) {
-          new_particles.push_back(particles_[i].downsample_scattering_angles(lon_scat_ptr,
-                                                                             lat_scat_ptr));
-      }
-      return ParticleHabit(new_particles);
+      return downsample_scattering_angles(lon_scat_ptr, lat_scat_ptr);
     }
 
     /** Calculate bulk scattering properties

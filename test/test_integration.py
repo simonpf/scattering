@@ -89,6 +89,18 @@ def test_lobatto_quadrature():
 
     Reference values taken from: https://mathworld.wolfram.com/LobattoQuadrature.html
     """
+    n = 4
+    q = LobattoQuadrature(n)
+
+    nodes = q.get_nodes()
+    weights = q.get_weights()
+
+    nodes_ref = np.array([-1.0, -np.sqrt(5) / 5, np.sqrt(5) / 5, 1])
+    weights_ref = np.array([1 / 6, 5 / 6, 5 / 6, 1 / 6])
+
+
+    assert np.all(np.isclose(nodes, nodes_ref))
+    assert np.all(np.isclose(weights, weights_ref))
     n = 5
     q = LobattoQuadrature(n)
 
@@ -98,14 +110,7 @@ def test_lobatto_quadrature():
     nodes_ref = np.array([-1.0, -np.sqrt(21) / 7, 0, np.sqrt(21) / 7, 1])
     weights_ref = np.array([0.1, 49 / 90, 32 / 45, 49 / 90, 0.1])
 
-    print(weights, weights_ref)
     assert np.all(np.isclose(nodes, nodes_ref))
     assert np.all(np.isclose(weights, weights_ref))
-
-    latitude_grid = LobattoLatitudeGrid(5)
-    colats = latitude_grid.get_colatitude_grid()
-    lats = latitude_grid.get_latitude_grid()
-
-    assert np.all(np.isclose(colats, nodes))
 
 

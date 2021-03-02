@@ -199,15 +199,16 @@ class LobattoQuadrature {
     const long int n_max_iter = 10;
     Scalar x, x_old, p_l, p_l_1, p_l_2, dp_dx, d2p_dx;
 
-    const long int right = n_half_nodes - 1;
-    const long int left = ((n % 2) != 0) ? n_half_nodes - 1 : n_half_nodes - 2;
+    const long int left = (n + 1) / 2 - 1;
+    const long int right = n / 2;
 
     for (int i = 0; i < n_half_nodes - 1; ++i) {
 
       //
       // Initial guess.
       //
-      x = sin(M_PI * i / (n - 0.5));
+      Scalar d_i = ((n % 2) == 0) ? 0.5 : 0.0;
+      x = sin(M_PI * (i + d_i) / (n - 0.5));
 
       //
       // Evaluate Legendre Polynomial and its derivative at node.
@@ -229,14 +230,12 @@ class LobattoQuadrature {
         //
         // Perform Newton step.
         //
-        std::cout << dp_dx << std::endl;
         x -= dp_dx / d2p_dx;
         auto dx = x - x_old;
         if (math::small(std::abs(dx * (x + x_old)))) {
           break;
         }
       }
-      std::cout << degree_ << " :: " << right << " // " << left << " : " << i << std::endl;
       nodes_[right + i] = x;
       weights_[right + i] = 2.0 / (n * (n - 1) * p_l * p_l);
       nodes_[left - i] = -x;
@@ -447,6 +446,9 @@ class LatitudeGrid : public eigen::Vector<Scalar> {
   virtual QuadratureType get_type() = 0;
 };
 
+template <typename Scalar>
+using LatitudeGridPtr = std::shared_ptr<LatitudeGrid<Scalar>>;
+
 // pxx :: instance(["double"])
 template <typename Scalar>
 class IrregularLatitudeGrid : public LatitudeGrid<Scalar> {
@@ -509,7 +511,7 @@ public:
   QuadratureLatitudeGrid() : LatitudeGrid<Scalar>() {}
   QuadratureLatitudeGrid(size_t n_points) : quadrature_(n_points) {
     eigen::Vector<Scalar>::operator=(
-        Eigen::acos(quadrature_.get_nodes().array()));
+        Eigen::acos(quadrature_.get_nodes().array() * -1.0));
   }
 
  QuadratureLatitudeGrid(size_t n_points, size_t /*unused*/)
@@ -530,6 +532,16 @@ public:
   Quadrature quadrature_;
 
 };
+
+template <typename Scalar>
+using GaussLegendreGrid = QuadratureLatitudeGrid<GaussLegendreQuadrature<Scalar>, Scalar>;
+
+template <typename Scalar>
+using DoubleGaussGrid = QuadratureLatitudeGrid<DoubleGaussQuadrature<Scalar>, Scalar>;
+
+template <typename Scalar>
+using LobattoGrid = QuadratureLatitudeGrid<LobattoQuadrature<Scalar>, Scalar>;
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Integration functions
