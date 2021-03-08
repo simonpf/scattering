@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytest
 import scipy
-from scatlib.sht import SHT
+from scattering.sht import SHT
 from scipy.special import roots_legendre, sph_harm
 
 class TestSHT:
@@ -115,8 +115,8 @@ class TestLegendreExpansion:
         self.n_lat = 4 * self.l_max
         self.n_lon = 1
         self.sht = SHT(self.l_max, self.m_max, self.n_lon, self.n_lat)
-        self.lat_grid, _ = np.sort(np.arccos(roots_legendre(self.n_lat)))
-        self.lat_grid = np.linspace(0, np.pi, self.n_lat + 1)[:-1]
+        self.lat_grid = np.linspace(0, np.pi, self.n_lat + 1)
+        self.lat_grid = 0.5 * (self.lat_grid[1:] + self.lat_grid[:-1])
         self.lon_grid = np.linspace(0, 2.0 * np.pi, self.n_lon + 1)[:-1]
 
     def test_legendre_transform(self):
@@ -130,6 +130,7 @@ class TestLegendreExpansion:
         xx, yy = np.meshgrid(self.lat_grid, self.lon_grid, indexing="xy")
         zz = sph_harm(m, l, yy, xx)
         coeffs = self.sht.transform(zz.real)
+        print(coeffs)
 
         assert np.sum(np.abs(coeffs) > 1e-6) == 1
 

@@ -377,7 +377,7 @@ class FejerQuadrature {
 
       // Calculate nodes.
       for (long int i = 0; i < n; i++) {
-          nodes_[n - i - 1] = -cos(M_PI * (static_cast<double>(i) + 0.5) / static_cast<double>(n));
+          nodes_[i] = -cos(M_PI * (static_cast<double>(i) + 0.5) / static_cast<double>(n));
       }
   }
 
@@ -433,7 +433,7 @@ class LatitudeGrid : public eigen::Vector<Scalar> {
   LatitudeGrid(const eigen::Vector<Scalar>& latitudes)
       : eigen::Vector<Scalar>(latitudes) {}
 
-  virtual ~LatitudeGrid() {}
+  virtual ~LatitudeGrid() {};
 
   /// The latitude grid points in radians.
   virtual const eigen::Vector<Scalar>& get_colatitudes() const = 0;

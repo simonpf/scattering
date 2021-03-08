@@ -17,7 +17,7 @@ def test_clenshaw_curtis_quadrature():
     nodes and the integrating sin(np.arcos(x)) over -1, 1 yields th
     expected result.
     """
-    n = np.random.randint(10, 100)
+    n = np.random.randint(50, 100)
     q = ClenshawCurtisQuadrature(n)
     nodes = q.get_nodes()
     weights = q.get_weights()
@@ -36,7 +36,7 @@ def test_fejer_quadrature():
     and that integrating sin(np.arcos(x)) over -1, 1 yields the
     expected results.
     """
-    n = np.random.randint(10, 100)
+    n = np.random.randint(50, 100)
     q = FejerQuadrature(n)
     nodes = q.get_nodes()
     weights = q.get_weights()

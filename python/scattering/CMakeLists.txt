@@ -83,6 +83,7 @@ add_pxx_module(
   MODULE integration
   INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include ${Eigen3_INCLUDE_DIRS}
   )
+target_link_libraries(integration fftw3)
 
 #
 # particle model

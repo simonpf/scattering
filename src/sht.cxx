@@ -244,7 +244,7 @@ void SHT::set_spectral_coeffs(const SpectralCoeffsRef &m) const {
 
 void SHT::set_spectral_coeffs_cmplx(const SpectralCoeffsRef &m) const {
   // Input size must match number of spectral coefficients of SHT.
-  assert(m.size() == n_spectral_coeffs_);
+  assert(m.size() == n_spectral_coeffs_cmplx_);
   Index index = 0;
   for (auto &x : m) {
     spectral_coeffs_cmplx_[index] = x;
