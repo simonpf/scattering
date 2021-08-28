@@ -29,6 +29,11 @@ public:
   ParticleHabit(const std::vector<scattering::Particle> &particles)
       : particles_(particles) {}
 
+  /// The number of particle that make up the particle habit.
+  size_t size() const {
+      return particles_.size();
+  }
+
   /// Return vector contatining volume equivalent diameter of particles in the
   /// habit.
   eigen::Vector<double> get_d_eq() const {
@@ -227,7 +232,6 @@ public:
         auto data = particles_[i].interpolate_temperature(temperature);
         result += data * pnd[i];
       }
-      result.normalize(1.0);
       return result;
     }
 

@@ -74,7 +74,6 @@ class GaussLegendreQuadrature {
     const long int n_half_nodes = (n + 1) / 2;
     const long int n_max_iter = 10;
     Scalar x, x_old, p_l, p_l_1, p_l_2, dp_dx;
-    Scalar precision = detail::Precision<Scalar>::value;
 
     for (int i = 1; i <= n_half_nodes; ++i) {
       p_l = M_PI;
@@ -157,7 +156,7 @@ class DoubleGaussQuadrature {
       auto nodes = gq.get_nodes();
       auto weights = gq.get_weights();
 
-      for (size_t i = 0; i < degree / 2; ++i) {
+      for (int i = 0; i < degree / 2; ++i) {
           nodes_[i] = -0.5 + nodes[i] / 2.0;
           nodes_[degree / 2 + i] = 0.5 + nodes[i] / 2.0;
           weights_[i] = 0.5 * weights[i];

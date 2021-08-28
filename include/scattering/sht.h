@@ -327,6 +327,17 @@ class SHT {
   /** Evaluate spectral representation at given point.
    *
    * @param m Spectral coefficient vector containing the SH coefficients.
+   * @param phi The azimuth angles in radians.
+   * @return theta The zenith angle in radians.
+   */
+  double evaluate(
+      const SpectralCoeffsRef &m,
+      double phi,
+      double theta);
+
+  /** Evaluate spectral representation at given point.
+   *
+   * @param m Spectral coefficient vector containing the SH coefficients.
    * @param points 2-row matrix containing the points (lon, lat) at which
    * to evaluate the function.
    * @return A vector containing the values corresponding to the points

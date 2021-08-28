@@ -102,8 +102,10 @@ class TestSHT:
         coeffs = self.sht.transform(zz_ref.real)
         points = np.stack([yy.ravel(), xx.ravel()], axis=-1)
         zz = self.sht.evaluate(coeffs, points)
-
         assert np.all(np.isclose(zz, zz_ref.real.ravel()))
+
+        zz = self.sht.evaluate(coeffs, *points[0])
+        assert np.isclose(zz, zz_ref.real[0, 0])
 
 class TestLegendreExpansion:
     """

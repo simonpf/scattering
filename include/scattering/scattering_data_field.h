@@ -351,6 +351,37 @@ class ScatteringDataFieldGridded : public ScatteringDataFieldBase {
         eigen::tensor_index(regridded, input_index);
   }
 
+  Vector interpolate(Scalar frequency,
+                     Scalar temperature,
+                     Scalar lon_inc,
+                     Scalar lat_inc,
+                     Scalar lon_scat,
+                     Scalar lat_scat) {
+    using Regridder = RegularRegridder<Scalar, 0, 1, 2, 3, 4, 5>;
+    auto f_grid = std::make_shared<Vector>(Vector::Constant(1, frequency));
+    auto t_grid = std::make_shared<Vector>(Vector::Constant(1, temperature));
+    auto lon_inc_grid = std::make_shared<Vector>(Vector::Constant(1, lon_inc));
+    auto lat_inc_grid = std::make_shared<Vector>(Vector::Constant(1, lat_inc));
+    auto lon_scat_grid = std::make_shared<Vector>(Vector::Constant(1, lon_scat));
+    auto lat_scat_grid = std::make_shared<IrregularLatitudeGrid<Scalar>>(
+        Vector::Constant(1, lat_scat));
+    Regridder regridder(
+        {*f_grid_, *t_grid_, *lon_inc_, *lat_inc_, *lon_scat_, *lat_scat_},
+        {*f_grid,
+         *t_grid,
+         *lon_inc_grid,
+         *lat_inc_grid,
+         *lon_scat_grid,
+         *lat_scat_grid});
+    auto data_interp = regridder.regrid(*data_);
+    auto n_stokes = data_interp.dimension(6);
+    Vector results{n_stokes};
+    for (decltype(n_stokes) i = 0; i < n_stokes; ++i) {
+        results[i] = data_interp(0, 0, 0, 0, 0, 0, i);
+    }
+    return results;
+  }
+
   // pxx :: hide
   /** Linear interpolation along frequency dimension.
    * @param frequencies The frequency grid to which to interpolate the data
@@ -1003,7 +1034,7 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
     auto regridded = regridder.regrid(*other.data_);
 
     std::array<eigen::Index, 2> data_index = {frequency_index,
-                                              temperature_index};
+                                          temperature_index};
     std::array<eigen::Index, 2> input_index = {0, 0};
 
     eigen::IndexArray<3> dimensions_loop = {n_lon_inc_,
@@ -1017,6 +1048,44 @@ class ScatteringDataFieldSpectral : public ScatteringDataFieldBase {
       auto in_r = eigen::get_subvector<2>(other_data_map, i.coordinates);
       result = sht::SHT::add_coeffs(*sht_scat_, in_l, *other.sht_scat_, in_r);
     }
+  }
+
+  Vector interpolate(Scalar frequency,
+                     Scalar temperature,
+                     Scalar lon_inc,
+                     Scalar lat_inc,
+                     Scalar lon_scat,
+                     Scalar lat_scat) {
+    using Regridder = RegularRegridder<Scalar, 0, 1, 2, 3>;
+    auto f_grid = std::make_shared<Vector>(Vector::Constant(1, frequency));
+    auto t_grid = std::make_shared<Vector>(Vector::Constant(1, temperature));
+    auto lon_inc_grid = std::make_shared<Vector>(Vector::Constant(1, lon_inc));
+    auto lat_inc_grid = std::make_shared<Vector>(Vector::Constant(1, lat_inc));
+    auto lon_scat_grid = std::make_shared<Vector>(Vector::Constant(1, lon_scat));
+    auto lat_scat_grid = std::make_shared<IrregularLatitudeGrid<Scalar>>(Vector::Constant(1, lat_scat)) ;
+    Regridder regridder({*f_grid_,
+                         *t_grid_,
+                         *lon_inc_,
+                         *lat_inc_},
+                        {*f_grid,
+                         *t_grid,
+                         *lon_inc_grid,
+                         *lat_inc_grid});
+    auto data_interp = regridder.regrid(*data_);
+
+    auto n_stokes = data_->dimension(5);
+    eigen::IndexArray<5> dimensions_loop = {1, 1, 1, 1, n_stokes};
+    eigen::IndexArray<7> dimensions_new = {1, 1, 1, 1, 1, 1, n_stokes};
+
+    using DataTensor = eigen::Tensor<Scalar, 7>;
+    Vector results{n_stokes};
+    for (eigen::DimensionCounter<5> i{dimensions_loop}; i; ++i) {
+        auto synthesized = sht_scat_->evaluate(eigen::get_subvector<4>(data_interp, i.coordinates),
+                                               lon_scat,
+                                               lat_scat);
+        results[i.coordinates[4]] = synthesized;
+    }
+    return results;
   }
 
   // pxx :: hide
@@ -1638,6 +1707,17 @@ class ScatteringDataFieldFullySpectral : public ScatteringDataFieldBase {
     }
   }
 
+  Vector interpolate(Scalar frequency,
+                     Scalar temperature,
+                     Scalar lon_inc,
+                     Scalar lat_inc,
+                     Scalar lon_scat,
+                     Scalar lat_scat) {
+      return to_spectral().interpolate(
+          frequency, temperature, lon_inc, lat_inc,
+          lon_scat, lat_scat);
+  }
+
   // pxx :: hide
   /** Linear interpolation along frequency dimension.
    * @param frequencies The frequencies to which to interpolate the data.
@@ -1939,8 +2019,7 @@ ScatteringDataFieldSpectral<Scalar>::to_gridded() const {
   auto data_new = std::make_shared<DataTensor>(dimensions_new);
   for (eigen::DimensionCounter<5> i{dimensions_loop}; i; ++i) {
       auto synthesized = sht_scat_->synthesize(eigen::get_subvector<4>(*data_, i.coordinates));
-    eigen::get_submatrix<4, 5>(*data_new, i.coordinates) =
-        sht_scat_->synthesize(eigen::get_subvector<4>(*data_, i.coordinates));
+      eigen::get_submatrix<4, 5>(*data_new, i.coordinates) = synthesized;
   }
   auto lon_scat_ = std::make_shared<Vector>(sht_scat_->get_longitude_grid());
   auto lat_scat_ = std::make_shared<sht::SHT::LatGrid>(sht_scat_->get_latitude_grid());

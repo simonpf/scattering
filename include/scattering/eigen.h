@@ -35,7 +35,7 @@ using Vector = Eigen::Matrix<Scalar, 1, -1, Eigen::RowMajor>;
 /** Fixed-length vector.
  * @tparam Scalar The type used to represent coefficients of the matrix.
  */
-template <typename Scalar, size_t N>
+template <typename Scalar, long int N>
 using VectorFixedSize = Eigen::Matrix<Scalar, 1, N, Eigen::RowMajor>;
 /** Variable-length vector that doesn't own its data.
  * @tparam Scalar The type used to represent coefficients of the matrix.
@@ -66,7 +66,7 @@ using ConstVectorRef = Eigen::Ref<const Vector<Scalar>>;
  */
 template <typename Scalar>
 using Matrix = Eigen::Matrix<Scalar, -1, -1, Eigen::RowMajor>;
-template <typename Scalar, size_t N>
+template <typename Scalar, long int N>
 /** Matrix with fixed number of rows.
  * @tparam Scalar The type used to represent coefficients of the matrix.
  */

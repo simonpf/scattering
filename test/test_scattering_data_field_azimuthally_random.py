@@ -176,6 +176,37 @@ class TestScatteringDataFieldAzimuthallyRandom:
         assert np.all(np.isclose(reference, spectral.get_data()))
         assert np.all(np.isclose(reference, fully_spectral.get_data()))
 
+    def test_interpolate(self):
+        """
+        Ensure that interpolating scattering data yields the expected results for
+        all formats.
+        """
+        f_ind = np.random.randint(0, self.data.f_grid.size)
+        t_ind = np.random.randint(0, self.data.t_grid.size)
+        lon_inc_ind = 0
+        lat_inc_ind = np.random.randint(0, self.data.lat_inc.size)
+        lon_scat_ind = np.random.randint(0, self.data.lon_scat.size)
+        lat_scat_ind = np.random.randint(0, self.data.lat_scat.size)
+
+        f = self.data.f_grid[f_ind]
+        t = self.data.t_grid[t_ind]
+        lon_inc = self.data.lon_inc[lon_inc_ind]
+        lat_inc = self.data.lat_inc[lat_inc_ind]
+        lon_scat = self.data.lon_scat[lon_scat_ind]
+        lat_scat = self.data.lat_scat[lat_scat_ind]
+
+        reference = self.data.data[f_ind, t_ind, lon_inc_ind, lat_inc_ind, lon_scat_ind, lat_scat_ind]
+        gridded = self.data.scattering_data_gridded.interpolate(f, t, lon_inc, lat_inc, lon_scat, lat_scat)
+        spectral = self.data.scattering_data_spectral.interpolate(f, t, lon_inc, lat_inc, lon_scat, lat_scat)
+        fully_spectral = self.data.scattering_data_fully_spectral.interpolate(f, t, lon_inc, lat_inc, lon_scat, lat_scat)
+
+        print(reference)
+        print(gridded)
+
+        assert np.all(np.isclose(reference, gridded))
+        assert np.all(np.isclose(reference, spectral))
+        assert np.all(np.isclose(reference, fully_spectral))
+
     def test_addition(self):
         """
         Addition of scattering data fields is tested for all formats and checked for

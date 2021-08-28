@@ -336,11 +336,22 @@ CmplxGridCoeffs SHT::synthesize_cmplx(const SpectralCoeffsRef &m) {
   return get_cmplx_spatial_coeffs();
 }
 
+double SHT::evaluate(const SpectralCoeffsRef &m,
+                     double phi,
+                     double theta) {
+    if (is_trivial_) {
+        return m(0, 0).real();
+    }
+    set_spectral_coeffs(m);
+    auto shtns = ShtnsHandle::get(l_max_, m_max_, n_lon_, n_lat_);
+    return SH_to_point(shtns, spectral_coeffs_, cos(theta), phi);
+}
+
 eigen::Vector<double> SHT::evaluate(
     const SpectralCoeffsRef &m,
     const eigen::MatrixFixedRows<double, 2> &points) {
   if (is_trivial_) {
-    return eigen::Vector<double>::Constant(1, 1, m(0, 0).real());
+    return eigen::Vector<double>::Constant(1, m.rows(), m(0, 0).real());
   }
   set_spectral_coeffs(m);
   int n_points = points.rows();
@@ -356,7 +367,7 @@ eigen::Vector<double> SHT::evaluate(
 eigen::Vector<double> SHT::evaluate(const SpectralCoeffsRef &m,
                                     const eigen::Vector<double> &thetas) {
   if (is_trivial_) {
-    return eigen::Vector<double>::Constant(1, 1, m(0, 0).real());
+    return eigen::Vector<double>::Constant(1, m.rows(), m(0, 0).real());
   }
   assert(m_max_ == 0);
   set_spectral_coeffs(m);
